@@ -1,0 +1,24 @@
+# Sisyphus planning
+.sisyphus/
+
+# Test outputs (smoke test evidence)
+test-results/
+
+# Docker image tarballs
+*.tar
+
+# Local environment overrides
+.env.local
+
+# Node modules (if any tooling added)
+node_modules/
+
+# OS files
+.DS_Store
+
+# Environment files (secrets)
+*.env
+.env*
+
+# Exception: pins.env files are tracked configuration
+!images/*/build/pins.env
