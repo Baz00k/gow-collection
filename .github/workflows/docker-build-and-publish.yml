@@ -45,7 +45,7 @@ jobs:
         with:
           install: true
 
-      - name: Read build args from pins.env
+      - name: Generate build args from pins.env
         id: pins
         run: |
           set -euo pipefail
@@ -54,15 +54,27 @@ jobs:
             echo "ERROR: $PINS_FILE not found"
             exit 1
           fi
-          # Source the pins.env and export each variable to GITHUB_OUTPUT
+          
+          # Build multiline string of KEY=VALUE pairs for docker build-args
+          BUILD_ARGS=""
           while IFS='=' read -r key value; do
             # Skip comments and empty lines
             [[ -z "$key" || "$key" == \#* ]] && continue
             # Remove surrounding quotes if present
             value="${value%\"}"
             value="${value#\"}"
-            echo "${key}=${value}" >> "$GITHUB_OUTPUT"
+            BUILD_ARGS+="${key}=${value}"$'\n'
           done < "$PINS_FILE"
+          
+          # Add standard IMAGE_SOURCE and IMAGE_VERSION (will be resolved at build time)
+          BUILD_ARGS+="IMAGE_SOURCE=https://github.com/${{ github.repository }}"$'\n'
+          
+          # Write multiline output using heredoc syntax
+          {
+            echo "build_args<<EOF"
+            echo -n "$BUILD_ARGS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Extract Docker metadata
         id: meta
@@ -96,18 +108,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           load: true
           build-args: |
-            ${{ steps.pins.outputs.BASE_APP_IMAGE && format('BASE_APP_IMAGE={0}', steps.pins.outputs.BASE_APP_IMAGE) || '' }}
-            ${{ steps.pins.outputs.DROP_APP_VERSION && format('DROP_APP_VERSION={0}', steps.pins.outputs.DROP_APP_VERSION) || '' }}
-            ${{ steps.pins.outputs.DROP_APP_SHA256 && format('DROP_APP_SHA256={0}', steps.pins.outputs.DROP_APP_SHA256) || '' }}
-            ${{ steps.pins.outputs.DROP_APP_REPO && format('DROP_APP_REPO={0}', steps.pins.outputs.DROP_APP_REPO) || '' }}
-            ${{ steps.pins.outputs.PRISM_LAUNCHER_SOURCE && format('PRISM_LAUNCHER_SOURCE={0}', steps.pins.outputs.PRISM_LAUNCHER_SOURCE) || '' }}
-            ${{ steps.pins.outputs.PRISM_LAUNCHER_VERSION && format('PRISM_LAUNCHER_VERSION={0}', steps.pins.outputs.PRISM_LAUNCHER_VERSION) || '' }}
-            ${{ steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_X86_64_URL && format('PRISM_LAUNCHER_APPIMAGE_X86_64_URL={0}', steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_X86_64_URL) || '' }}
-            ${{ steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256 && format('PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256={0}', steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256) || '' }}
-            ${{ steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_AARCH64_URL && format('PRISM_LAUNCHER_APPIMAGE_AARCH64_URL={0}', steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_AARCH64_URL) || '' }}
-            ${{ steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_AARCH64_SHA256 && format('PRISM_LAUNCHER_APPIMAGE_AARCH64_SHA256={0}', steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_AARCH64_SHA256) || '' }}
-            ${{ steps.pins.outputs.JAVA_VERSIONS && format('JAVA_VERSIONS={0}', steps.pins.outputs.JAVA_VERSIONS) || '' }}
-            IMAGE_SOURCE=https://github.com/${{ github.repository }}
+            ${{ steps.pins.outputs.build_args }}
             IMAGE_VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -170,7 +171,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: smoke-test-evidence-${{ inputs.image-name }}
-          path: test-results/evidence/
+          path: test-results/${{ inputs.image-name }}/
           retention-days: 7
           if-no-files-found: warn
 

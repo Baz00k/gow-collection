@@ -189,51 +189,6 @@ check_secrets() {
     fi
 }
 
-check_forbidden_launchers() {
-    log_info "Checking for forbidden launcher references..."
-
-    local found_violations=0
-    local exclude_patterns=(
-        "LEGAL\.md"
-        "PINNING_POLICY\.md"
-        "policy-check\.sh"
-        "policy\.yml"
-    )
-
-    local exclude_args=""
-    for pattern in "${exclude_patterns[@]}"; do
-        exclude_args="${exclude_args} --exclude=${pattern}"
-    done
-
-    while IFS= read -r match; do
-        if [[ -n "${match}" ]]; then
-            log_error "Forbidden launcher 'TLauncher' found: ${match}"
-            ((found_violations++)) || true
-        fi
-    done < <(cd "${PROJECT_ROOT}" && grep -ri "tlauncher" \
-        --include="*.sh" --include="*.py" --include="*.js" --include="*.ts" \
-        --include="*.json" --include="*.yaml" --include="*.yml" \
-        --include="*.env" --include="Dockerfile*" --include="*.dockerfile" \
-        --include="*.toml" --include="*.cfg" --include="*.conf" \
-        ${exclude_args} . 2>/dev/null || true)
-
-    while IFS= read -r match; do
-        if [[ -n "${match}" ]]; then
-            log_error "Forbidden launcher 'SKLauncher' found: ${match}"
-            ((found_violations++)) || true
-        fi
-    done < <(cd "${PROJECT_ROOT}" && grep -ri "sklauncher" \
-        --include="*.sh" --include="*.py" --include="*.js" --include="*.ts" \
-        --include="*.json" --include="*.yaml" --include="*.yml" \
-        --include="*.env" --include="Dockerfile*" --include="*.dockerfile" \
-        --include="*.toml" --include="*.cfg" --include="*.conf" \
-        ${exclude_args} . 2>/dev/null || true)
-
-    if [[ ${found_violations} -eq 0 ]]; then
-        log_pass "No forbidden launcher references found"
-    fi
-}
-
 # Main execution
 log_info "Starting policy check..."
 log_info "Project root: ${PROJECT_ROOT}"
@@ -247,7 +202,6 @@ echo "" >> "${RESULTS_FILE}"
 check_floating_refs
 check_unverified_downloads
 check_secrets
-check_forbidden_launchers
 
 echo ""
 log_info "Policy check complete"

@@ -1,6 +1,6 @@
 # GoW Collection
 
-Custom Docker images for [Games on Whales](https://github.com/games-on-whales/gow) / [Wolf](https://github.com/games-on-whales/wolf) streaming platform.
+Self-contained Docker image monorepo for [Games on Whales](https://github.com/games-on-whales/gow) / [Wolf](https://github.com/games-on-whales/wolf) streaming platform. Adding a new image requires no workflow file changes, just create the image directory.
 
 ## Images
 
@@ -14,27 +14,40 @@ Custom Docker images for [Games on Whales](https://github.com/games-on-whales/go
 ```
 gow-collection/
 ├── images/
-│   ├── drop-app/
-│   │   ├── build/           # Dockerfile, pins.env, scripts
-│   │   ├── tests/           # Smoke tests
-│   │   └── README.md
-│   └── prism-offline/
-│       ├── build/
-│       ├── tests/
+│   └── <name>/
+│       ├── build/           # Dockerfile, pins.env, scripts
+│       ├── tests/           # Smoke tests
+│       ├── update/          # Dependency update scripts (optional)
+│       │   ├── check.sh     # Check for available updates
+│       │   └── apply.sh     # Apply updates to pins.env
 │       └── README.md
-├── .github/
-│   ├── workflows/           # CI/CD workflows
-│   └── scripts/             # Dependency update scripts
-├── tests/                   # Global policy checks
-└── README.md
+├── .github/workflows/
+│   ├── images.yml                    # Orchestrator: discovers changed images
+│   ├── docker-build-and-publish.yml  # Reusable build workflow
+│   ├── update-deps.yml               # Discovers image-local update scripts
+│   └── policy.yml                    # Policy checks
+└── tests/                            # Global policy checks
 ```
 
-## CI Status
+## CI/CD
 
-| Image | Build |
-|-------|-------|
-| drop-app | [![CI](https://github.com/Baz00k/gow-collection/actions/workflows/drop-app.yml/badge.svg)](https://github.com/Baz00k/gow-collection/actions/workflows/drop-app.yml) |
-| prism-offline | [![CI](https://github.com/Baz00k/gow-collection/actions/workflows/prism-offline.yml/badge.svg)](https://github.com/Baz00k/gow-collection/actions/workflows/prism-offline.yml) |
+Builds are handled by generic workflows that discover images automatically:
+
+- **`images.yml`** - Orchestrator that detects which images changed (via git diff) and builds only those. Uses matrix strategy to parallelize builds.
+- **`docker-build-and-publish.yml`** - Reusable workflow called by `images.yml` for each image. Handles Docker build, tagging, and publishing to GHCR.
+
+No per-image workflow files are needed. Adding a new image under `images/` with a `build/pins.env` is all that's required.
+
+## Dependency Updates
+
+Automated dependency updates via **`update-deps.yml`**:
+
+1. Discovers all executable `images/*/update/check.sh` scripts
+2. Runs each `check.sh` to detect available updates
+3. If updates found, runs the corresponding `apply.sh` to update `pins.env`
+4. Creates a single PR with all updates
+
+To opt in, add executable `check.sh` and `apply.sh` scripts to your image's `update/` directory.
 
 ## Contributing
 

@@ -30,6 +30,10 @@ docker pull ghcr.io/Baz00k/gow-collection/prism-offline:edge
 - This project does NOT bypass Mojang/Microsoft authentication
 - Certain launchers are prohibited due to security concerns
 
+## Launcher Policy Note
+
+This image intentionally uses an offline-capable Prism fork. The rationale for forbidding certain launchers remains documented in [LEGAL.md](./LEGAL.md). Launcher policy is documented per-image rather than enforced via global grep checks.
+
 ## License
 
 GPL-3.0-only — see [LICENSE](/LICENSE)

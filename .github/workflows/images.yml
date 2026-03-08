@@ -1,0 +1,138 @@
+name: Build Images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'images/**'
+      - '.github/workflows/images.yml'
+      - '.github/workflows/docker-build-and-publish.yml'
+  pull_request:
+    paths:
+      - 'images/**'
+      - '.github/workflows/images.yml'
+      - '.github/workflows/docker-build-and-publish.yml'
+  workflow_dispatch:
+
+jobs:
+  discover-images:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed images
+        id: detect
+        run: |
+          set -euo pipefail
+          
+          # For workflow_dispatch or when diff is unavailable, build all images
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Workflow dispatch - building all images"
+            echo "changed=all" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          # For push events, compare against previous commit or initial commit
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            # For first commit in repo, fall back to all images
+            if [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
+              echo "Initial commit - building all images"
+              echo "changed=all" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.event.after }}"
+          else
+            # For PRs, compare against base branch
+            BASE="${{ github.base_ref }}"
+            HEAD="HEAD"
+            git fetch origin "$BASE" --depth=1
+            BASE="origin/$BASE"
+          fi
+          
+          # Find changed files under images/
+          CHANGED_FILES=$(git diff --name-only "$BASE" "$HEAD" -- 'images/*' 2>/dev/null || true)
+          
+          if [[ -z "$CHANGED_FILES" ]]; then
+            echo "No image changes detected"
+            echo "changed=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          # Extract unique image directories (images/<name>/)
+          IMAGE_DIRS=$(echo "$CHANGED_FILES" | grep -oP '^images/[^/]+' | sort -u || true)
+          
+          if [[ -z "$IMAGE_DIRS" ]]; then
+            echo "No image directories found"
+            echo "changed=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          echo "Changed image directories:"
+          echo "$IMAGE_DIRS"
+          echo "changed<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$IMAGE_DIRS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Build matrix
+        id: set-matrix
+        run: |
+          set -euo pipefail
+          
+          if [[ "${{ steps.detect.outputs.changed }}" == "all" ]]; then
+            # Build all images
+            IMAGE_DIRS=$(find images -maxdepth 1 -mindepth 1 -type d | sort)
+          elif [[ -z "${{ steps.detect.outputs.changed }}" ]]; then
+            # No changes
+            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
+            exit 0
+          else
+            IMAGE_DIRS="${{ steps.detect.outputs.changed }}"
+          fi
+          
+          # Build JSON matrix
+          MATRIX_ITEMS=()
+          for DIR in $IMAGE_DIRS; do
+            # Extract image name from path (images/<name> -> <name>)
+            IMAGE_NAME=$(basename "$DIR")
+            
+            # Verify pins.env exists
+            if [[ -f "${DIR}/build/pins.env" ]]; then
+              MATRIX_ITEMS+=("{\"image_dir\":\"${DIR}\",\"image_name\":\"${IMAGE_NAME}\"}")
+            else
+              echo "::warning::Skipping ${DIR}: no build/pins.env found"
+            fi
+          done
+          
+          if [[ ${#MATRIX_ITEMS[@]} -eq 0 ]]; then
+            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          # Format as JSON array
+          MATRIX="{\"include\":["
+          MATRIX+=$(IFS=,; echo "${MATRIX_ITEMS[*]}")
+          MATRIX+="]}"
+          
+          echo "Matrix: $MATRIX"
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+
+  build-images:
+    needs: discover-images
+    if: fromJSON(needs.discover-images.outputs.matrix).include[0] != null
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover-images.outputs.matrix) }}
+    uses: ./.github/workflows/docker-build-and-publish.yml
+    with:
+      image-dir: ${{ matrix.image_dir }}
+      image-name: ${{ matrix.image_name }}
+    permissions:
+      contents: read
+      packages: write

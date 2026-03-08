@@ -2,7 +2,9 @@
 
 ## Adding a New Image
 
-### 1. Create Directory Structure
+All image-specific logic lives under `images/<name>/`. Adding an image never requires creating or modifying workflow files.
+
+### Directory Structure
 
 ```
 images/{name}/
@@ -15,21 +17,26 @@ images/{name}/
 ├── tests/
 │   ├── run-smoke.sh
 │   └── smoke-*.sh
+├── update/                  # Optional: automated dependency updates
+│   ├── check.sh
+│   └── apply.sh
 └── README.md
 ```
 
-### 2. Required Files Checklist
+### Required Files
 
-- [ ] `build/Dockerfile`: Container definition
-- [ ] `build/pins.env`: Dependency versions with digest pinning
-- [ ] `build/scripts/startup.sh`: Container startup script
-- [ ] `build/.dockerignore`: Build context filter
-- [ ] `tests/run-smoke.sh`: Smoke test orchestrator
-- [ ] `README.md`: Image documentation
+- `build/Dockerfile`: Container definition
+- `build/pins.env`: Dependency versions with digest pinning
+- `build/scripts/startup.sh`: Container startup script
+- `build/.dockerignore`: Build context filter
+- `tests/run-smoke.sh`: Smoke test orchestrator
+- `README.md`: Image documentation
 
-### 3. pins.env Format
+### Optional: Dependency Updates
 
-Dependency versions and digests go in `build/pins.env`:
+Add `update/check.sh` and `update/apply.sh` for automated version updates. Both scripts must be executable.
+
+## pins.env Format
 
 ```bash
 # Base image MUST include sha256 digest
@@ -40,9 +47,9 @@ APP_VERSION=1.2.3
 APP_SHA256=def456...
 ```
 
-**Critical**: Always pin base images to a digest. Floating tags break reproducibility.
+Always pin base images to a digest. Floating tags break reproducibility.
 
-### 4. Smoke Tests
+## Smoke Tests
 
 Create `tests/run-smoke.sh` that orchestrates individual tests:
 
@@ -59,36 +66,48 @@ EVIDENCE_DIR="test-results/{name}"
 
 Individual test scripts (`smoke-*.sh`) verify specific functionality and write evidence to `$EVIDENCE_DIR/`.
 
-### 5. CI Integration
+## Update Script Contract
 
-Create `.github/workflows/{name}.yml`:
+Scripts communicate with CI via `GITHUB_OUTPUT`. Output these keys:
 
-```yaml
-name: {name}
+### check.sh
 
-on:
-  push:
-    branches: [main]
-    paths: ['images/{name}/**']
-  pull_request:
-    paths: ['images/{name}/**']
-  workflow_dispatch:
+```bash
+# Required
+echo "update_available=true" >> "$GITHUB_OUTPUT"
 
-jobs:
-  ci:
-    uses: ./.github/workflows/docker-build-and-publish.yml
-    with:
-      image-dir: images/{name}
-      image-name: {name}
+# Optional: summary for PR body (markdown)
+echo "summary_md<<EOF" >> "$GITHUB_OUTPUT"
+echo "- Updated APP_VERSION from 1.2.3 to 1.2.4" >> "$GITHUB_OUTPUT"
+echo "EOF" >> "$GITHUB_OUTPUT"
 ```
 
-### 6. Dependency Updates
+Set `update_available=false` if no updates found.
 
-Add update scripts in `.github/scripts/`:
+### apply.sh
 
-- `check-{name}.sh`: Check for new versions
-- `update-{name}.sh`: Update pins.env
+```bash
+# Required
+echo "applied=true" >> "$GITHUB_OUTPUT"
 
-Both scripts should accept `PINS_FILE` env var pointing to the pins.env path.
+# Optional: summary for PR body (markdown)
+echo "summary_md<<EOF" >> "$GITHUB_OUTPUT"
+echo "Updated pins.env with new versions" >> "$GITHUB_OUTPUT"
+echo "EOF" >> "$GITHUB_OUTPUT"
+```
 
-Update `.github/workflows/update-deps.yml` to call your check script for the new image.
+Both scripts receive these environment variables:
+- `PINS_FILE`: Path to `images/{name}/build/pins.env`
+- `IMAGE_DIR`: Path to `images/{name}/`
+
+## CI Workflows
+
+Global workflows are generic and auto-discover images. No per-image workflow files needed.
+
+| Workflow | Purpose |
+|----------|---------|
+| `images.yml` | Discovers changed images via git diff, triggers builds |
+| `docker-build-and-publish.yml` | Reusable build workflow called by `images.yml` |
+| `update-deps.yml` | Discovers `images/*/update/check.sh` and runs updates |
+
+Adding an image under `images/` with `build/pins.env` is all that's required for CI integration.
