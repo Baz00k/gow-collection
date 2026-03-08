@@ -1,0 +1,32 @@
+name: Policy Check
+
+on:
+    push:
+        branches:
+            - main
+    pull_request:
+        branches:
+            - main
+    workflow_dispatch:
+
+jobs:
+    policy-check:
+        name: Policy Compliance
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 1
+            - name: Make policy check script executable
+              run: chmod +x tests/policy-check.sh
+            - name: Run policy checks
+              run: ./tests/policy-check.sh --strict
+            - name: Upload policy check results (on failure)
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: policy-check-results
+                  path: test-results/
+                  retention-days: 7
+                  if-no-files-found: ignore
