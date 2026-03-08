@@ -32,7 +32,7 @@ docker pull ghcr.io/Baz00k/gow-collection/prism-offline:edge
 
 ## Launcher Policy Note
 
-This image intentionally uses an offline-capable Prism fork. The rationale for forbidding certain launchers remains documented in [LEGAL.md](./LEGAL.md). Launcher policy is documented per-image rather than enforced via global grep checks.
+This image intentionally uses an offline-capable Prism fork. The rationale for forbidding certain launchers remains documented in [LEGAL.md](./LEGAL.md).
 
 ## License
 
