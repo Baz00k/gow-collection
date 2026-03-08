@@ -84,7 +84,7 @@ echo "" >> "${EVIDENCE_FILE}"
 echo "=== Binary Checks ===" >> "${EVIDENCE_FILE}"
 
 log_info "Checking binary: drop-app..."
-if docker exec "${CONTAINER_NAME}" command -v drop-app >/dev/null 2>&1; then
+if docker exec "${CONTAINER_NAME}" sh -c 'command -v drop-app' >/dev/null 2>&1; then
     log_pass "Binary: drop-app"
     echo "[PASS] Binary: drop-app" >> "${EVIDENCE_FILE}"
 else
@@ -93,7 +93,7 @@ else
 fi
 
 log_info "Checking binary: firefox..."
-if docker exec "${CONTAINER_NAME}" command -v firefox >/dev/null 2>&1; then
+if docker exec "${CONTAINER_NAME}" sh -c 'command -v firefox' >/dev/null 2>&1; then
     log_pass "Binary: firefox"
     echo "[PASS] Binary: firefox" >> "${EVIDENCE_FILE}"
 else
@@ -102,7 +102,7 @@ else
 fi
 
 log_info "Checking binary: xdg-open..."
-if docker exec "${CONTAINER_NAME}" command -v xdg-open >/dev/null 2>&1; then
+if docker exec "${CONTAINER_NAME}" sh -c 'command -v xdg-open' >/dev/null 2>&1; then
     log_pass "Binary: xdg-open"
     echo "[PASS] Binary: xdg-open" >> "${EVIDENCE_FILE}"
 else
@@ -114,8 +114,8 @@ echo "" >> "${EVIDENCE_FILE}"
 echo "=== Firefox Snap Check ===" >> "${EVIDENCE_FILE}"
 
 log_info "Checking firefox is not a snap stub..."
-if docker exec "${CONTAINER_NAME}" firefox --version >/dev/null 2>&1; then
-    FIREFOX_VERSION=$(docker exec "${CONTAINER_NAME}" firefox --version 2>&1 || echo "unknown")
+if docker exec "${CONTAINER_NAME}" sh -c 'firefox --version' >/dev/null 2>&1; then
+    FIREFOX_VERSION=$(docker exec "${CONTAINER_NAME}" sh -c 'firefox --version 2>&1' || echo "unknown")
     log_pass "Firefox is a real binary (not snap stub)"
     echo "[PASS] Firefox is a real binary (not snap stub) - ${FIREFOX_VERSION}" >> "${EVIDENCE_FILE}"
 else
