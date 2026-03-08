@@ -1,0 +1,23 @@
+name: drop-app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'images/drop-app/**'
+      - '.github/workflows/docker-build-and-publish.yml'
+  pull_request:
+    paths:
+      - 'images/drop-app/**'
+      - '.github/workflows/docker-build-and-publish.yml'
+  workflow_dispatch:
+
+jobs:
+  ci:
+    uses: ./.github/workflows/docker-build-and-publish.yml
+    with:
+      image-dir: images/drop-app
+      image-name: drop-app
+    permissions:
+      contents: read
+      packages: write

@@ -1,0 +1,240 @@
+name: Build and Publish Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      image-dir:
+        description: 'Path to image directory (e.g., images/drop-app)'
+        required: true
+        type: string
+      image-name:
+        description: 'GHCR package name (e.g., drop-app)'
+        required: true
+        type: string
+      platforms:
+        description: 'Docker build platforms'
+        required: false
+        type: string
+        default: 'linux/amd64'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/gow-collection/${{ inputs.image-name }}
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.image-name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      metadata: ${{ steps.meta.outputs.json }}
+      primary-tag: ${{ steps.primary-tag.outputs.tag }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          install: true
+
+      - name: Read build args from pins.env
+        id: pins
+        run: |
+          set -euo pipefail
+          PINS_FILE="${{ inputs.image-dir }}/build/pins.env"
+          if [[ ! -f "$PINS_FILE" ]]; then
+            echo "ERROR: $PINS_FILE not found"
+            exit 1
+          fi
+          # Source the pins.env and export each variable to GITHUB_OUTPUT
+          while IFS='=' read -r key value; do
+            # Skip comments and empty lines
+            [[ -z "$key" || "$key" == \#* ]] && continue
+            # Remove surrounding quotes if present
+            value="${value%\"}"
+            value="${value#\"}"
+            echo "${key}=${value}" >> "$GITHUB_OUTPUT"
+          done < "$PINS_FILE"
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=edge,branch=main
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+          flavor: |
+            latest=auto
+
+      - name: Set primary image tag
+        id: primary-tag
+        run: |
+          PRIMARY_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          echo "tag=${PRIMARY_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Primary tag: ${PRIMARY_TAG}"
+
+      - name: Build Docker image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ inputs.image-dir }}/build
+          file: ./${{ inputs.image-dir }}/build/Dockerfile
+          platforms: ${{ inputs.platforms }}
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          load: true
+          build-args: |
+            ${{ steps.pins.outputs.BASE_APP_IMAGE && format('BASE_APP_IMAGE={0}', steps.pins.outputs.BASE_APP_IMAGE) || '' }}
+            ${{ steps.pins.outputs.DROP_APP_VERSION && format('DROP_APP_VERSION={0}', steps.pins.outputs.DROP_APP_VERSION) || '' }}
+            ${{ steps.pins.outputs.DROP_APP_SHA256 && format('DROP_APP_SHA256={0}', steps.pins.outputs.DROP_APP_SHA256) || '' }}
+            ${{ steps.pins.outputs.DROP_APP_REPO && format('DROP_APP_REPO={0}', steps.pins.outputs.DROP_APP_REPO) || '' }}
+            ${{ steps.pins.outputs.PRISM_LAUNCHER_SOURCE && format('PRISM_LAUNCHER_SOURCE={0}', steps.pins.outputs.PRISM_LAUNCHER_SOURCE) || '' }}
+            ${{ steps.pins.outputs.PRISM_LAUNCHER_VERSION && format('PRISM_LAUNCHER_VERSION={0}', steps.pins.outputs.PRISM_LAUNCHER_VERSION) || '' }}
+            ${{ steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_X86_64_URL && format('PRISM_LAUNCHER_APPIMAGE_X86_64_URL={0}', steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_X86_64_URL) || '' }}
+            ${{ steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256 && format('PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256={0}', steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256) || '' }}
+            ${{ steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_AARCH64_URL && format('PRISM_LAUNCHER_APPIMAGE_AARCH64_URL={0}', steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_AARCH64_URL) || '' }}
+            ${{ steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_AARCH64_SHA256 && format('PRISM_LAUNCHER_APPIMAGE_AARCH64_SHA256={0}', steps.pins.outputs.PRISM_LAUNCHER_APPIMAGE_AARCH64_SHA256) || '' }}
+            ${{ steps.pins.outputs.JAVA_VERSIONS && format('JAVA_VERSIONS={0}', steps.pins.outputs.JAVA_VERSIONS) || '' }}
+            IMAGE_SOURCE=https://github.com/${{ github.repository }}
+            IMAGE_VERSION=${{ steps.meta.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
+
+      - name: Save Docker image to tarball
+        run: |
+          docker save -o /tmp/image.tar "${{ steps.primary-tag.outputs.tag }}"
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-${{ inputs.image-name }}
+          path: /tmp/image.tar
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Output image digest
+        run: echo "Built image digest ${{ steps.build.outputs.digest }}"
+
+      - name: Show image tags (PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "::notice::PR build completed - image NOT published (smoke tests pending)"
+          echo "Tags generated:"
+          echo "${{ steps.meta.outputs.tags }}"
+
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-${{ inputs.image-name }}
+          path: /tmp
+
+      - name: Load Docker image
+        run: |
+          docker load --input /tmp/image.tar
+          echo "Loaded image:"
+          docker images --filter=reference='*/${{ inputs.image-name }}*'
+
+      - name: Run smoke tests
+        env:
+          SKIP_BUILD: "true"
+          IMAGE_NAME: ${{ needs.build.outputs.primary-tag }}
+        run: |
+          echo "Running smoke tests against: ${IMAGE_NAME}"
+          chmod +x ${{ inputs.image-dir }}/tests/run-smoke.sh
+          ${{ inputs.image-dir }}/tests/run-smoke.sh
+
+      - name: Upload smoke test evidence (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-evidence-${{ inputs.image-name }}
+          path: test-results/evidence/
+          retention-days: 7
+          if-no-files-found: warn
+
+  publish:
+    needs:
+      - build
+      - smoke-test
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-${{ inputs.image-name }}
+          path: /tmp
+
+      - name: Load and push Docker image
+        env:
+          METADATA: ${{ needs.build.outputs.metadata }}
+          PRIMARY_TAG: ${{ needs.build.outputs.primary-tag }}
+        run: |
+          set -euo pipefail
+          docker load --input /tmp/image.tar
+          echo "Pushing all tags..."
+          if [ -z "${METADATA:-}" ]; then
+            echo "ERROR: Build metadata is empty; refusing to publish without tags."
+            exit 1
+          fi
+          if [ -z "${PRIMARY_TAG:-}" ]; then
+            echo "ERROR: Primary tag is empty; cannot retag loaded image."
+            exit 1
+          fi
+          echo "${METADATA}" | jq -r '.tags[]' | while read -r tag; do
+            if [ "${tag}" != "${PRIMARY_TAG}" ]; then
+              echo "Tagging ${PRIMARY_TAG} as ${tag}"
+              docker tag "${PRIMARY_TAG}" "${tag}"
+            fi
+            echo "Pushing: ${tag}"
+            docker push "${tag}"
+          done
+
+      - name: Output published tags
+        env:
+          METADATA: ${{ needs.build.outputs.metadata }}
+        run: |
+          set -euo pipefail
+          if [ -z "${METADATA:-}" ]; then
+            echo "ERROR: Build metadata is empty; no tags to report."
+            exit 1
+          fi
+          echo "::notice::Image published successfully"
+          echo "Tags pushed:"
+          echo "${METADATA}" | jq -r '.tags[]'

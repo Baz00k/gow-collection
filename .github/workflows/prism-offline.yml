@@ -1,0 +1,23 @@
+name: prism-offline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'images/prism-offline/**'
+      - '.github/workflows/docker-build-and-publish.yml'
+  pull_request:
+    paths:
+      - 'images/prism-offline/**'
+      - '.github/workflows/docker-build-and-publish.yml'
+  workflow_dispatch:
+
+jobs:
+  ci:
+    uses: ./.github/workflows/docker-build-and-publish.yml
+    with:
+      image-dir: images/prism-offline
+      image-name: prism-offline
+    permissions:
+      contents: read
+      packages: write
