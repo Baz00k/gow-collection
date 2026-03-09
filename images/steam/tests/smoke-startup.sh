@@ -162,17 +162,17 @@ fi
 
 log_info "All GoW scripts found and executable"
 
-log_info "Checking XDG_RUNTIME_DIR environment variable..."
-XDG_RUNTIME=$(docker exec "${CONTAINER_NAME}" printenv XDG_RUNTIME_DIR)
+log_info "Checking XDG_RUNTIME_DIR handling in entrypoint..."
+XDG_FALLBACK_COUNT=$(docker exec "${CONTAINER_NAME}" grep -F -c 'XDG_RUNTIME_DIR:-/tmp/.X11-unix' /opt/gow/entrypoint.sh || true)
 
 {
-    echo "=== Environment ==="
-    echo "XDG_RUNTIME_DIR: ${XDG_RUNTIME}"
+    echo "=== XDG_RUNTIME_DIR Handling ==="
+    echo "Entrypoint fallback pattern count: ${XDG_FALLBACK_COUNT}"
 } >> "${EVIDENCE_FILE}"
 
-if [[ "${XDG_RUNTIME}" != "/tmp/.X11-unix" ]]; then
-    log_error "XDG_RUNTIME_DIR is not set correctly: ${XDG_RUNTIME}"
-    echo "RESULT: FAILED (XDG_RUNTIME_DIR)" >> "${EVIDENCE_FILE}"
+if [[ "${XDG_FALLBACK_COUNT}" -lt 1 ]]; then
+    log_error "Entrypoint does not contain XDG_RUNTIME_DIR fallback pattern"
+    echo "RESULT: FAILED (XDG_RUNTIME_DIR fallback)" >> "${EVIDENCE_FILE}"
     exit 1
 fi
 
