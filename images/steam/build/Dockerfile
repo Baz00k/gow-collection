@@ -129,6 +129,11 @@ RUN touch /etc/NetworkManager/conf.d/10-globally-managed-devices.conf
 
 RUN fc-cache -f -v
 
+# Wolf mounts NVIDIA drivers at /usr/nvidia — pre-configure search paths
+RUN printf '%s\n' '/usr/nvidia/lib' '/usr/nvidia/lib32' > /etc/ld.so.conf.d/nvidia.conf && \
+    mkdir -p /etc/vulkan && \
+    ln -sf /usr/nvidia/share/vulkan/icd.d /etc/vulkan/icd.d
+
 RUN ln -sf /root /home/deck
 
 RUN mkdir -p /root/.steam/ubuntu12_32/steam-runtime && \
@@ -136,28 +141,17 @@ RUN mkdir -p /root/.steam/ubuntu12_32/steam-runtime && \
     mkdir -p /root/.steam/debian-installation/ && \
     touch /root/.steam/debian-installation/.cef-enable-remote-debugging
 
-RUN mkdir -p /usr/bin/steamos-polkit-helpers
-
 # -----------------------------------------------------------------------------
-# Scripts and Stubs
+# Overlay and bwrap
 # -----------------------------------------------------------------------------
-COPY --chmod=755 scripts/startup.sh /opt/gow/startup-app.sh
-COPY --chmod=755 scripts/system-services.sh /etc/cont-init.d/system-services.sh
-COPY --chmod=755 scripts/entrypoint.sh /opt/gow/entrypoint.sh
-COPY --chmod=755 scripts/launch-comp.sh /opt/gow/launch-comp.sh
-
-COPY --chmod=755 steamos-update /usr/bin/steamos-update
-COPY --chmod=755 steamos-update /usr/bin/steamos-polkit-helpers/steamos-update
-COPY --chmod=755 steamos-session-select /usr/bin/steamos-session-select
-COPY --chmod=755 jupiter-biosupdate /usr/bin/jupiter-biosupdate
-COPY --chmod=755 jupiter-biosupdate /usr/bin/steamos-polkit-helpers/jupiter-biosupdate
-COPY --chmod=755 scripts/steamos-dbus-watchdog.sh /usr/local/bin/steamos-dbus-watchdog.sh
-
+COPY --chmod=755 overlay /
 COPY --from=bwrap-builder --chmod=755 /root/bubblewrap/_builddir/bwrap /usr/bin/bwrap
 
 # -----------------------------------------------------------------------------
 # Environment and Labels
 # -----------------------------------------------------------------------------
+ENV XDG_RUNTIME_DIR=/tmp/.X11-unix
+
 ARG IMAGE_SOURCE="https://github.com/Baz00k/gow-collection"
 
 LABEL org.opencontainers.image.title="Steam for Games on Whales (Fedora)"

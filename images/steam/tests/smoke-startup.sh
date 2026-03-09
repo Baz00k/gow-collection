@@ -71,17 +71,17 @@ fi
 
 log_info "Container is running"
 
-log_info "Checking for startup script at /opt/gow/startup-app.sh..."
-STARTUP_SCRIPT_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f /opt/gow/startup-app.sh && echo "yes" || echo "no")
+log_info "Checking for startup script at /opt/gow/startup.sh..."
+STARTUP_SCRIPT_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f /opt/gow/startup.sh && echo "yes" || echo "no")
 if [[ "${STARTUP_SCRIPT_EXISTS}" != "yes" ]]; then
-    log_error "Startup script not found at /opt/gow/startup-app.sh"
+    log_error "Startup script not found at /opt/gow/startup.sh"
     echo "RESULT: FAILED (startup script missing)" >> "${EVIDENCE_FILE}"
     exit 1
 fi
 
 log_info "Startup script found"
 log_info "Checking startup script permissions..."
-SCRIPT_PERMS=$(docker exec "${CONTAINER_NAME}" stat -c "%a" /opt/gow/startup-app.sh)
+SCRIPT_PERMS=$(docker exec "${CONTAINER_NAME}" stat -c "%a" /opt/gow/startup.sh)
 log_info "Startup script permissions: ${SCRIPT_PERMS}"
 
 if [[ $((SCRIPT_PERMS & 1)) -eq 0 ]] && [[ $((SCRIPT_PERMS & 10)) -eq 0 ]] && [[ $((SCRIPT_PERMS & 100)) -eq 0 ]]; then
@@ -91,7 +91,7 @@ if [[ $((SCRIPT_PERMS & 1)) -eq 0 ]] && [[ $((SCRIPT_PERMS & 10)) -eq 0 ]] && [[
 fi
 
 log_info "Checking startup script shebang..."
-SHEBANG=$(docker exec "${CONTAINER_NAME}" head -1 /opt/gow/startup-app.sh)
+SHEBANG=$(docker exec "${CONTAINER_NAME}" head -1 /opt/gow/startup.sh)
 
 {
     echo "=== Startup Script Info ==="

@@ -143,18 +143,18 @@ fi
 # =============================================================================
 if [ "${PUID}" != "0" ] && [ "$(id -u)" = "0" ]; then
     log_info "Launching startup script as user '${UNAME}'"
-    if [ ! -f /opt/gow/startup-app.sh ]; then
-        log_error "Startup script not found: /opt/gow/startup-app.sh"
+    if [ ! -f /opt/gow/startup.sh ]; then
+        log_error "Startup script not found: /opt/gow/startup.sh"
         exit 1
     fi
-    chmod +x /opt/gow/startup-app.sh
-    exec gosu "${UNAME}" /opt/gow/startup-app.sh
+    chmod +x /opt/gow/startup.sh
+    exec gosu "${UNAME}" /opt/gow/startup.sh
 else
     log_info "Launching startup script as root"
-    if [ ! -f /opt/gow/startup-app.sh ]; then
-        log_error "Startup script not found: /opt/gow/startup-app.sh"
+    if [ ! -f /opt/gow/startup.sh ]; then
+        log_error "Startup script not found: /opt/gow/startup.sh"
         exit 1
     fi
-    chmod +x /opt/gow/startup-app.sh
-    exec /opt/gow/startup-app.sh
+    chmod +x /opt/gow/startup.sh
+    exec /opt/gow/startup.sh
 fi
