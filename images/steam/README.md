@@ -12,8 +12,7 @@ docker pull ghcr.io/Baz00k/gow-collection/steam:edge
 
 | Variable | Description |
 |----------|-------------|
-| `PUID` / `PGID` | User/group IDs (default: 1000) |
-| `RUN_GAMESCOPE` | Enable gamescope compositor (set any value to enable) |
+| `PUID` / `PGID` | User/group IDs for the runtime `retro` user (default: 1000) |
 | `GAMESCOPE_WIDTH` | Display width (default: 1920) |
 | `GAMESCOPE_HEIGHT` | Display height (default: 1080) |
 | `GAMESCOPE_REFRESH` | Refresh rate (default: 60) |
@@ -34,7 +33,6 @@ start_virtual_compositor = true
 type = "docker"
 name = "steam"
 image = "ghcr.io/Baz00k/gow-collection/steam:edge"
-env = ["RUN_GAMESCOPE=1"]
 ```
 
 ## Features
@@ -81,7 +79,7 @@ sysctls = ["vm.max_map_count=1048576"]
 
 ### gamescope fails to start
 
-Ensure `XDG_RUNTIME_DIR` is set in the container environment. The entrypoint creates `/tmp/.X11-unix` automatically, but Wolf should handle this via its runtime configuration.
+Ensure `XDG_RUNTIME_DIR` is set in the container environment. The entrypoint creates `/tmp/.X11-unix` automatically, but Wolf should handle this via its runtime configuration. The image runs Steam as the GoW-standard `retro` user and keeps `/home/deck` as a compatibility symlink to that home directory.
 
 ## Rollback
 
