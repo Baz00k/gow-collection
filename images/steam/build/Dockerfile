@@ -141,8 +141,6 @@ COPY --from=bwrap-builder --chmod=755 /root/bubblewrap/_builddir/bwrap /usr/bin/
 # -----------------------------------------------------------------------------
 # Environment and Labels
 # -----------------------------------------------------------------------------
-ENV XDG_RUNTIME_DIR=/tmp/.X11-unix
-
 ARG IMAGE_SOURCE="https://github.com/Baz00k/gow-collection"
 
 LABEL org.opencontainers.image.title="Steam for Games on Whales (Fedora)"

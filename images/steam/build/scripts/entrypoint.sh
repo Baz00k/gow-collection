@@ -94,11 +94,14 @@ if [ "$(id -u)" = "0" ]; then
             chown "${UNAME}:${UNAME}" /usr/bin/gamescope 2>/dev/null || true
         fi
 
-        # Create XDG_RUNTIME_DIR
-        log_info "Creating XDG_RUNTIME_DIR at /tmp/.X11-unix"
-        mkdir -p /tmp/.X11-unix
-        chown "${UNAME}:${UNAME}" /tmp/.X11-unix
-        chmod 1777 /tmp/.X11-unix
+        # Set XDG_RUNTIME_DIR only if not already provided by Wolf
+        XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/.X11-unix}"
+        export XDG_RUNTIME_DIR
+
+        log_info "Creating XDG_RUNTIME_DIR at ${XDG_RUNTIME_DIR}"
+        mkdir -p "${XDG_RUNTIME_DIR}"
+        chown "${UNAME}:${UNAME}" "${XDG_RUNTIME_DIR}"
+        chmod 1777 "${XDG_RUNTIME_DIR}"
 
         # Create Steam runtime directories
         log_info "Creating Steam runtime directories"
@@ -129,7 +132,7 @@ fi
 if [ $# -gt 0 ]; then
     log_info "Running custom command: $*"
     if [ "${PUID}" != "0" ] && [ "$(id -u)" = "0" ]; then
-        exec runuser -u "${UNAME}" -- "$@"
+        exec runuser --preserve-environment -u "${UNAME}" -- "$@"
     else
         exec "$@"
     fi
@@ -145,7 +148,7 @@ if [ "${PUID}" != "0" ] && [ "$(id -u)" = "0" ]; then
         exit 1
     fi
     chmod +x /opt/gow/startup-app.sh
-    exec runuser -u "${UNAME}" -- /opt/gow/startup-app.sh
+    exec runuser --preserve-environment -u "${UNAME}" -- /opt/gow/startup-app.sh
 else
     log_info "Launching startup script as root"
     if [ ! -f /opt/gow/startup-app.sh ]; then

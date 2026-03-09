@@ -7,6 +7,9 @@ gow_error() { echo -e "\033[0;31m[ERROR]\033[0m $*"; }
 
 gow_log "Steam startup.sh"
 
+# Ensure HOME is set (runuser may not set it on all distros)
+export HOME="${HOME:-$(getent passwd "$(whoami)" | cut -d: -f6)}"
+
 # Apply performance tunings (sysctl) where container capabilities permit
 # launch-comp.sh exits 0 with graceful degradation if permissions insufficient
 /opt/gow/launch-comp.sh || true
@@ -103,10 +106,26 @@ if [ -n "${RUN_GAMESCOPE:-}" ]; then
   GAMESCOPE_REFRESH=${GAMESCOPE_REFRESH:-60}
   GAMESCOPE_MODE=${GAMESCOPE_MODE:-"-b"}
 
+  gow_log "Display environment: WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
+  if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+    gow_log "Wayland socket: $(ls -la "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}" 2>&1 || echo 'not found')"
+  fi
+
   # Launch gamescope
   # Fedora uses /usr/bin/gamescope (not /usr/games/gamescope)
   # shellcheck disable=SC2086
-  /usr/bin/gamescope -e ${GAMESCOPE_MODE} -R "$socket" -T "$stats" -W "${GAMESCOPE_WIDTH}" -H "${GAMESCOPE_HEIGHT}" -r "${GAMESCOPE_REFRESH}" &
+  /usr/bin/gamescope -e ${GAMESCOPE_MODE} -R "$socket" -T "$stats" -W "${GAMESCOPE_WIDTH}" -H "${GAMESCOPE_HEIGHT}" -r "${GAMESCOPE_REFRESH}" 2>/tmp/gamescope.log &
+
+  GAMESCOPE_PID=$!
+  sleep 0.3
+  if ! kill -0 "${GAMESCOPE_PID}" 2>/dev/null; then
+    gow_error "gamescope crashed immediately"
+    gow_error "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset}"
+    gow_error "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
+    gow_error "Available in XDG_RUNTIME_DIR: $(ls -la "${XDG_RUNTIME_DIR}/" 2>&1 || echo 'dir not found')"
+    gow_error "Check GPU passthrough and Wayland socket mounting"
+    exit 1
+  fi
 
   # Read the variables we need from the socket
   if read -r -t 3 response_x_display response_wl_display <> "$socket"; then
