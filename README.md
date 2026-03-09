@@ -1,6 +1,6 @@
 # GoW Collection
 
-My collection of Docker images for [Games on Whales](https://github.com/games-on-whales/gow) / [Wolf](https://github.com/games-on-whales/wolf).
+My collection of custom Docker images for [Games on Whales](https://github.com/games-on-whales/gow) / [Wolf](https://github.com/games-on-whales/wolf).
 
 ## Images
 
