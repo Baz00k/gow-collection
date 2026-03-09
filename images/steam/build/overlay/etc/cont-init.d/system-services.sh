@@ -55,7 +55,7 @@ start_decky_loader() {
         return 0
     fi
 
-    UHOME="${HOME:-/root}"
+    UHOME="${UHOME:-${HOME:-/root}}"
 
     mkdir -p "${UHOME}/.steam/steam/"
     mkdir -p "${UHOME}/.steam/debian-installation/"

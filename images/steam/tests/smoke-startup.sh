@@ -162,17 +162,39 @@ fi
 
 log_info "All GoW scripts found and executable"
 
+log_info "Checking runtime user convention in entrypoint..."
+RUNTIME_USER=$(docker exec "${CONTAINER_NAME}" awk -F'"' '/^UNAME=/{print $2}' /opt/gow/entrypoint.sh)
+
+{
+    echo "=== Runtime User ==="
+    echo "Entrypoint UNAME: ${RUNTIME_USER}"
+} >> "${EVIDENCE_FILE}"
+
+if [[ "${RUNTIME_USER}" != "retro" ]]; then
+    log_error "Entrypoint runtime user is ${RUNTIME_USER}, expected retro"
+    echo "RESULT: FAILED (runtime user mismatch)" >> "${EVIDENCE_FILE}"
+    exit 1
+fi
+
 log_info "Checking XDG_RUNTIME_DIR handling in entrypoint..."
 XDG_FALLBACK_COUNT=$(docker exec "${CONTAINER_NAME}" grep -F -c 'XDG_RUNTIME_DIR:-/tmp/.X11-unix' /opt/gow/entrypoint.sh || true)
+XDG_CHOWN_RECURSIVE_COUNT=$(docker exec "${CONTAINER_NAME}" grep -F -c 'chown -R "${PUID}:${PGID}" "${XDG_RUNTIME_DIR}"' /opt/gow/entrypoint.sh || true)
 
 {
     echo "=== XDG_RUNTIME_DIR Handling ==="
     echo "Entrypoint fallback pattern count: ${XDG_FALLBACK_COUNT}"
+    echo "Entrypoint recursive chown pattern count: ${XDG_CHOWN_RECURSIVE_COUNT}"
 } >> "${EVIDENCE_FILE}"
 
 if [[ "${XDG_FALLBACK_COUNT}" -lt 1 ]]; then
     log_error "Entrypoint does not contain XDG_RUNTIME_DIR fallback pattern"
     echo "RESULT: FAILED (XDG_RUNTIME_DIR fallback)" >> "${EVIDENCE_FILE}"
+    exit 1
+fi
+
+if [[ "${XDG_CHOWN_RECURSIVE_COUNT}" -lt 1 ]]; then
+    log_error "Entrypoint does not recursively chown XDG_RUNTIME_DIR"
+    echo "RESULT: FAILED (XDG_RUNTIME_DIR ownership handling)" >> "${EVIDENCE_FILE}"
     exit 1
 fi
 

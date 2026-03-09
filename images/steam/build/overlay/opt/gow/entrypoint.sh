@@ -22,7 +22,7 @@ log_warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 
 PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
-UNAME="steam"
+UNAME="retro"
 UHOME="/home/${UNAME}"
 
 # Validate PUID/PGID are numeric
@@ -98,9 +98,10 @@ if [ "$(id -u)" = "0" ]; then
         XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/.X11-unix}"
         export XDG_RUNTIME_DIR
 
-        log_info "Creating XDG_RUNTIME_DIR at ${XDG_RUNTIME_DIR}"
+        log_info "Ensuring XDG_RUNTIME_DIR exists at ${XDG_RUNTIME_DIR}"
         mkdir -p "${XDG_RUNTIME_DIR}"
-        chown "${UNAME}:${UNAME}" "${XDG_RUNTIME_DIR}"
+        log_info "Ensuring XDG_RUNTIME_DIR is writable by ${UNAME}:${UNAME}"
+        chown -R "${PUID}:${PGID}" "${XDG_RUNTIME_DIR}"
         chmod 1777 "${XDG_RUNTIME_DIR}"
 
         # Create Steam runtime directories

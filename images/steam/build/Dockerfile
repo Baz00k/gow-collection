@@ -134,7 +134,7 @@ RUN printf '%s\n' '/usr/nvidia/lib' '/usr/nvidia/lib32' > /etc/ld.so.conf.d/nvid
     mkdir -p /etc/vulkan && \
     ln -sf /usr/nvidia/share/vulkan/icd.d /etc/vulkan/icd.d
 
-RUN ln -sf /root /home/deck
+RUN ln -sf /home/retro /home/deck
 
 RUN mkdir -p /root/.steam/ubuntu12_32/steam-runtime && \
     mkdir -p /root/.steam/steam/ && \
