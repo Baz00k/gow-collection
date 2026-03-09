@@ -52,7 +52,7 @@ jobs:
             
             if [[ "$update_available" == "true" ]]; then
               echo "Update available for ${image_dir}"
-              updates_json=$(echo "$updates_json" | jq --arg img "$image_dir" '. + [$img]')
+              updates_json=$(echo "$updates_json" | jq -c --arg img "$image_dir" '. + [$img]')
               
               summary=$(sed -n '/^summary_md<<EOF$/,/^EOF$/p' "$temp_output" | sed '1d;$d')
               if [[ -n "$summary" ]]; then
@@ -65,6 +65,7 @@ jobs:
             rm -f "$temp_output"
           done
 
+          updates_json=$(printf '%s' "$updates_json" | jq -c '.')
           echo "updates=${updates_json}" >> "$GITHUB_OUTPUT"
           {
             echo "summaries<<EOF"
