@@ -106,6 +106,23 @@ RUN mkdir -p /opt/decky && \
     chmod +x /opt/decky/PluginLoader
 
 # -----------------------------------------------------------------------------
+# gosu — privilege dropping tool
+# -----------------------------------------------------------------------------
+ARG TARGETARCH
+ARG GOSU_AMD64_URL
+ARG GOSU_AMD64_SHA256
+
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        curl -fsSL -o /usr/bin/gosu "${GOSU_AMD64_URL}" && \
+        echo "${GOSU_AMD64_SHA256}  /usr/bin/gosu" | sha256sum -c - && \
+        chmod +x /usr/bin/gosu; \
+    else \
+        echo "Unsupported architecture: $ARCH" >&2 && \
+        exit 1; \
+    fi
+
+# -----------------------------------------------------------------------------
 # System Configuration
 # -----------------------------------------------------------------------------
 RUN touch /etc/NetworkManager/conf.d/10-globally-managed-devices.conf

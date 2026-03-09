@@ -132,7 +132,7 @@ fi
 if [ $# -gt 0 ]; then
     log_info "Running custom command: $*"
     if [ "${PUID}" != "0" ] && [ "$(id -u)" = "0" ]; then
-        exec runuser --preserve-environment -u "${UNAME}" -- "$@"
+        exec gosu "${UNAME}" "$@"
     else
         exec "$@"
     fi
@@ -148,7 +148,7 @@ if [ "${PUID}" != "0" ] && [ "$(id -u)" = "0" ]; then
         exit 1
     fi
     chmod +x /opt/gow/startup-app.sh
-    exec runuser --preserve-environment -u "${UNAME}" -- /opt/gow/startup-app.sh
+    exec gosu "${UNAME}" /opt/gow/startup-app.sh
 else
     log_info "Launching startup script as root"
     if [ ! -f /opt/gow/startup-app.sh ]; then
