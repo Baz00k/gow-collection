@@ -8,8 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${SCRIPT_DIR}/../build/pins.env"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
-BASE_IMAGE_REGISTRY="${BASE_IMAGE_REGISTRY:-registry.fedoraproject.org}"
-BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-fedora}"
+BASE_IMAGE_REGISTRY="${BASE_IMAGE_REGISTRY:-quay.io}"
+BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-fedora/fedora}"
 BASE_IMAGE_TAG="${BASE_IMAGE_TAG:-43}"
 
 inplace() {
@@ -26,33 +26,23 @@ get_current_base_digest() {
 }
 
 fetch_latest_base_digest() {
-    local digest=""
+    local ref="${BASE_IMAGE_REGISTRY}/${BASE_IMAGE_NAME}:${BASE_IMAGE_TAG}"
 
-    # Try Docker Registry HTTP API V2 for Fedora
-    local manifest
-    manifest=$(curl -fsSL \
-        -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-        "https://${BASE_IMAGE_REGISTRY}/v2/${BASE_IMAGE_NAME}/manifests/${BASE_IMAGE_TAG}" 2>/dev/null || true)
-    if [[ -n "$manifest" ]]; then
-        digest=$(echo "$manifest" | jq -r '.config.digest // empty' 2>/dev/null | sed 's/sha256://' || true)
-        [[ -n "$digest" ]] && { echo "$digest"; return 0; }
-    fi
-
-    # Try crane
     if command -v crane &>/dev/null; then
-        digest=$(crane digest "${BASE_IMAGE_REGISTRY}/${BASE_IMAGE_NAME}:${BASE_IMAGE_TAG}" 2>/dev/null | sed 's/sha256://' || true)
+        local digest
+        digest=$(crane digest "$ref" 2>/dev/null | sed 's/sha256://' || true)
         [[ -n "$digest" ]] && { echo "$digest"; return 0; }
     fi
 
-    # Try docker
     if command -v docker &>/dev/null; then
-        docker pull "${BASE_IMAGE_REGISTRY}/${BASE_IMAGE_NAME}:${BASE_IMAGE_TAG}" >/dev/null 2>&1 || true
-        digest=$(docker inspect --format='{{index .RepoDigests 0}}' "${BASE_IMAGE_REGISTRY}/${BASE_IMAGE_NAME}:${BASE_IMAGE_TAG}" 2>/dev/null | \
+        docker pull "$ref" >/dev/null 2>&1 || true
+        local digest
+        digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$ref" 2>/dev/null | \
             sed 's/.*@sha256://' || true)
         [[ -n "$digest" ]] && { echo "$digest"; return 0; }
     fi
 
-    echo "$digest"
+    echo ""
 }
 
 get_current_decky_version() {
