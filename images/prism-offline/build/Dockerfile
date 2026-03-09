@@ -4,14 +4,10 @@ ARG BASE_APP_IMAGE
 # hadolint ignore=DL3006
 FROM ${BASE_APP_IMAGE}
 
-# Prevent interactive prompts during package installation
-ENV DEBIAN_FRONTEND=noninteractive
-
 # Java versions required for different Minecraft versions:
 # - Java 21: Minecraft 1.21+
 # - Java 17: Minecraft 1.18 - 1.20.4
 # - Java 8:  Minecraft 1.16 and below
-
 ARG REQUIRED_PACKAGES=" \
     ca-certificates \
     curl \
