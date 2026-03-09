@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+
+# Shuts down Steam cleanly when session switch is requested
+# See: https://github.com/games-on-whales/gow/pull/187
+/usr/bin/steam -shutdown
