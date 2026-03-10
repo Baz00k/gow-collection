@@ -191,7 +191,26 @@ fi
 
 if [[ "${GAMESCOPE_STEAM_MODE}" == "on" ]]; then
     mangoapp &
+    MANGOAPP_PID=$!
 fi
+
+cleanup_on_exit() {
+    local steam_exit_code=$?
+    gow_log "Steam exited with code ${steam_exit_code}, shutting down..."
+
+    if [[ "${GAMESCOPE_STEAM_MODE}" == "on" ]] && kill -0 "${MANGOAPP_PID}" 2>/dev/null; then
+        kill "${MANGOAPP_PID}" 2>/dev/null || true
+    fi
+
+    if kill -0 "${GAMESCOPE_PID}" 2>/dev/null; then
+        gow_log "Terminating gamescope (PID ${GAMESCOPE_PID})..."
+        kill "${GAMESCOPE_PID}" 2>/dev/null || true
+        wait "${GAMESCOPE_PID}" 2>/dev/null || true
+    fi
+
+    exit "${steam_exit_code}"
+}
+trap cleanup_on_exit EXIT
 
 # shellcheck disable=SC2086
 dbus-run-session -- /usr/bin/steam ${STEAM_STARTUP_FLAGS}
