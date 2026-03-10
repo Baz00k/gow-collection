@@ -110,6 +110,40 @@ if [ "$(id -u)" = "0" ]; then
         mkdir -p "${UHOME}/.local/share/Steam"
         chown -R "${PUID}:${PGID}" "${UHOME}/.steam"
         chown -R "${PUID}:${PGID}" "${UHOME}/.local"
+
+        # =====================================================================
+        # Device group handling (matches upstream GoW ensure-groups pattern)
+        # Adds user to groups owning GPU/input devices so gamescope can access
+        # DRM primary nodes (/dev/dri/card*) and NVIDIA devices.
+        # =====================================================================
+        log_info "Configuring device group access"
+        declare -A _dev_groups
+        for _dev_glob in /dev/dri/* /dev/nvidia*; do
+            # shellcheck disable=SC2086
+            for _dev in $_dev_glob; do
+                if [ -e "${_dev}" ]; then
+                    _gname=$(stat -c "%G" "${_dev}")
+                    _gid=$(stat -c "%g" "${_dev}")
+                    if [ "${_gname}" = "UNKNOWN" ]; then
+                        _gname="gow-gid-${_gid}"
+                        if ! getent group "${_gname}" > /dev/null 2>&1; then
+                            groupadd -g "${_gid}" "${_gname}"
+                        fi
+                    fi
+                    _dev_groups[${_gname}]=1
+                    # Ensure group has read/write access
+                    if [ "$(stat -c "%a" "${_dev}" | cut -c2)" -lt 6 ]; then
+                        chmod g+rw "${_dev}"
+                    fi
+                fi
+            done
+        done
+        if [ ${#_dev_groups[@]} -gt 0 ]; then
+            _groups_csv=$(IFS=,; echo "${!_dev_groups[*]}")
+            log_info "Adding user '${UNAME}' to device groups: ${_groups_csv}"
+            usermod -aG "${_groups_csv}" "${UNAME}"
+        fi
+        unset _dev_groups _dev_glob _dev _gname _gid _groups_csv
     else
         log_warn "PUID=0, running as root (no user creation)"
     fi
