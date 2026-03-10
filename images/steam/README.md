@@ -47,7 +47,8 @@ Setting `GAMESCOPE_STEAM_MODE=on` enables gamescope's Steam integration (`-e` fl
 | Steam UI | Standard Big Picture | SteamOS GamepadUI |
 | Exit button | "Exit Big Picture" | "Switch to desktop" |
 | Power menu | Hidden | Shutdown / Restart / Suspend |
-| MangoApp overlay | Not available | Enabled |
+| MangoHud overlay | Visible by default | Hidden initially (Steam-controlled) |
+| MangoApp integration | No | Yes (horizontal bar) |
 | Variable Rate Shading | Not available | Enabled |
 | Gamescope scaling | Not available | Enabled |
 | Desktop mode switch | Available | Not available |
@@ -86,12 +87,24 @@ After exiting Big Picture, Steam switches to its desktop mode UI. This works for
 ## Features
 
 - **Gamescope compositor** — Valve's gaming-focused display server for frame pacing and scaling
-- **MangoHud/MangoApp overlay** — Real-time FPS, temps, and performance metrics (MangoApp requires `GAMESCOPE_STEAM_MODE=on`)
+- **MangoHud overlay** — Real-time FPS, GPU/CPU stats, and frame time graph (visible by default in both modes)
 - **GameMode optimization** — On-demand CPU governor and I/O priority tuning
 - **UMU-Launcher/Proton support** — Unified Proton launcher for Windows games
 - **Decky Loader plugin framework** — SteamOS plugin system for customizations
 - **SteamOS compatibility stubs** — `steamos-update`, `steamos-session-select`, and related helpers
 - **Container-safe performance tuning** — `vm.max_map_count` and scheduler tweaks where permitted
+
+### MangoHud Keyboard Shortcuts
+
+The overlay is visible by default. Use these shortcuts to control it:
+
+| Shortcut | Function |
+|----------|----------|
+| `Right Shift + F12` | Toggle overlay on/off |
+| `Right Shift + F11` | Change overlay position (corners/center) |
+| `Right Shift + F10` | Toggle preset (change verbosity) |
+
+**Note:** In `GAMESCOPE_STEAM_MODE=on`, the overlay starts hidden (`no_display`) and Steam controls visibility via gamescope integration. Use the shortcuts above to show/hide it manually.
 
 ## Tags
 

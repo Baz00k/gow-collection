@@ -21,6 +21,17 @@ mkdir -p "$HOME/.steam/ubuntu12_32/steam-runtime"
 # Use big picture mode by default
 STEAM_STARTUP_FLAGS=${STEAM_STARTUP_FLAGS:-"-bigpicture"}
 
+export MANGOHUD_CONFIGFILE=$(mktemp /tmp/mangohud.XXXXXXXX)
+mkdir -p "$(dirname "$MANGOHUD_CONFIGFILE")"
+cat > "$MANGOHUD_CONFIGFILE" << 'MANGOHUD_EOF'
+fps
+gpu_stats
+cpu_stats
+frametime
+position=top-right
+MANGOHUD_EOF
+gow_log "MangoHud config: ${MANGOHUD_CONFIGFILE}"
+
 # =============================================================================
 # Gamescope Steam integration mode
 # =============================================================================
@@ -50,30 +61,17 @@ export WINEDLLOVERRIDES=dxgi=n
 # SteamOS integration features (only in Steam mode)
 # =============================================================================
 if [[ "${GAMESCOPE_STEAM_MODE}" == "on" ]]; then
-    # Enable Mangoapp (requires gamescope stats pipe)
     export STEAM_USE_MANGOAPP=1
-    export MANGOHUD_CONFIGFILE=$(mktemp /tmp/mangohud.XXXXXXXX)
     export STEAM_MANGOAPP_HORIZONTAL_SUPPORTED=1
-
-    # Enable Variable Rate Shading
-    # Note: this only works on gallium drivers and with new enough mesa
     export STEAM_USE_DYNAMIC_VRS=1
+    export STEAM_GAMESCOPE_FANCY_SCALING_SUPPORT=1
+    export STEAM_DISABLE_MANGOAPP_ATOM_WORKAROUND=1
+
     export RADV_FORCE_VRS_CONFIG_FILE=$(mktemp /tmp/radv_vrs.XXXXXXXX)
-
-    # Initially write no_display to our config file
-    # so we don't get mangoapp showing up before Steam initializes
-    mkdir -p "$(dirname "$MANGOHUD_CONFIGFILE")"
-    echo "position=top-right" > "$MANGOHUD_CONFIGFILE"
-    echo "no_display" >> "$MANGOHUD_CONFIGFILE"
-
-    # Prepare our initial VRS config file for dynamic VRS in Mesa
     mkdir -p "$(dirname "$RADV_FORCE_VRS_CONFIG_FILE")"
     echo "1x1" > "$RADV_FORCE_VRS_CONFIG_FILE"
 
-    # Scaling support
-    export STEAM_GAMESCOPE_FANCY_SCALING_SUPPORT=1
-
-    export STEAM_DISABLE_MANGOAPP_ATOM_WORKAROUND=1
+    echo "no_display" >> "$MANGOHUD_CONFIGFILE"
 fi
 
 # =============================================================================
