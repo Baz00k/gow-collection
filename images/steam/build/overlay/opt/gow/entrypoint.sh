@@ -102,7 +102,7 @@ if [ "$(id -u)" = "0" ]; then
         mkdir -p "${XDG_RUNTIME_DIR}"
         log_info "Ensuring XDG_RUNTIME_DIR is writable by ${UNAME}:${UNAME}"
         chown -R "${PUID}:${PGID}" "${XDG_RUNTIME_DIR}"
-        chmod 1777 "${XDG_RUNTIME_DIR}"
+        chmod 0700 "${XDG_RUNTIME_DIR}"
 
         # Create Steam runtime directories
         log_info "Creating Steam runtime directories"

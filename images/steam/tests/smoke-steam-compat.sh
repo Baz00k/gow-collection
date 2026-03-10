@@ -140,42 +140,42 @@ elif [[ "${DECK_LINK_EXISTS}" == "yes" ]]; then
 fi
 
 echo "" >> "${EVIDENCE_FILE}"
-echo "=== Steam Runtime Directories ===" >> "${EVIDENCE_FILE}"
+echo "=== Steam Bootstrap Files ===" >> "${EVIDENCE_FILE}"
 
-log_info "Checking Steam runtime directories..."
+log_info "Checking Steam bootstrap files..."
 
-STEAM_DIR_EXISTS=$(docker exec "${CONTAINER_NAME}" test -d /root/.steam && echo "yes" || echo "no")
-STEAM_RUNTIME_EXISTS=$(docker exec "${CONTAINER_NAME}" test -d /root/.steam/ubuntu12_32/steam-runtime && echo "yes" || echo "no")
-CEF_DEBUG_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f /root/.steam/debian-installation/.cef-enable-remote-debugging && echo "yes" || echo "no")
+STEAM_BOOTSTRAP_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f /usr/lib/steam/bootstraplinux_ubuntu12_32.tar.xz && echo "yes" || echo "no")
+STEAM_LAUNCHER_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f /usr/lib/steam/bin_steam.sh && echo "yes" || echo "no")
+STEAM_BIN_EXISTS=$(docker exec "${CONTAINER_NAME}" test -x /usr/bin/steam && echo "yes" || echo "no")
 
 {
-    echo "/root/.steam/: ${STEAM_DIR_EXISTS}"
-    echo "/root/.steam/ubuntu12_32/steam-runtime/: ${STEAM_RUNTIME_EXISTS}"
-    echo "/root/.steam/debian-installation/.cef-enable-remote-debugging: ${CEF_DEBUG_EXISTS}"
+    echo "/usr/lib/steam/bootstraplinux_ubuntu12_32.tar.xz: ${STEAM_BOOTSTRAP_EXISTS}"
+    echo "/usr/lib/steam/bin_steam.sh: ${STEAM_LAUNCHER_EXISTS}"
+    echo "/usr/bin/steam (executable): ${STEAM_BIN_EXISTS}"
 } >> "${EVIDENCE_FILE}"
 
-if [[ "${STEAM_DIR_EXISTS}" != "yes" ]]; then
-    log_fail "Steam directory: /root/.steam/ not found"
-    echo "[FAIL] Steam directory: /root/.steam/ not found" >> "${EVIDENCE_FILE}"
+if [[ "${STEAM_BOOTSTRAP_EXISTS}" != "yes" ]]; then
+    log_fail "Steam bootstrap tarball not found"
+    echo "[FAIL] Steam bootstrap tarball not found" >> "${EVIDENCE_FILE}"
 else
-    log_pass "Steam directory: /root/.steam/ exists"
-    echo "[PASS] Steam directory: /root/.steam/ exists" >> "${EVIDENCE_FILE}"
+    log_pass "Steam bootstrap tarball exists"
+    echo "[PASS] Steam bootstrap tarball exists" >> "${EVIDENCE_FILE}"
 fi
 
-if [[ "${STEAM_RUNTIME_EXISTS}" != "yes" ]]; then
-    log_fail "Steam runtime: /root/.steam/ubuntu12_32/steam-runtime/ not found"
-    echo "[FAIL] Steam runtime: /root/.steam/ubuntu12_32/steam-runtime/ not found" >> "${EVIDENCE_FILE}"
+if [[ "${STEAM_LAUNCHER_EXISTS}" != "yes" ]]; then
+    log_fail "Steam launcher script (bin_steam.sh) not found"
+    echo "[FAIL] Steam launcher script not found" >> "${EVIDENCE_FILE}"
 else
-    log_pass "Steam runtime: /root/.steam/ubuntu12_32/steam-runtime/ exists"
-    echo "[PASS] Steam runtime: /root/.steam/ubuntu12_32/steam-runtime/ exists" >> "${EVIDENCE_FILE}"
+    log_pass "Steam launcher script exists"
+    echo "[PASS] Steam launcher script exists" >> "${EVIDENCE_FILE}"
 fi
 
-if [[ "${CEF_DEBUG_EXISTS}" != "yes" ]]; then
-    log_fail "CEF debug flag: /root/.steam/debian-installation/.cef-enable-remote-debugging not found"
-    echo "[FAIL] CEF debug flag: /root/.steam/debian-installation/.cef-enable-remote-debugging not found" >> "${EVIDENCE_FILE}"
+if [[ "${STEAM_BIN_EXISTS}" != "yes" ]]; then
+    log_fail "Steam binary (/usr/bin/steam) not found or not executable"
+    echo "[FAIL] Steam binary not found or not executable" >> "${EVIDENCE_FILE}"
 else
-    log_pass "CEF debug flag: /root/.steam/debian-installation/.cef-enable-remote-debugging exists"
-    echo "[PASS] CEF debug flag: /root/.steam/debian-installation/.cef-enable-remote-debugging exists" >> "${EVIDENCE_FILE}"
+    log_pass "Steam binary exists and is executable"
+    echo "[PASS] Steam binary exists and is executable" >> "${EVIDENCE_FILE}"
 fi
 
 echo "" >> "${EVIDENCE_FILE}"

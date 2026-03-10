@@ -135,11 +135,6 @@ RUN printf '%s\n' '/usr/nvidia/lib' '/usr/nvidia/lib32' > /etc/ld.so.conf.d/nvid
 
 RUN ln -sf /home/retro /home/deck
 
-RUN mkdir -p /root/.steam/ubuntu12_32/steam-runtime && \
-    mkdir -p /root/.steam/steam/ && \
-    mkdir -p /root/.steam/debian-installation/ && \
-    touch /root/.steam/debian-installation/.cef-enable-remote-debugging
-
 # -----------------------------------------------------------------------------
 # Overlay and bwrap
 # -----------------------------------------------------------------------------

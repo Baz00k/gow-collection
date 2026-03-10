@@ -57,10 +57,14 @@ start_decky_loader() {
 
     UHOME="${UHOME:-${HOME:-/root}}"
 
-    mkdir -p "${UHOME}/.steam/steam/"
-    mkdir -p "${UHOME}/.steam/debian-installation/"
-    
-    if ! touch "${UHOME}/.steam/debian-installation/.cef-enable-remote-debugging"; then
+    # Steam's bin_steam.sh creates ~/.steam/steam as a symlink to
+    # ~/.local/share/Steam during bootstrap.  If we mkdir it first the
+    # symlink creation silently fails and Steam refuses to start with
+    # "Couldn't set up Steam data".  Use the real data path instead.
+    STEAM_DATA="${UHOME}/.local/share/Steam"
+    mkdir -p "${STEAM_DATA}"
+
+    if ! touch "${STEAM_DATA}/.cef-enable-remote-debugging"; then
         gow_log "WARNING: Failed to create .cef-enable-remote-debugging"
         return 1
     fi
