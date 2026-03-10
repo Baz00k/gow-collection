@@ -98,9 +98,10 @@ gow_log "Display environment: WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset} XDG_RUNT
 if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
   gow_log "Wayland socket: $(ls -la "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}" 2>&1 || echo 'not found')"
 fi
+gow_log "NVIDIA env: LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-unset} VK_DRIVER_FILES=${VK_DRIVER_FILES:-unset}"
 
 # shellcheck disable=SC2086
-/usr/bin/gamescope --backend wayland -e ${GAMESCOPE_MODE} \
+VK_LOADER_DEBUG=error /usr/bin/gamescope --backend wayland -e ${GAMESCOPE_MODE} \
   -R "$socket" -T "$stats" \
   -W "${GAMESCOPE_WIDTH}" -H "${GAMESCOPE_HEIGHT}" -r "${GAMESCOPE_REFRESH}" \
   2>/tmp/gamescope.log &
@@ -114,11 +115,13 @@ if ! kill -0 "${GAMESCOPE_PID}" 2>/dev/null; then
   gow_error "--- end gamescope.log ---"
   gow_error "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset}"
   gow_error "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
+  gow_error "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-unset}"
+  gow_error "VK_DRIVER_FILES=${VK_DRIVER_FILES:-unset}"
   gow_error "Available in XDG_RUNTIME_DIR: $(ls -la "${XDG_RUNTIME_DIR}/" 2>&1 || echo 'dir not found')"
-  gow_error "Vulkan ICDs: $(ls /usr/share/vulkan/icd.d/ /etc/vulkan/icd.d/ 2>&1 || echo 'none found')"
+  gow_error "Vulkan ICDs: $(ls /usr/share/vulkan/icd.d/ 2>&1 || echo 'none found')"
   gow_error "NVIDIA ICD content: $(cat /usr/share/vulkan/icd.d/nvidia_icd.json 2>&1 || echo 'not found')"
   gow_error "NVIDIA libs in ldconfig: $(ldconfig -p 2>/dev/null | grep -i nvidia | head -5 || echo 'none')"
-  gow_error "NVIDIA /usr/nvidia/lib: $(ls /usr/nvidia/lib/libGLX_nvidia* /usr/nvidia/lib/libvulkan_nvidia* /usr/nvidia/lib/libnvidia-glcore* 2>&1 | head -5 || echo 'not found')"
+  gow_error "NVIDIA /usr/nvidia/lib: $(ls /usr/nvidia/lib/libGLX_nvidia* /usr/nvidia/lib/libnvidia-glcore* 2>&1 | head -5 || echo 'not found')"
   exit 1
 fi
 

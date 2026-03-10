@@ -120,7 +120,10 @@ SYSTEM_SERVICES_EXEC=$(docker exec "${CONTAINER_NAME}" test -x /etc/cont-init.d/
 log_info "Checking for NVIDIA init script..."
 NVIDIA_INIT_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f /etc/cont-init.d/10-nvidia.sh && echo "yes" || echo "no")
 NVIDIA_INIT_EXEC=$(docker exec "${CONTAINER_NAME}" test -x /etc/cont-init.d/10-nvidia.sh && echo "yes" || echo "no")
-NVIDIA_VULKAN_ICD_COPY=$(docker exec "${CONTAINER_NAME}" grep -cF '/usr/share/vulkan/icd.d/' /etc/cont-init.d/10-nvidia.sh || true)
+NVIDIA_VULKAN_ICD_COPY=$(docker exec "${CONTAINER_NAME}" grep -cF '/usr/share/vulkan/icd.d/' /etc/cont-init.d/10-nvidia.sh 2>/dev/null || echo "0")
+NVIDIA_LD_LIBRARY_PATH=$(docker exec "${CONTAINER_NAME}" grep -cF 'LD_LIBRARY_PATH' /etc/cont-init.d/10-nvidia.sh 2>/dev/null || echo "0")
+NVIDIA_VK_DRIVER_FILES=$(docker exec "${CONTAINER_NAME}" grep -cF 'VK_DRIVER_FILES' /etc/cont-init.d/10-nvidia.sh 2>/dev/null || echo "0")
+NVIDIA_GBM_COPY=$(docker exec "${CONTAINER_NAME}" grep -cF '/lib/gbm' /etc/cont-init.d/10-nvidia.sh 2>/dev/null || echo "0")
 
 {
     echo "=== GoW Scripts ==="
@@ -129,6 +132,9 @@ NVIDIA_VULKAN_ICD_COPY=$(docker exec "${CONTAINER_NAME}" grep -cF '/usr/share/vu
     echo "/etc/cont-init.d/system-services.sh: ${SYSTEM_SERVICES_EXISTS} (executable: ${SYSTEM_SERVICES_EXEC})"
     echo "/etc/cont-init.d/10-nvidia.sh: ${NVIDIA_INIT_EXISTS} (executable: ${NVIDIA_INIT_EXEC})"
     echo "NVIDIA Vulkan ICD copy pattern: ${NVIDIA_VULKAN_ICD_COPY}"
+    echo "NVIDIA LD_LIBRARY_PATH pattern: ${NVIDIA_LD_LIBRARY_PATH}"
+    echo "NVIDIA VK_DRIVER_FILES pattern: ${NVIDIA_VK_DRIVER_FILES}"
+    echo "NVIDIA GBM copy pattern: ${NVIDIA_GBM_COPY}"
 } >> "${EVIDENCE_FILE}"
 
 if [[ "${ENTRYPOINT_EXISTS}" != "yes" ]]; then
