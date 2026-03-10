@@ -108,6 +108,17 @@ if [ "$(id -u)" = "0" ]; then
         log_info "Creating Steam runtime directories"
         mkdir -p "${UHOME}/.steam"
         mkdir -p "${UHOME}/.local/share/Steam"
+
+        # Migrate legacy layout: if ~/.steam/steam is a real directory (created
+        # by older images), move its contents into ~/.local/share/Steam/ and
+        # replace it with the symlink that bin_steam.sh expects.
+        if [ -d "${UHOME}/.steam/steam" ] && [ ! -L "${UHOME}/.steam/steam" ]; then
+            log_warn "Migrating legacy ~/.steam/steam directory to ~/.local/share/Steam"
+            cp -a "${UHOME}/.steam/steam/." "${UHOME}/.local/share/Steam/" 2>/dev/null || true
+            rm -rf "${UHOME}/.steam/steam"
+            ln -sfn "${UHOME}/.local/share/Steam" "${UHOME}/.steam/steam"
+        fi
+
         chown -R "${PUID}:${PGID}" "${UHOME}/.steam"
         chown -R "${PUID}:${PGID}" "${UHOME}/.local"
 
