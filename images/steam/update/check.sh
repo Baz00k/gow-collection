@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Check for steam dependency updates
-# Checks: BASE_IMAGE digest, Decky Loader version, UMU Launcher version
+# Checks: BASE_IMAGE digest, Decky Loader version
 
 set -euo pipefail
 
@@ -63,24 +63,6 @@ fetch_latest_decky_version() {
     fi
 }
 
-get_current_umu_version() {
-    grep '^UMU_LAUNCHER_VERSION=' "$PINS_FILE" | cut -d'=' -f2 || echo ""
-}
-
-get_umu_repo() {
-    grep '^UMU_LAUNCHER_REPO=' "$PINS_FILE" | cut -d'=' -f2 || echo "Open-Wine-Components/umu-launcher"
-}
-
-fetch_latest_umu_version() {
-    local repo
-    repo=$(get_umu_repo)
-    if command -v gh &>/dev/null; then
-        gh api "repos/${repo}/releases/latest" --jq '.tag_name' | sed 's/^v//'
-    else
-        curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" | jq -r '.tag_name // empty' | sed 's/^v//'
-    fi
-}
-
 get_current_bwrap_version() {
     grep '^BUBBLEWRAP_VERSION=' "$PINS_FILE" | cut -d'=' -f2 || echo ""
 }
@@ -134,22 +116,6 @@ if [[ -n "$latest_decky" ]]; then
     fi
 else
     echo "Warning: Could not fetch latest Decky Loader version"
-fi
-
-echo "Checking UMU Launcher..."
-current_umu=$(get_current_umu_version)
-latest_umu=$(fetch_latest_umu_version)
-
-if [[ -n "$latest_umu" ]]; then
-    if [[ "$current_umu" != "$latest_umu" ]]; then
-        echo "UMU Launcher update available: $current_umu -> $latest_umu"
-        updates+=("umu")
-        summary+="### UMU Launcher\n\nUpdated from v${current_umu} to v${latest_umu}.\n\n"
-    else
-        echo "UMU Launcher up to date"
-    fi
-else
-    echo "Warning: Could not fetch latest UMU Launcher version"
 fi
 
 echo "Checking Bubblewrap..."

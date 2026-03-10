@@ -7,7 +7,6 @@
 | **Gamescope**    | Valve's gaming compositor for frame pacing, scaling, and reduced input latency |
 | **MangoHud**     | Real-time performance overlay (FPS, GPU/CPU temps, frame times)                |
 | **GameMode**     | Automatic CPU governor switching and I/O priority tuning                       |
-| **UMU-Launcher** | Unified Proton launcher for Windows games with better compatibility            |
 | **Decky Loader** | SteamOS plugin framework for UI customizations                                 |
 
 ## Steam Modes

@@ -21,7 +21,6 @@ image = "ghcr.io/Baz00k/gow-collection/steam:edge"
 - **MangoHud overlay** — real-time FPS, GPU/CPU stats
 - **GameMode** — automatic CPU governor and I/O tuning
 - **Two Steam modes** — Standard Big Picture (`GAMESCOPE_STEAM_MODE=off`, default) or SteamOS GamepadUI (`GAMESCOPE_STEAM_MODE=on`)
-- **UMU-Launcher** — unified Proton for Windows games
 - **Decky Loader** — SteamOS plugin framework
 
 ## Documentation

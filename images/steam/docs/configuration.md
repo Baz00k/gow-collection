@@ -71,4 +71,4 @@ sudo sysctl -w vm.max_map_count=1048576
 
 ## Updates
 
-Upstream dependency updates (Fedora base image, Decky Loader, UMU-Launcher) are detected weekly and proposed as PRs automatically.
+Upstream dependency updates (Fedora base image, Decky Loader) are detected weekly and proposed as PRs automatically.

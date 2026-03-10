@@ -235,18 +235,6 @@ else
 fi
 
 echo "" >> "${EVIDENCE_FILE}"
-echo "=== UMU Launcher ===" >> "${EVIDENCE_FILE}"
-
-log_info "Checking UMU-Launcher: umu-run..."
-if docker exec "${CONTAINER_NAME}" sh -c 'command -v umu-run' >/dev/null 2>&1; then
-    log_pass "UMU-Launcher: umu-run found"
-    echo "[PASS] UMU-Launcher: umu-run found" >> "${EVIDENCE_FILE}"
-else
-    log_fail "UMU-Launcher: umu-run - not found"
-    echo "[FAIL] UMU-Launcher: umu-run - not found" >> "${EVIDENCE_FILE}"
-fi
-
-echo "" >> "${EVIDENCE_FILE}"
 echo "=== Decky Loader ===" >> "${EVIDENCE_FILE}"
 
 log_info "Checking Decky Loader: /opt/decky/PluginLoader..."

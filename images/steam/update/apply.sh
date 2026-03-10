@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Apply steam dependency updates
-# Updates: BASE_IMAGE digest, Decky Loader version/URL/SHA256, UMU Launcher version/URL/SHA256
+# Updates: BASE_IMAGE digest, Decky Loader version/URL/SHA256
 
 set -euo pipefail
 
@@ -55,24 +55,6 @@ get_decky_repo() {
 fetch_latest_decky_version() {
     local repo
     repo=$(get_decky_repo)
-    if command -v gh &>/dev/null; then
-        gh api "repos/${repo}/releases/latest" --jq '.tag_name' | sed 's/^v//'
-    else
-        curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" | jq -r '.tag_name // empty' | sed 's/^v//'
-    fi
-}
-
-get_current_umu_version() {
-    grep '^UMU_LAUNCHER_VERSION=' "$PINS_FILE" | cut -d'=' -f2 || echo ""
-}
-
-get_umu_repo() {
-    grep '^UMU_LAUNCHER_REPO=' "$PINS_FILE" | cut -d'=' -f2 || echo "Open-Wine-Components/umu-launcher"
-}
-
-fetch_latest_umu_version() {
-    local repo
-    repo=$(get_umu_repo)
     if command -v gh &>/dev/null; then
         gh api "repos/${repo}/releases/latest" --jq '.tag_name' | sed 's/^v//'
     else
@@ -168,28 +150,6 @@ if [[ -n "$latest_decky" && "$current_decky" != "$latest_decky" ]]; then
     rm -f /tmp/PluginLoader
     applied=true
     summary+="### Decky Loader\n\nUpdated from v${current_decky} to v${latest_decky}.\n\n"
-fi
-
-umu_repo=$(get_umu_repo)
-current_umu=$(get_current_umu_version)
-latest_umu=$(fetch_latest_umu_version)
-
-if [[ -n "$latest_umu" && "$current_umu" != "$latest_umu" ]]; then
-    echo "Updating UMU Launcher: $current_umu -> $latest_umu"
-    
-    umu_url="https://github.com/${umu_repo}/releases/download/${latest_umu}/umu-launcher-${latest_umu}.fc43.rpm"
-    
-    echo "Downloading UMU Launcher RPM..."
-    umu_sha=$(fetch_file_sha256 "$umu_url" /tmp/umu-launcher.rpm)
-    echo "UMU Launcher SHA256: $umu_sha"
-    
-    inplace "s|^UMU_LAUNCHER_VERSION=.*|UMU_LAUNCHER_VERSION=${latest_umu}|" "$PINS_FILE"
-    inplace "s|^UMU_LAUNCHER_URL=.*|UMU_LAUNCHER_URL=${umu_url}|" "$PINS_FILE"
-    inplace "s|^UMU_LAUNCHER_SHA256=.*|UMU_LAUNCHER_SHA256=${umu_sha}|" "$PINS_FILE"
-    
-    rm -f /tmp/umu-launcher.rpm
-    applied=true
-    summary+="### UMU Launcher\n\nUpdated from v${current_umu} to v${latest_umu}.\n\n"
 fi
 
 bwrap_repo=$(get_bwrap_repo)

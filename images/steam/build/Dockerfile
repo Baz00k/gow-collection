@@ -46,9 +46,6 @@ ARG RPMFUSION_NONFREE_URL
 ARG DECKY_LOADER_VERSION
 ARG DECKY_LOADER_URL
 ARG DECKY_LOADER_SHA256
-ARG UMU_LAUNCHER_VERSION
-ARG UMU_LAUNCHER_URL
-ARG UMU_LAUNCHER_SHA256
 
 # -----------------------------------------------------------------------------
 # RPM Fusion Setup
@@ -89,15 +86,6 @@ RUN dnf install -y \
     glibc-langpack-en \
     && dnf clean all \
     && rm -rf /var/cache/dnf
-
-# -----------------------------------------------------------------------------
-# UMU Launcher
-# -----------------------------------------------------------------------------
-RUN curl -fsSL -o /tmp/umu-launcher.rpm "${UMU_LAUNCHER_URL}" && \
-    echo "${UMU_LAUNCHER_SHA256}  /tmp/umu-launcher.rpm" | sha256sum -c - && \
-    dnf install -y /tmp/umu-launcher.rpm && \
-    rm -f /tmp/umu-launcher.rpm && \
-    dnf clean all
 
 # -----------------------------------------------------------------------------
 # Decky Loader
