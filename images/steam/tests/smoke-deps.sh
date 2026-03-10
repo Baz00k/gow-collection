@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="${IMAGE_NAME:-ghcr.io/Baz00k/gow-collection/steam:test}"
 CONTAINER_NAME="${CONTAINER_NAME:-smoke-test-deps-steam}"
-EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../test-results/steam}"
+EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../../test-results/steam}"
 EVIDENCE_FILE="${EVIDENCE_DIR}/deps.txt"
 
 RED='\033[0;31m'

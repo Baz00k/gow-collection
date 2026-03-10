@@ -6,7 +6,7 @@ IMAGE_NAME="${IMAGE_NAME:-ghcr.io/Baz00k/gow-collection/prism-offline:test}"
 CONTAINER_PREFIX="${CONTAINER_NAME:-smoke-test-persist}"
 CONTAINER_1="${CONTAINER_PREFIX}-1"
 CONTAINER_2="${CONTAINER_PREFIX}-2"
-EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../test-results/prism-offline}"
+EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../../test-results/prism-offline}"
 EVIDENCE_FILE="${EVIDENCE_DIR}/persistence.txt"
 
 RED='\033[0;31m'

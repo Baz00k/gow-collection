@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="${IMAGE_NAME:-ghcr.io/Baz00k/gow-collection/drop-app:test}"
 CONTAINER_NAME="${CONTAINER_NAME:-smoke-test-startup-drop-app}"
 STARTUP_TIMEOUT="${STARTUP_TIMEOUT:-30}"
-EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../test-results/drop-app}"
+EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../../test-results/drop-app}"
 EVIDENCE_FILE="${EVIDENCE_DIR}/startup.txt"
 
 RED='\033[0;31m'

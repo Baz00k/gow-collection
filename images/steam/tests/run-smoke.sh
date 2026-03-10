@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="${IMAGE_NAME:-ghcr.io/Baz00k/gow-collection/steam:test}"
 SKIP_BUILD="${SKIP_BUILD:-false}"
 BUILD_TIMEOUT="${BUILD_TIMEOUT:-600}"
-EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../test-results/steam}"
+EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../../test-results/steam}"
 EVIDENCE_FILE="${EVIDENCE_DIR}/all.txt"
 
 RED='\033[0;31m'

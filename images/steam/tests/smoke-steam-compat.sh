@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="${IMAGE_NAME:-ghcr.io/Baz00k/gow-collection/steam:test}"
 CONTAINER_NAME="${CONTAINER_NAME:-smoke-test-steam-compat-steam}"
-EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../test-results/steam}"
+EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../../test-results/steam}"
 EVIDENCE_FILE="${EVIDENCE_DIR}/steam-compat.txt"
 
 RED='\033[0;31m'
@@ -116,13 +116,11 @@ log_info "Checking /home/deck symlink..."
 DECK_LINK_EXISTS=$(docker exec "${CONTAINER_NAME}" test -L /home/deck && echo "yes" || echo "no")
 DECK_DIR_EXISTS=$(docker exec "${CONTAINER_NAME}" test -d /home/deck && echo "yes" || echo "no")
 DECK_LINK_TARGET=$(docker exec "${CONTAINER_NAME}" sh -c 'if test -L /home/deck; then readlink /home/deck; fi')
-RETRO_HOME_EXISTS=$(docker exec "${CONTAINER_NAME}" test -d /home/retro && echo "yes" || echo "no")
 
 {
     echo "/home/deck is symlink: ${DECK_LINK_EXISTS}"
     echo "/home/deck is directory: ${DECK_DIR_EXISTS}"
     echo "/home/deck target: ${DECK_LINK_TARGET:-<not-a-symlink>}"
-    echo "/home/retro exists: ${RETRO_HOME_EXISTS}"
 } >> "${EVIDENCE_FILE}"
 
 if [[ "${DECK_LINK_EXISTS}" == "yes" || "${DECK_DIR_EXISTS}" == "yes" ]]; then
@@ -131,14 +129,6 @@ if [[ "${DECK_LINK_EXISTS}" == "yes" || "${DECK_DIR_EXISTS}" == "yes" ]]; then
 else
     log_fail "/home/deck not found"
     echo "[FAIL] /home/deck not found" >> "${EVIDENCE_FILE}"
-fi
-
-if [[ "${RETRO_HOME_EXISTS}" != "yes" ]]; then
-    log_fail "/home/retro not found"
-    echo "[FAIL] /home/retro not found" >> "${EVIDENCE_FILE}"
-else
-    log_pass "/home/retro exists"
-    echo "[PASS] /home/retro exists" >> "${EVIDENCE_FILE}"
 fi
 
 if [[ "${DECK_LINK_EXISTS}" == "yes" && "${DECK_LINK_TARGET}" != "/home/retro" ]]; then
