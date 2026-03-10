@@ -8,6 +8,7 @@ My collection of custom Docker images for [Games on Whales](https://github.com/g
 | ----------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
 | [drop-app](images/drop-app/README.md)           | [Drop](https://github.com/Drop-OSS/drop-app) game launcher        | `docker pull ghcr.io/Baz00k/gow-collection/drop-app:edge`      |
 | [prism-offline](images/prism-offline/README.md) | [Prism Launcher](https://prismlauncher.org/) with offline support | `docker pull ghcr.io/Baz00k/gow-collection/prism-offline:edge` |
+| [steam](images/steam/README.md)                 | Steam via gamescope with performance tuning                       | `docker pull ghcr.io/Baz00k/gow-collection/steam:edge`         |
 
 ## Repository Structure
 
