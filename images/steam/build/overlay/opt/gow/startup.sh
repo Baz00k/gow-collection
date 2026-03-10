@@ -116,6 +116,9 @@ if ! kill -0 "${GAMESCOPE_PID}" 2>/dev/null; then
   gow_error "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
   gow_error "Available in XDG_RUNTIME_DIR: $(ls -la "${XDG_RUNTIME_DIR}/" 2>&1 || echo 'dir not found')"
   gow_error "Vulkan ICDs: $(ls /usr/share/vulkan/icd.d/ /etc/vulkan/icd.d/ 2>&1 || echo 'none found')"
+  gow_error "NVIDIA ICD content: $(cat /usr/share/vulkan/icd.d/nvidia_icd.json 2>&1 || echo 'not found')"
+  gow_error "NVIDIA libs in ldconfig: $(ldconfig -p 2>/dev/null | grep -i nvidia | head -5 || echo 'none')"
+  gow_error "NVIDIA /usr/nvidia/lib: $(ls /usr/nvidia/lib/libGLX_nvidia* /usr/nvidia/lib/libvulkan_nvidia* /usr/nvidia/lib/libnvidia-glcore* 2>&1 | head -5 || echo 'not found')"
   exit 1
 fi
 
