@@ -85,6 +85,8 @@ RUN dnf install -y \
     google-noto-fonts-common \
     python3 \
     jq \
+    util-linux \
+    glibc-langpack-en \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
