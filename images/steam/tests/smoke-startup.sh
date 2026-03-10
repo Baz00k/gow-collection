@@ -117,11 +117,18 @@ log_info "Checking for system-services script..."
 SYSTEM_SERVICES_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f /etc/cont-init.d/system-services.sh && echo "yes" || echo "no")
 SYSTEM_SERVICES_EXEC=$(docker exec "${CONTAINER_NAME}" test -x /etc/cont-init.d/system-services.sh && echo "yes" || echo "no")
 
+log_info "Checking for NVIDIA init script..."
+NVIDIA_INIT_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f /etc/cont-init.d/10-nvidia.sh && echo "yes" || echo "no")
+NVIDIA_INIT_EXEC=$(docker exec "${CONTAINER_NAME}" test -x /etc/cont-init.d/10-nvidia.sh && echo "yes" || echo "no")
+NVIDIA_VULKAN_ICD_COPY=$(docker exec "${CONTAINER_NAME}" grep -cF '/usr/share/vulkan/icd.d/' /etc/cont-init.d/10-nvidia.sh || true)
+
 {
     echo "=== GoW Scripts ==="
     echo "/opt/gow/entrypoint.sh: ${ENTRYPOINT_EXISTS} (executable: ${ENTRYPOINT_EXEC})"
     echo "/opt/gow/launch-comp.sh: ${LAUNCH_COMP_EXISTS} (executable: ${LAUNCH_COMP_EXEC})"
     echo "/etc/cont-init.d/system-services.sh: ${SYSTEM_SERVICES_EXISTS} (executable: ${SYSTEM_SERVICES_EXEC})"
+    echo "/etc/cont-init.d/10-nvidia.sh: ${NVIDIA_INIT_EXISTS} (executable: ${NVIDIA_INIT_EXEC})"
+    echo "NVIDIA Vulkan ICD copy pattern: ${NVIDIA_VULKAN_ICD_COPY}"
 } >> "${EVIDENCE_FILE}"
 
 if [[ "${ENTRYPOINT_EXISTS}" != "yes" ]]; then
@@ -157,6 +164,18 @@ fi
 if [[ "${SYSTEM_SERVICES_EXEC}" != "yes" ]]; then
     log_error "System-services script is not executable"
     echo "RESULT: FAILED (system-services not executable)" >> "${EVIDENCE_FILE}"
+    exit 1
+fi
+
+if [[ "${NVIDIA_INIT_EXISTS}" != "yes" || "${NVIDIA_INIT_EXEC}" != "yes" ]]; then
+    log_error "NVIDIA init script not found or not executable at /etc/cont-init.d/10-nvidia.sh"
+    echo "RESULT: FAILED (nvidia init missing)" >> "${EVIDENCE_FILE}"
+    exit 1
+fi
+
+if [[ "${NVIDIA_VULKAN_ICD_COPY}" -lt 1 ]]; then
+    log_error "NVIDIA init script does not copy Vulkan ICDs to /usr/share/vulkan/icd.d/"
+    echo "RESULT: FAILED (nvidia vulkan icd copy)" >> "${EVIDENCE_FILE}"
     exit 1
 fi
 

@@ -129,10 +129,9 @@ RUN touch /etc/NetworkManager/conf.d/10-globally-managed-devices.conf
 
 RUN fc-cache -f -v
 
-# Wolf mounts NVIDIA drivers at /usr/nvidia — pre-configure search paths
-RUN printf '%s\n' '/usr/nvidia/lib' '/usr/nvidia/lib32' > /etc/ld.so.conf.d/nvidia.conf && \
-    mkdir -p /etc/vulkan && \
-    ln -sf /usr/nvidia/share/vulkan/icd.d /etc/vulkan/icd.d
+# Wolf mounts NVIDIA drivers at /usr/nvidia — pre-configure linker search paths
+# Vulkan ICD and EGL configs are copied at runtime by /etc/cont-init.d/10-nvidia.sh
+RUN printf '%s\n' '/usr/nvidia/lib' '/usr/nvidia/lib32' > /etc/ld.so.conf.d/nvidia.conf
 
 RUN ln -sf /home/retro /home/deck
 
