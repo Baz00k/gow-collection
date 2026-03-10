@@ -57,6 +57,32 @@ Setting `GAMESCOPE_STEAM_MODE=on` enables gamescope's Steam integration (`-e` fl
 env = ["GAMESCOPE_STEAM_MODE=on"]
 ```
 
+### Container Lifecycle
+
+The container runs for as long as Steam is running. When Steam exits (whether via "Exit Steam" from desktop mode or closing the window), the container stops and the Wolf session ends.
+
+**With `GAMESCOPE_STEAM_MODE=off` (default):**
+- Steam starts in Big Picture mode
+- Clicking **"Exit Big Picture"** switches to **desktop mode** — Steam keeps running, you can manage your library
+- Clicking **"Exit Steam"** (or closing the window) from desktop mode ends the container
+
+**With `GAMESCOPE_STEAM_MODE=on`:**
+- Steam enters SteamOS/GamepadUI mode
+- The **"Switch to desktop"** button attempts to switch modes but may not work as expected in a containerized environment with no underlying desktop session
+- **Power Off / Restart / Suspend** menu items will trigger Steam to exit, ending the container (these are intercepted to prevent actual host shutdown)
+
+For the most predictable behavior when you need to manage your library (add external games, change settings), use the default mode (`off`) and switch to desktop mode from Big Picture.
+
+### Desktop Mode Limitations
+
+After exiting Big Picture, Steam switches to its desktop mode UI. This works for browsing your library, store, and community pages, but the **top menu bar dropdowns (Steam, View, Friends, Games, Help) do not open** when clicked. This is a known architectural limitation of gamescope — it is designed for fullscreen gaming and does not fully support the popup windows that Steam's CEF-based desktop UI creates for dropdown menus.
+
+**Workarounds for accessing settings:**
+
+- Use Big Picture mode: settings are accessible via the gear icon in Big Picture
+- Use Steam URL shortcuts from a terminal inside the container: `steam steam://settings`
+- Navigate to settings pages directly in the Steam client's web-based UI (Store, Library, etc. all work normally)
+
 ## Features
 
 - **Gamescope compositor** — Valve's gaming-focused display server for frame pacing and scaling
