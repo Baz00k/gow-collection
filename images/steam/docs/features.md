@@ -32,8 +32,7 @@ Enables gamescope's Steam integration (`-e` flag). Steam enters the SteamOS/Deck
 | Steam UI              | Standard Big Picture | SteamOS GamepadUI                   |
 | Exit button           | "Exit Big Picture"   | "Switch to desktop"                 |
 | Power menu            | Hidden               | Shutdown / Restart / Suspend        |
-| MangoHud overlay      | Visible by default   | Hidden initially (Steam-controlled) |
-| MangoApp integration  | No                   | Yes (horizontal bar)                |
+| MangoHud overlay      | Via `--mangoapp`     | Via `--mangoapp` (Steam-controlled) |
 | Variable Rate Shading | Not available        | Enabled                             |
 | Gamescope scaling     | Not available        | Enabled                             |
 | Desktop mode switch   | Available            | Broken¹                             |
@@ -42,7 +41,7 @@ Enables gamescope's Steam integration (`-e` flag). Steam enters the SteamOS/Deck
 
 ## MangoHud Keyboard Shortcuts
 
-The overlay is visible by default in standard mode. Use these shortcuts:
+MangoHud runs via gamescope's `--mangoapp` integration in both modes. The overlay starts hidden — use shortcuts to toggle it.
 
 | Shortcut            | Function                         |
 | ------------------- | -------------------------------- |
@@ -50,7 +49,7 @@ The overlay is visible by default in standard mode. Use these shortcuts:
 | `Right Shift + F11` | Change position (corners/center) |
 | `Right Shift + F10` | Toggle preset verbosity          |
 
-In `GAMESCOPE_STEAM_MODE=on`, the overlay starts hidden and Steam controls visibility.
+In `GAMESCOPE_STEAM_MODE=off`, `MANGOHUD=1` is also exported as a fallback so MangoHud injects directly into games via the Vulkan layer.
 
 ## Performance Optimizations
 

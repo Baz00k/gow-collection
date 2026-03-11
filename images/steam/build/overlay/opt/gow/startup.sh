@@ -29,6 +29,7 @@ gpu_stats
 cpu_stats
 frametime
 position=top-right
+no_display
 MANGOHUD_EOF
 gow_log "MangoHud config: ${MANGOHUD_CONFIGFILE}"
 
@@ -63,6 +64,7 @@ export WINEDLLOVERRIDES=dxgi=n
 if [[ "${GAMESCOPE_STEAM_MODE}" == "on" ]]; then
     export STEAM_USE_MANGOAPP=1
     export STEAM_MANGOAPP_HORIZONTAL_SUPPORTED=1
+    export STEAM_MANGOAPP_PRESETS_SUPPORTED=1
     export STEAM_USE_DYNAMIC_VRS=1
     export STEAM_GAMESCOPE_FANCY_SCALING_SUPPORT=1
     export STEAM_DISABLE_MANGOAPP_ATOM_WORKAROUND=1
@@ -70,8 +72,8 @@ if [[ "${GAMESCOPE_STEAM_MODE}" == "on" ]]; then
     export RADV_FORCE_VRS_CONFIG_FILE=$(mktemp /tmp/radv_vrs.XXXXXXXX)
     mkdir -p "$(dirname "$RADV_FORCE_VRS_CONFIG_FILE")"
     echo "1x1" > "$RADV_FORCE_VRS_CONFIG_FILE"
-
-    echo "no_display" >> "$MANGOHUD_CONFIGFILE"
+else
+    export MANGOHUD=1
 fi
 
 # =============================================================================
@@ -122,7 +124,7 @@ if [[ "${GAMESCOPE_STEAM_MODE}" == "on" ]]; then
 fi
 
 # shellcheck disable=SC2086
-VK_LOADER_DEBUG=error /usr/bin/gamescope --backend wayland ${GAMESCOPE_EXTRA_ARGS} \
+VK_LOADER_DEBUG=error /usr/bin/gamescope --backend wayland --mangoapp ${GAMESCOPE_EXTRA_ARGS} \
     ${GAMESCOPE_MODE} \
     -W "${GAMESCOPE_WIDTH}" -H "${GAMESCOPE_HEIGHT}" -r "${GAMESCOPE_REFRESH}" \
     2>/tmp/gamescope.log &
@@ -187,18 +189,9 @@ fi
 
 /usr/bin/ibus-daemon -d -r --panel=disable --emoji-extension=disable
 
-if [[ "${GAMESCOPE_STEAM_MODE}" == "on" ]]; then
-    mangoapp &
-    MANGOAPP_PID=$!
-fi
-
 cleanup_on_exit() {
     local steam_exit_code=$?
     gow_log "Steam exited with code ${steam_exit_code}, shutting down..."
-
-    if [[ "${GAMESCOPE_STEAM_MODE}" == "on" ]] && kill -0 "${MANGOAPP_PID}" 2>/dev/null; then
-        kill "${MANGOAPP_PID}" 2>/dev/null || true
-    fi
 
     if kill -0 "${GAMESCOPE_PID}" 2>/dev/null; then
         gow_log "Terminating gamescope (PID ${GAMESCOPE_PID})..."
