@@ -70,8 +70,18 @@ Ensure `XDG_RUNTIME_DIR` is set. The entrypoint creates `/tmp/.X11-unix` automat
 
 ### MangoHud not visible
 
-- In standard mode: Press `Right Shift + F12`
-- In SteamOS mode: Steam controls visibility; use the shortcut to force-show
+- In standard mode: MangoHud starts hidden. Press `Right Shift + F12` to toggle it on.
+- In SteamOS mode: Steam controls MangoApp visibility. Use `Right Shift + F12` to force-show, or change the performance overlay level in Steam settings.
+
+### MangoHud Frozen Stats in SteamOS Mode
+
+In `GAMESCOPE_STEAM_MODE=on`, MangoApp may display frozen or inaccurate FPS values (e.g., showing 6 FPS while the game runs at 100+ FPS). Hardware stats (GPU/CPU temps) can also freeze periodically.
+
+This is a known gamescope limitation with nested Wayland compositors. MangoApp receives frametime data from gamescope via IPC message queue, and the `--backend wayland` path (required for Wolf) doesn't always pump frames to the IPC reliably. The same class of issue affects Hyprland users upstream ([gamescope#1431](https://github.com/ValveSoftware/gamescope/issues/1431)).
+
+**This does not affect game performance** — only the overlay display is wrong.
+
+**Workaround:** Use standard Big Picture mode (`GAMESCOPE_STEAM_MODE=off`) where MangoHud injects directly into games via the Vulkan layer and shows accurate stats.
 
 ### Container exits immediately
 

@@ -120,11 +120,11 @@ if [[ "${GAMESCOPE_STEAM_MODE}" == "on" ]]; then
     fi
 
     # -e enables Steam integration (SteamOS UI, MangoApp, stats pipe)
-    GAMESCOPE_EXTRA_ARGS="-e -R $socket -T $stats"
+    GAMESCOPE_EXTRA_ARGS="-e --mangoapp -R $socket -T $stats"
 fi
 
 # shellcheck disable=SC2086
-VK_LOADER_DEBUG=error /usr/bin/gamescope --backend wayland --mangoapp ${GAMESCOPE_EXTRA_ARGS} \
+VK_LOADER_DEBUG=error /usr/bin/gamescope --backend wayland ${GAMESCOPE_EXTRA_ARGS} \
     ${GAMESCOPE_MODE} \
     -W "${GAMESCOPE_WIDTH}" -H "${GAMESCOPE_HEIGHT}" -r "${GAMESCOPE_REFRESH}" \
     2>/tmp/gamescope.log &
