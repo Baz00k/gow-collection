@@ -12,7 +12,9 @@ log_info() { echo -e "${GREEN}[INFO]${NC} $*"; }
 
 shutdown_steam() {
     log_info "[steamos-dbus-watchdog] Shutting down Steam..."
-    /usr/bin/steam -shutdown
+    # Steam cannot run as root - use gosu to run as the runtime user
+    local runtime_user="${UNAME:-retro}"
+    gosu "${runtime_user}" /usr/bin/steam -shutdown
     exit 0
 }
 

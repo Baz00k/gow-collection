@@ -38,6 +38,10 @@ fi
 
 log_info "Configuring user '${UNAME}' with PUID=${PUID}, PGID=${PGID}"
 
+# Export runtime user for use by system services (e.g., dbus watchdog needs to know which user runs Steam)
+export UNAME
+export UHOME
+
 # =============================================================================
 # Root-only initialization
 # =============================================================================
@@ -49,7 +53,7 @@ if [ "$(id -u)" = "0" ]; then
     # Create user if PUID is not 0 (not running as root)
     if [ "${PUID}" != "0" ]; then
         log_info "Creating user '${UNAME}' with UID=${PUID}, GID=${PGID}"
-        
+
         # Create group if it doesn't exist
         if ! getent group "${UNAME}" > /dev/null 2>&1; then
             groupadd -g "${PGID}" "${UNAME}"
