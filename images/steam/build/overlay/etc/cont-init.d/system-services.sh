@@ -40,10 +40,6 @@ start_networkmanager() {
 }
 
 start_dbus_watchdog() {
-    if [[ "${GAMESCOPE_STEAM_MODE:-off}" != "on" ]]; then
-        gow_log "D-Bus watchdog skipped (GAMESCOPE_STEAM_MODE!=on)"
-        return 0
-    fi
     if [ ! -x /usr/local/bin/steamos-dbus-watchdog.sh ]; then
         gow_log "WARNING: steamos-dbus-watchdog.sh not found, skipping"
         return 1
