@@ -22,6 +22,7 @@ image = "ghcr.io/Baz00k/gow-collection/steam:edge"
 - **GameMode** — automatic CPU governor and I/O tuning
 - **Two Steam modes** — Standard Big Picture (`GAMESCOPE_STEAM_MODE=off`, default) or SteamOS GamepadUI (`GAMESCOPE_STEAM_MODE=on`)
 - **Decky Loader** — SteamOS plugin framework
+- **Automatic Restart** — Steam automatically restarts after updates (configurable via `GOW_RESTART_*` environment variables)
 
 ## Documentation
 

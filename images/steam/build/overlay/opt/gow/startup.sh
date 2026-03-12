@@ -200,5 +200,9 @@ cleanup_on_exit() {
 }
 trap cleanup_on_exit EXIT
 
+# Steam needs restart-on-exit0 to handle updates properly
+# (Steam exits 0 after an update to trigger a restart)
+export GOW_RESTART_ON_EXIT0=true
+
 # shellcheck disable=SC2086
-dbus-run-session -- /usr/bin/steam ${STEAM_STARTUP_FLAGS}
+/opt/gow/gow-launcher.sh dbus-run-session -- /usr/bin/steam ${STEAM_STARTUP_FLAGS}

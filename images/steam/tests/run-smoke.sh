@@ -103,6 +103,16 @@ else
     echo "4. STEAM-COMPAT: FAILED" >> "${EVIDENCE_FILE}"
 fi
 
+TESTS_TOTAL=$((TESTS_TOTAL + 1))
+log_test_start "Launcher Restart Behavior"
+if "${SCRIPT_DIR}/smoke-restart.sh"; then
+    log_test_pass "Launcher Restart Behavior"
+    echo "5. RESTART: PASSED" >> "${EVIDENCE_FILE}"
+else
+    log_test_fail "Launcher Restart Behavior"
+    echo "5. RESTART: FAILED" >> "${EVIDENCE_FILE}"
+fi
+
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
 
