@@ -5,22 +5,7 @@ set -euo pipefail
 # Applies sysctl tunings for gaming workloads where container capabilities permit.
 # Gracefully degrades if permissions are insufficient.
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-gow_log() {
-    echo -e "${GREEN}[LAUNCH-COMP]${NC} $*"
-}
-
-gow_warn() {
-    echo -e "${YELLOW}[LAUNCH-COMP WARN]${NC} $*"
-}
-
-gow_error() {
-    echo -e "${RED}[LAUNCH-COMP ERROR]${NC} $*"
-}
+source "$(dirname "${BASH_SOURCE[0]}")/logging.sh"
 
 APPLIED_COUNT=0
 SKIPPED_COUNT=0
@@ -31,15 +16,15 @@ try_sysctl() {
     local value="$2"
     
     if sysctl -w "${key}=${value}" 2>/dev/null; then
-        gow_log "Applied: ${key}=${value}"
+        log_info "Applied: ${key}=${value}"
         ((APPLIED_COUNT++))
     else
-        gow_warn "SKIP: ${key} (insufficient permissions or not available)"
+        log_warn "SKIP: ${key} (insufficient permissions or not available)"
         ((SKIPPED_COUNT++))
     fi
 }
 
-gow_log "Starting performance tuning..."
+log_info "Starting performance tuning..."
 
 # Gaming performance tunings — see images/steam/docs/performance-analysis.md
 # vm.max_map_count=1048576: Prevents crashes in memory-intensive games (CS2, DayZ, The Finals)
@@ -54,7 +39,7 @@ try_sysctl "net.core.rmem_max" "2097152"
 # net.core.wmem_max=2097152: Increased network send buffer for online gaming
 try_sysctl "net.core.wmem_max" "2097152"
 
-gow_log "Performance tuning complete: ${APPLIED_COUNT} applied, ${SKIPPED_COUNT} skipped"
+log_info "Performance tuning complete: ${APPLIED_COUNT} applied, ${SKIPPED_COUNT} skipped"
 
 # Always exit 0 — graceful degradation; missing permissions must not crash container startup
 exit 0

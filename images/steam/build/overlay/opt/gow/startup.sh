@@ -1,11 +1,8 @@
 #!/bin/bash
 set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/logging.sh"
 
-# Inline GoW utility functions (no base-app dependency)
-gow_log() { echo "$(date +"[%Y-%m-%d %H:%M:%S]") $*"; }
-gow_error() { echo -e "\033[0;31m[ERROR]\033[0m $*"; }
-
-gow_log "Steam startup.sh"
+log_info "Steam startup.sh"
 
 # Ensure HOME is set (runuser may not set it on all distros)
 export HOME="${HOME:-$(getent passwd "$(whoami)" | cut -d: -f6)}"
@@ -31,7 +28,7 @@ frametime
 position=top-right
 no_display
 MANGOHUD_EOF
-gow_log "MangoHud config: ${MANGOHUD_CONFIGFILE}"
+log_info "MangoHud config: ${MANGOHUD_CONFIGFILE}"
 
 # =============================================================================
 # Gamescope Steam integration mode
@@ -43,7 +40,7 @@ gow_log "MangoHud config: ${MANGOHUD_CONFIGFILE}"
 #   - "off" → Standard Big Picture: normal Steam UI, "Exit Big Picture" button,
 #              ability to switch to desktop mode (default)
 GAMESCOPE_STEAM_MODE="${GAMESCOPE_STEAM_MODE:-off}"
-gow_log "Gamescope Steam integration mode: ${GAMESCOPE_STEAM_MODE}"
+log_info "Gamescope Steam integration mode: ${GAMESCOPE_STEAM_MODE}"
 
 # Some game fixes taken from the Steam Deck
 export SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS=0
@@ -80,7 +77,7 @@ fi
 # Gamescope launch
 # =============================================================================
 if [[ -z "${XDG_RUNTIME_DIR+x}" ]]; then
-    gow_error "XDG_RUNTIME_DIR is not set — cannot start gamescope"
+    log_error "XDG_RUNTIME_DIR is not set — cannot start gamescope"
     exit 1
 fi
 
@@ -89,12 +86,12 @@ GAMESCOPE_HEIGHT=${GAMESCOPE_HEIGHT:-1080}
 GAMESCOPE_REFRESH=${GAMESCOPE_REFRESH:-60}
 GAMESCOPE_MODE=${GAMESCOPE_MODE:-"-b"}
 
-gow_log "Display environment: WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
+log_info "Display environment: WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
 if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
-    gow_log "Wayland socket: $(ls -la "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}" 2>&1 || echo 'not found')"
+    log_info "Wayland socket: $(ls -la "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}" 2>&1 || echo 'not found')"
 fi
-gow_log "NVIDIA env: LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-unset} VK_DRIVER_FILES=${VK_DRIVER_FILES:-unset}"
-gow_log "GPU devices: $(ls /dev/nvidia* /dev/dri/* 2>/dev/null | tr '\n' ' ' || echo 'NONE')"
+log_info "NVIDIA env: LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-unset} VK_DRIVER_FILES=${VK_DRIVER_FILES:-unset}"
+log_info "GPU devices: $(ls /dev/nvidia* /dev/dri/* 2>/dev/null | tr '\n' ' ' || echo 'NONE')"
 
 GAMESCOPE_EXTRA_ARGS=""
 
@@ -132,20 +129,20 @@ VK_LOADER_DEBUG=error /usr/bin/gamescope --backend wayland ${GAMESCOPE_EXTRA_ARG
 GAMESCOPE_PID=$!
 sleep 0.3
 if ! kill -0 "${GAMESCOPE_PID}" 2>/dev/null; then
-    gow_error "gamescope crashed immediately (PID ${GAMESCOPE_PID})"
-    gow_error "--- gamescope.log ---"
+    log_error "gamescope crashed immediately (PID ${GAMESCOPE_PID})"
+    log_error "--- gamescope.log ---"
     cat /tmp/gamescope.log >&2 || true
-    gow_error "--- end gamescope.log ---"
-    gow_error "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset}"
-    gow_error "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
-    gow_error "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-unset}"
-    gow_error "VK_DRIVER_FILES=${VK_DRIVER_FILES:-unset}"
-    gow_error "Available in XDG_RUNTIME_DIR: $(ls -la "${XDG_RUNTIME_DIR}/" 2>&1 || echo 'dir not found')"
-    gow_error "Vulkan ICDs: $(ls /usr/share/vulkan/icd.d/ 2>&1 || echo 'none found')"
-    gow_error "NVIDIA ICD content: $(cat /usr/share/vulkan/icd.d/nvidia_icd.json 2>&1 || echo 'not found')"
-    gow_error "GPU devices: $(ls -la /dev/nvidia* /dev/dri/* 2>&1 || echo 'NO GPU DEVICES FOUND')"
-    gow_error "NVIDIA libs in ldconfig: $(ldconfig -p 2>/dev/null | grep -i nvidia | head -5 || echo 'none')"
-    gow_error "NVIDIA /usr/nvidia/lib: $(ls /usr/nvidia/lib/libGLX_nvidia* /usr/nvidia/lib/libnvidia-glcore* 2>&1 | head -5 || echo 'not found')"
+    log_error "--- end gamescope.log ---"
+    log_error "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset}"
+    log_error "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
+    log_error "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-unset}"
+    log_error "VK_DRIVER_FILES=${VK_DRIVER_FILES:-unset}"
+    log_error "Available in XDG_RUNTIME_DIR: $(ls -la "${XDG_RUNTIME_DIR}/" 2>&1 || echo 'dir not found')"
+    log_error "Vulkan ICDs: $(ls /usr/share/vulkan/icd.d/ 2>&1 || echo 'none found')"
+    log_error "NVIDIA ICD content: $(cat /usr/share/vulkan/icd.d/nvidia_icd.json 2>&1 || echo 'not found')"
+    log_error "GPU devices: $(ls -la /dev/nvidia* /dev/dri/* 2>&1 || echo 'NO GPU DEVICES FOUND')"
+    log_error "NVIDIA libs in ldconfig: $(ldconfig -p 2>/dev/null | grep -i nvidia | head -5 || echo 'none')"
+    log_error "NVIDIA /usr/nvidia/lib: $(ls /usr/nvidia/lib/libGLX_nvidia* /usr/nvidia/lib/libnvidia-glcore* 2>&1 | head -5 || echo 'not found')"
     exit 1
 fi
 
@@ -155,12 +152,12 @@ if [[ "${GAMESCOPE_STEAM_MODE}" == "on" ]]; then
         export DISPLAY="$response_x_display"
         export GAMESCOPE_WAYLAND_DISPLAY="$response_wl_display"
         unset WAYLAND_DISPLAY
-        gow_log "Gamescope started (Steam mode): DISPLAY=$DISPLAY"
+        log_info "Gamescope started (Steam mode): DISPLAY=$DISPLAY"
     else
-        gow_error "gamescope failed to respond within 3 seconds"
-        gow_error "--- gamescope.log ---"
+        log_error "gamescope failed to respond within 3 seconds"
+        log_error "--- gamescope.log ---"
         cat /tmp/gamescope.log >&2 || true
-        gow_error "--- end gamescope.log ---"
+        log_error "--- end gamescope.log ---"
         exit 1
     fi
 else
@@ -176,25 +173,25 @@ else
     while [ ! -e "${X11_SOCKET}" ]; do
         RETRIES=$((RETRIES + 1))
         if [ "${RETRIES}" -ge "${MAX_RETRIES}" ]; then
-            gow_error "gamescope X11 socket ${X11_SOCKET} not ready after ${MAX_RETRIES} attempts"
-            gow_error "--- gamescope.log ---"
+            log_error "gamescope X11 socket ${X11_SOCKET} not ready after ${MAX_RETRIES} attempts"
+            log_error "--- gamescope.log ---"
             cat /tmp/gamescope.log >&2 || true
-            gow_error "--- end gamescope.log ---"
+            log_error "--- end gamescope.log ---"
             exit 1
         fi
         sleep 0.1
     done
-    gow_log "Gamescope started (desktop mode): DISPLAY=$DISPLAY"
+    log_info "Gamescope started (desktop mode): DISPLAY=$DISPLAY"
 fi
 
 /usr/bin/ibus-daemon -d -r --panel=disable --emoji-extension=disable
 
 cleanup_on_exit() {
     local steam_exit_code=$?
-    gow_log "Steam exited with code ${steam_exit_code}, shutting down..."
+    log_info "Steam exited with code ${steam_exit_code}, shutting down..."
 
     if kill -0 "${GAMESCOPE_PID}" 2>/dev/null; then
-        gow_log "Terminating gamescope (PID ${GAMESCOPE_PID})..."
+        log_info "Terminating gamescope (PID ${GAMESCOPE_PID})..."
         kill "${GAMESCOPE_PID}" 2>/dev/null || true
         wait "${GAMESCOPE_PID}" 2>/dev/null || true
     fi
