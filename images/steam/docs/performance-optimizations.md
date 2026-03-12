@@ -37,11 +37,17 @@ The environment variable is automatically set when SteamOS mode is enabled. Game
 
 Several modern games (The Finals, Hogwarts Legacy, DayZ, CS2) allocate large numbers of memory mappings. The default Linux limit is too low for these games, causing crashes at startup or during gameplay.
 
-The container attempts to set `vm.max_map_count=1048576` at runtime via the startup script. This only succeeds if the container has `SYS_ADMIN` capability or the setting is passed via Docker's `--sysctl` flag. Wolf users can add this to their `apps.toml`:
+The container attempts to set `vm.max_map_count=1048576` at runtime via the startup script. This only succeeds if the container has `SYS_ADMIN` capability. If your Wolf config includes `SYS_ADMIN` in `CapAdd` (as shown in the configuration examples), the startup script handles this automatically — no additional configuration is needed.
 
-```toml
-[apps.steam.runner]
-sysctls = ["vm.max_map_count=1048576"]
+If you prefer not to grant `SYS_ADMIN`, set the value on the host instead:
+
+```bash
+# Apply immediately
+sudo sysctl -w vm.max_map_count=1048576
+
+# Persist across reboots
+echo "vm.max_map_count=1048576" | sudo tee /etc/sysctl.d/99-gaming.conf
+sudo sysctl --system
 ```
 
 Without this, affected games will crash. With it, they work. There's no middle ground.

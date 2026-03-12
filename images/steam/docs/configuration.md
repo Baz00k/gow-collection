@@ -17,11 +17,11 @@
 Minimal `apps.toml` configuration:
 
 ```toml
-[apps.steam]
+[[profiles.apps]]
 title = "Steam"
 start_virtual_compositor = true
 
-[apps.steam.runner]
+[profiles.apps.runner]
 type = "docker"
 name = "steam"
 image = "ghcr.io/Baz00k/gow-collection/steam:edge"
@@ -30,11 +30,11 @@ image = "ghcr.io/Baz00k/gow-collection/steam:edge"
 ### With Custom Settings
 
 ```toml
-[apps.steam]
+[[profiles.apps]]
 title = "Steam"
 start_virtual_compositor = true
 
-[apps.steam.runner]
+[profiles.apps.runner]
 type = "docker"
 name = "steam"
 image = "ghcr.io/Baz00k/gow-collection/steam:edge"
@@ -48,17 +48,17 @@ env = [
 
 ### Performance-Critical Games
 
-Some games (The Finals, Hogwarts Legacy, DayZ, CS2) require higher memory map limits:
+Some games (The Finals, Hogwarts Legacy, DayZ, CS2) require higher memory map limits. If your Wolf config includes `SYS_ADMIN` in `CapAdd`, the startup script sets `vm.max_map_count=1048576` automatically — no extra configuration needed.
 
-```toml
-[apps.steam.runner]
-sysctls = ["vm.max_map_count=1048576"]
-```
-
-Or set on the host:
+If you prefer not to grant `SYS_ADMIN`, set it on the host:
 
 ```bash
+# Apply immediately
 sudo sysctl -w vm.max_map_count=1048576
+
+# Persist across reboots
+echo "vm.max_map_count=1048576" | sudo tee /etc/sysctl.d/99-gaming.conf
+sudo sysctl --system
 ```
 
 ## Tags

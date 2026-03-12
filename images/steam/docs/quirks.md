@@ -48,11 +48,13 @@ If switching from `ghcr.io/games-on-whales/gow` Steam image:
 
 ### Games crash on startup
 
-Some games require higher memory map limits. Add to your Wolf config:
+Some games require higher memory map limits. If your Wolf config includes `SYS_ADMIN` in `CapAdd`, the startup script sets `vm.max_map_count=1048576` automatically.
 
-```toml
-[apps.steam.runner]
-sysctls = ["vm.max_map_count=1048576"]
+If you don't grant `SYS_ADMIN`, set it on the host:
+
+```bash
+sudo sysctl -w vm.max_map_count=1048576
+# Persist: echo "vm.max_map_count=1048576" | sudo tee /etc/sysctl.d/99-gaming.conf
 ```
 
 Affected games: The Finals, Hogwarts Legacy, DayZ, CS2.
