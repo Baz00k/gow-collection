@@ -2,15 +2,16 @@
 
 ## Environment Variables
 
-| Variable               | Default       | Description                                                  |
-| ---------------------- | ------------- | ------------------------------------------------------------ |
-| `PUID` / `PGID`        | 1000          | User/group IDs for the runtime `retro` user                  |
-| `GAMESCOPE_WIDTH`      | 1920          | Display width in pixels                                      |
-| `GAMESCOPE_HEIGHT`     | 1080          | Display height in pixels                                     |
-| `GAMESCOPE_REFRESH`    | 60            | Refresh rate in Hz                                           |
-| `GAMESCOPE_MODE`       | `-b`          | Gamescope window mode (`-b` = borderless, `-f` = fullscreen) |
-| `STEAM_STARTUP_FLAGS`  | `-bigpicture` | Flags passed to Steam on startup                             |
-| `GAMESCOPE_STEAM_MODE` | `off`         | `on` = SteamOS GamepadUI, `off` = standard Big Picture       |
+| Variable               | Default       | Description                                                                        |
+| ---------------------- | ------------- | ---------------------------------------------------------------------------------- |
+| `PUID` / `PGID`        | 1000          | User/group IDs for the runtime `retro` user                                        |
+| `GAMESCOPE_WIDTH`      | 1920          | Display width in pixels                                                            |
+| `GAMESCOPE_HEIGHT`     | 1080          | Display height in pixels                                                           |
+| `GAMESCOPE_REFRESH`    | 60            | Refresh rate in Hz                                                                 |
+| `GAMESCOPE_MODE`       | `-b`          | Gamescope window mode (`-b` = borderless, `-f` = fullscreen)                       |
+| `STEAM_STARTUP_FLAGS`  | `-bigpicture` | Flags passed to Steam on startup                                                   |
+| `GAMESCOPE_STEAM_MODE` | `off`         | `on` = SteamOS GamepadUI, `off` = standard Big Picture                             |
+| `GOW_DEBUG`            | `0`           | `1` enables redacted diagnostics; `2` adds verbose probes; `3` enables shell trace |
 
 ## Wolf Setup
 
@@ -45,6 +46,23 @@ env = [
     "GAMESCOPE_REFRESH=144"
 ]
 ```
+
+### Debugging Startup Issues
+
+Keep `GOW_DEBUG` disabled for normal use. When troubleshooting a failing
+profile, enable it temporarily:
+
+```toml
+env = [
+    "GOW_DEBUG=1",
+]
+```
+
+Debug mode prints redacted diagnostics for startup and exit handling. It does
+not print raw `STEAM_STARTUP_FLAGS` values or full process command lines.
+Use `GOW_DEBUG=2` for more verbose filesystem and driver probes. `GOW_DEBUG=3`
+enables shell tracing and should only be used in trusted environments because
+shell traces can expose environment values.
 
 ### Performance-Critical Games
 

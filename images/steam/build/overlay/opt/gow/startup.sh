@@ -87,11 +87,78 @@ GAMESCOPE_REFRESH=${GAMESCOPE_REFRESH:-60}
 GAMESCOPE_MODE=${GAMESCOPE_MODE:-"-b"}
 
 log_info "Display environment: WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
-if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
-    log_info "Wayland socket: $(ls -la "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}" 2>&1 || echo 'not found')"
+if [ "${GOW_DEBUG_LEVEL}" -ge 1 ]; then
+    log_debug "Debug mode enabled"
+    if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+        log_debug "Wayland socket: $(ls -la "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}" 2>&1 || echo 'not found')"
+    fi
+    log_debug "GPU devices: $(ls /dev/nvidia* /dev/dri/* 2>/dev/null | tr '\n' ' ' || echo 'NONE')"
 fi
-log_info "NVIDIA env: LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-unset} VK_DRIVER_FILES=${VK_DRIVER_FILES:-unset}"
-log_info "GPU devices: $(ls /dev/nvidia* /dev/dri/* 2>/dev/null | tr '\n' ' ' || echo 'NONE')"
+if [ "${GOW_DEBUG_LEVEL}" -ge 2 ]; then
+    log_verbose "NVIDIA env: LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-unset} VK_DRIVER_FILES=${VK_DRIVER_FILES:-unset}"
+fi
+
+log_steam_state() {
+    local steam_link="${HOME}/.steam/steam"
+    local steam_data="${HOME}/.local/share/Steam"
+
+    if [ "${GOW_DEBUG_LEVEL}" -lt 1 ]; then
+        return 0
+    fi
+
+    log_debug "Steam home: HOME=${HOME}"
+    log_debug "Steam data path: ${steam_data}"
+
+    if [ -L "${steam_link}" ]; then
+        log_debug "Steam symlink: ${steam_link} -> $(readlink "${steam_link}")"
+    elif [ -d "${steam_link}" ]; then
+        log_debug "Steam path ${steam_link} is a directory, not a symlink; this usually means legacy/upstream Steam state"
+    else
+        log_debug "Steam path ${steam_link} does not exist yet"
+    fi
+
+    if [ -d "${steam_data}" ]; then
+        log_debug "Steam data ownership: $(stat -c '%U:%G %a' "${steam_data}" 2>/dev/null || echo 'unknown')"
+    else
+        log_debug "Steam data directory does not exist yet"
+    fi
+}
+
+log_steam_exit_diagnostics() {
+    local steam_exit_code="$1"
+    log_warn "Steam process returned with code ${steam_exit_code}"
+    if [ -n "${STEAM_STARTUP_FLAGS}" ]; then
+        log_debug "Steam startup flags are set; values omitted from diagnostics"
+    else
+        log_debug "Steam startup flags are empty"
+    fi
+    log_steam_state
+
+    local steam_processes
+    steam_processes=$(pgrep -l -u "$(id -u)" -f 'steam|steamwebhelper' 2>/dev/null || true)
+    if [ -n "${steam_processes}" ]; then
+        log_debug "Steam-related processes are still running after launcher exit (PID and process name only):"
+        printf '%s\n' "${steam_processes}"
+    else
+        log_debug "No Steam-related processes remain after launcher exit"
+    fi
+
+    local lock_matches
+    if [ "${GOW_DEBUG_LEVEL}" -ge 2 ]; then
+        lock_matches=$(find "${HOME}/.steam" "${HOME}/.local/share/Steam" -maxdepth 3 \
+            \( -iname '*lock*' -o -iname 'steam.pid' -o -iname '.crash' \) \
+            -print 2>/dev/null || true)
+        if [ -n "${lock_matches}" ]; then
+            log_verbose "Potential Steam lock/state files:"
+            printf '%s\n' "${lock_matches}"
+        fi
+
+        if [ -d "${HOME}/.local/share/Steam/logs" ]; then
+            log_verbose "Recent Steam log files:"
+            find "${HOME}/.local/share/Steam/logs" -maxdepth 1 -type f -printf '%TY-%Tm-%Td %TH:%TM %p\n' 2>/dev/null | sort | tail -n 10 || true
+        fi
+    fi
+}
 
 GAMESCOPE_EXTRA_ARGS=""
 
@@ -133,16 +200,18 @@ if ! kill -0 "${GAMESCOPE_PID}" 2>/dev/null; then
     log_error "--- gamescope.log ---"
     cat /tmp/gamescope.log >&2 || true
     log_error "--- end gamescope.log ---"
-    log_error "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset}"
-    log_error "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
-    log_error "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-unset}"
-    log_error "VK_DRIVER_FILES=${VK_DRIVER_FILES:-unset}"
-    log_error "Available in XDG_RUNTIME_DIR: $(ls -la "${XDG_RUNTIME_DIR}/" 2>&1 || echo 'dir not found')"
-    log_error "Vulkan ICDs: $(ls /usr/share/vulkan/icd.d/ 2>&1 || echo 'none found')"
-    log_error "NVIDIA ICD content: $(cat /usr/share/vulkan/icd.d/nvidia_icd.json 2>&1 || echo 'not found')"
-    log_error "GPU devices: $(ls -la /dev/nvidia* /dev/dri/* 2>&1 || echo 'NO GPU DEVICES FOUND')"
-    log_error "NVIDIA libs in ldconfig: $(ldconfig -p 2>/dev/null | grep -i nvidia | head -5 || echo 'none')"
-    log_error "NVIDIA /usr/nvidia/lib: $(ls /usr/nvidia/lib/libGLX_nvidia* /usr/nvidia/lib/libnvidia-glcore* 2>&1 | head -5 || echo 'not found')"
+    if [ "${GOW_DEBUG_LEVEL}" -ge 2 ]; then
+        log_debug "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset}"
+        log_debug "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
+        log_debug "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-unset}"
+        log_debug "VK_DRIVER_FILES=${VK_DRIVER_FILES:-unset}"
+        log_debug "Available in XDG_RUNTIME_DIR: $(ls -la "${XDG_RUNTIME_DIR}/" 2>&1 || echo 'dir not found')"
+        log_debug "Vulkan ICDs: $(ls /usr/share/vulkan/icd.d/ 2>&1 || echo 'none found')"
+        log_debug "NVIDIA ICD content: $(cat /usr/share/vulkan/icd.d/nvidia_icd.json 2>&1 || echo 'not found')"
+        log_debug "GPU devices: $(ls -la /dev/nvidia* /dev/dri/* 2>&1 || echo 'NO GPU DEVICES FOUND')"
+        log_debug "NVIDIA libs in ldconfig: $(ldconfig -p 2>/dev/null | grep -i nvidia | head -5 || echo 'none')"
+        log_debug "NVIDIA /usr/nvidia/lib: $(ls /usr/nvidia/lib/libGLX_nvidia* /usr/nvidia/lib/libnvidia-glcore* 2>&1 | head -5 || echo 'not found')"
+    fi
     exit 1
 fi
 
@@ -188,6 +257,10 @@ fi
 
 cleanup_on_exit() {
     local steam_exit_code=$?
+    if [ "${GOW_DEBUG_LEVEL}" -ge 1 ]; then
+        log_steam_exit_diagnostics "${steam_exit_code}" || true
+    fi
+
     log_info "Steam exited with code ${steam_exit_code}, shutting down..."
 
     if kill -0 "${GAMESCOPE_PID}" 2>/dev/null; then

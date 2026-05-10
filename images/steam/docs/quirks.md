@@ -89,6 +89,8 @@ This is a known gamescope limitation with nested Wayland compositors. MangoApp r
 
 Check Steam isn't already running with the same data directory. Steam uses file locks that prevent multiple instances.
 
+For additional startup and shutdown diagnostics, re-run with `GOW_DEBUG=1`.
+
 ## Rollback
 
 Pull a specific digest to rollback:

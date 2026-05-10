@@ -15,7 +15,7 @@ start_dbus() {
         gow_log "WARNING: Failed to start D-Bus daemon"
         return 1
     fi
-    gow_log "*** DBus started ***"
+    log_debug "DBus started"
     return 0
 }
 
@@ -25,7 +25,7 @@ start_bluetooth() {
         return 1
     fi
     bluetoothd --nodetach &
-    gow_log "*** Bluez started ***"
+    log_debug "Bluez started"
     return 0
 }
 
@@ -35,7 +35,7 @@ start_networkmanager() {
         return 1
     fi
     NetworkManager &
-    gow_log "*** NetworkManager started ***"
+    log_debug "NetworkManager started"
     return 0
 }
 
@@ -45,7 +45,7 @@ start_dbus_watchdog() {
         return 1
     fi
     /usr/local/bin/steamos-dbus-watchdog.sh &
-    gow_log "*** D-Bus Watchdog started ***"
+    log_debug "D-Bus Watchdog started"
     return 0
 }
 
@@ -82,7 +82,7 @@ start_decky_loader() {
         fi
     fi
 
-    gow_log "*** Starting Decky Loader ***"
+    log_debug "Starting Decky Loader"
     "${UHOME}/homebrew/services/PluginLoader" &
 
     return 0
