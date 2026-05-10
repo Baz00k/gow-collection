@@ -60,7 +60,7 @@ The practical impact is unclear. These settings are inherited from Bazzite and o
 
 ## Mesa Versions
 
-Fedora 43 ships a newer Mesa than Ubuntu LTS. This is relevant because Mesa provides the userspace graphics drivers (RADV for AMD, Intel Vulkan drivers). The container includes its own Mesa libraries, which are used for AMD and Intel GPUs.
+Fedora 44 ships a newer Mesa than Ubuntu LTS. This is relevant because Mesa provides the userspace graphics drivers (RADV for AMD, Intel Vulkan drivers). The container includes its own Mesa libraries, which are used for AMD and Intel GPUs.
 
 For AMD/Intel users, newer Mesa means newer Vulkan extensions and driver improvements. For NVIDIA users, this is irrelevant - the container uses the host's proprietary driver, not Mesa.
 

@@ -60,7 +60,7 @@ Enables gamescope's Steam integration (`-e` flag). Steam enters the SteamOS/Deck
 | **GameMode**              | Switches CPU to performance governor, boosts I/O priority when games run          |
 | **VRS (Steam mode only)** | AMD RDNA2/3 GPUs use Variable Rate Shading for up to 20% FPS gains                |
 | **vm.max_map_count**      | Prevents crashes in memory-intensive games (The Finals, Hogwarts Legacy, CS2)     |
-| **Newer Mesa/drivers**    | Fedora 43 ships newer Mesa than Ubuntu LTS—better Vulkan performance on AMD/Intel |
+| **Newer Mesa/drivers**    | Fedora 44 ships newer Mesa than Ubuntu LTS—better Vulkan performance on AMD/Intel |
 
 ## Container Lifecycle
 

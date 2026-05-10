@@ -10,7 +10,7 @@ GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
 BASE_IMAGE_REGISTRY="${BASE_IMAGE_REGISTRY:-quay.io}"
 BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-fedora/fedora}"
-BASE_IMAGE_TAG="${BASE_IMAGE_TAG:-43}"
+BASE_IMAGE_TAG="${BASE_IMAGE_TAG:-44}"
 
 inplace() {
     sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"
@@ -20,18 +20,27 @@ abort() { echo "ERROR: $1" >&2; exit 1; }
 
 fetch_latest_base_digest() {
     local ref="${BASE_IMAGE_REGISTRY}/${BASE_IMAGE_NAME}:${BASE_IMAGE_TAG}"
+    local digest
 
     if command -v crane &>/dev/null; then
-        local digest
         digest=$(crane digest "$ref" 2>/dev/null | sed 's/sha256://' || true)
         [[ -n "$digest" ]] && { echo "$digest"; return 0; }
     fi
 
     if command -v docker &>/dev/null; then
         docker pull "$ref" >/dev/null 2>&1 || true
-        local digest
         digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$ref" 2>/dev/null | \
             sed 's/.*@sha256://' || true)
+        [[ -n "$digest" ]] && { echo "$digest"; return 0; }
+    fi
+
+    if command -v curl &>/dev/null; then
+        digest=$(curl -fsSI \
+            -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json' \
+            "https://${BASE_IMAGE_REGISTRY}/v2/${BASE_IMAGE_NAME}/manifests/${BASE_IMAGE_TAG}" | \
+            tr -d '\r' | \
+            tr '[:upper:]' '[:lower:]' | \
+            awk '/^docker-content-digest:/ { sub(/^docker-content-digest:[[:space:]]*sha256:/, ""); print; exit }' || true)
         [[ -n "$digest" ]] && { echo "$digest"; return 0; }
     fi
 

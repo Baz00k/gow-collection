@@ -42,7 +42,9 @@ RUN git clone --depth=1 https://github.com/containers/bubblewrap.git -b ${BUBBLE
 FROM ${BASE_IMAGE}
 
 ARG RPMFUSION_FREE_URL
+ARG RPMFUSION_FREE_SHA256
 ARG RPMFUSION_NONFREE_URL
+ARG RPMFUSION_NONFREE_SHA256
 ARG DECKY_LOADER_VERSION
 ARG DECKY_LOADER_URL
 ARG DECKY_LOADER_SHA256
@@ -52,9 +54,14 @@ ARG DECKY_LOADER_SHA256
 # -----------------------------------------------------------------------------
 # Steam is in RPM Fusion nonfree repository. Must enable both free and nonfree.
 # hadolint ignore=DL3041
-RUN dnf install -y \
-    ${RPMFUSION_FREE_URL} \
-    ${RPMFUSION_NONFREE_URL}
+RUN curl -fsSL -o /tmp/rpmfusion-free-release.rpm "${RPMFUSION_FREE_URL}" && \
+    curl -fsSL -o /tmp/rpmfusion-nonfree-release.rpm "${RPMFUSION_NONFREE_URL}" && \
+    echo "${RPMFUSION_FREE_SHA256}  /tmp/rpmfusion-free-release.rpm" | sha256sum -c - && \
+    echo "${RPMFUSION_NONFREE_SHA256}  /tmp/rpmfusion-nonfree-release.rpm" | sha256sum -c - && \
+    dnf install -y \
+        /tmp/rpmfusion-free-release.rpm \
+        /tmp/rpmfusion-nonfree-release.rpm && \
+    rm -f /tmp/rpmfusion-free-release.rpm /tmp/rpmfusion-nonfree-release.rpm
 
 # -----------------------------------------------------------------------------
 # Package Installation

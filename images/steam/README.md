@@ -1,6 +1,6 @@
 # Steam on GoW
 
-Fedora 43-based Steam container optimized for [Wolf](https://github.com/games-on-whales/wolf) streaming. Delivers console-like gaming via gamescope with performance tuning and SteamOS compatibility.
+Fedora 44-based Steam container optimized for [Wolf](https://github.com/games-on-whales/wolf) streaming. Delivers console-like gaming via gamescope with performance tuning and SteamOS compatibility.
 
 ## Quick Start
 
