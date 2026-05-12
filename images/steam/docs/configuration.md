@@ -2,33 +2,21 @@
 
 ## Environment Variables
 
-| Variable               | Default       | Description                                                                        |
-| ---------------------- | ------------- | ---------------------------------------------------------------------------------- |
-| `PUID` / `PGID`        | 1000          | User/group IDs for the runtime `retro` user                                        |
-| `GAMESCOPE_WIDTH`      | 1920          | Display width in pixels                                                            |
-| `GAMESCOPE_HEIGHT`     | 1080          | Display height in pixels                                                           |
-| `GAMESCOPE_REFRESH`    | 60            | Refresh rate in Hz                                                                 |
-| `GAMESCOPE_MODE`       | `-b`          | Gamescope window mode (`-b` = borderless, `-f` = fullscreen)                       |
-| `STEAM_STARTUP_FLAGS`  | `-bigpicture` | Flags passed to Steam on startup                                                   |
-| `GAMESCOPE_STEAM_MODE` | `off`         | `on` = SteamOS GamepadUI, `off` = standard Big Picture                             |
-| `GOW_DEBUG`            | `0`           | `1` enables redacted diagnostics; `2` adds verbose probes; `3` enables shell trace |
+| Variable                             | Default        | Description                                                                        |
+| ------------------------------------ | -------------- | ---------------------------------------------------------------------------------- |
+| `PUID` / `PGID`                      | 1000           | User/group IDs for the runtime `retro` user                                        |
+| `GAMESCOPE_WIDTH`                    | 1920           | Display width in pixels                                                            |
+| `GAMESCOPE_HEIGHT`                   | 1080           | Display height in pixels                                                           |
+| `GAMESCOPE_GAME_WIDTH`               | same as width  | Nested game width advertised to launched games                                     |
+| `GAMESCOPE_GAME_HEIGHT`              | same as height | Nested game height advertised to launched games                                    |
+| `GAMESCOPE_REFRESH`                  | 60             | Refresh rate in Hz                                                                 |
+| `GAMESCOPE_MODE`                     | `-b`           | Gamescope window mode (`-b` = borderless, `-f` = fullscreen)                       |
+| `GAMESCOPE_FORCE_WINDOWS_FULLSCREEN` | `off`          | `on` adds gamescope's `--force-windows-fullscreen` workaround                      |
+| `STEAM_STARTUP_FLAGS`                | `-bigpicture`  | Flags passed to Steam on startup                                                   |
+| `GAMESCOPE_STEAM_MODE`               | `off`          | `on` = SteamOS GamepadUI, `off` = standard Big Picture                             |
+| `GOW_DEBUG`                          | `0`            | `1` enables redacted diagnostics; `2` adds verbose probes; `3` enables shell trace |
 
 ## Wolf Setup
-
-Minimal `apps.toml` configuration:
-
-```toml
-[[profiles.apps]]
-title = "Steam"
-start_virtual_compositor = true
-
-[profiles.apps.runner]
-type = "docker"
-name = "steam"
-image = "ghcr.io/Baz00k/gow-collection/steam:edge"
-```
-
-### With Custom Settings
 
 ```toml
 [[profiles.apps]]
@@ -41,11 +29,32 @@ name = "steam"
 image = "ghcr.io/Baz00k/gow-collection/steam:edge"
 env = [
     "GAMESCOPE_STEAM_MODE=on",
-    "GAMESCOPE_WIDTH=2560",
-    "GAMESCOPE_HEIGHT=1440",
-    "GAMESCOPE_REFRESH=144"
+    "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*"
 ]
+base_create_json = """
+{
+  "HostConfig": {
+    "IpcMode": "host",
+    "ShmSize": 8589934592,
+    "CapAdd": ["SYS_ADMIN", "SYS_NICE", "SYS_PTRACE", "NET_RAW", "MKNOD", "NET_ADMIN"],
+    "SecurityOpt": ["seccomp=unconfined", "apparmor=unconfined"],
+    "Ulimits": [
+        {"Name":"nofile", "Hard":10240, "Soft":10240},
+        {"Name":"memlock", "Hard":-1, "Soft":-1},
+        {"Name":"rtprio", "Hard":99, "Soft":99}
+    ],
+    "Privileged": false,
+    "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+  }
+}
+"""
 ```
+
+`/dev/input/*` is required for Moonlight/Wolf virtual input devices. If remote
+or controller input does not work, run `ls -l /dev/input /dev/uinput` and
+`id retro` inside the container. The `retro` user must have group access to the
+exposed input nodes. Add `/dev/hidraw*` or `/dev/uinput` only when a specific
+host input path requires it.
 
 ### Debugging Startup Issues
 

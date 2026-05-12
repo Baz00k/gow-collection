@@ -9,11 +9,14 @@ Gamescope is the display server — it's how Steam renders to the screen. It's i
 The container runs gamescope with these flags by default:
 
 - `-W ${GAMESCOPE_WIDTH}` / `-H ${GAMESCOPE_HEIGHT}` — display resolution
+- `-w ${GAMESCOPE_GAME_WIDTH}` / `-h ${GAMESCOPE_GAME_HEIGHT}` — nested game resolution advertised to games
 - `-r ${GAMESCOPE_REFRESH}` — refresh rate
 - `${GAMESCOPE_MODE}` — usually `-b` for borderless window
 - `-e` — Steam integration (only in SteamOS mode)
 
-Gamescope handles scaling, frame pacing, and presents a consistent display surface to Wolf. It's not a performance optimization per se — it's infrastructure. Some users may experience different frame pacing behavior compared to running Steam directly on a desktop compositor.
+Gamescope handles scaling, frame pacing, and presents a consistent display surface to Wolf.
+By default, the nested game resolution matches the output resolution so games see the same mode Steam and the stream use.
+If a client needs a lower stream resolution while games should still render at a fixed size, set `GAMESCOPE_WIDTH`/`GAMESCOPE_HEIGHT` for the stream output and `GAMESCOPE_GAME_WIDTH`/`GAMESCOPE_GAME_HEIGHT` for the game mode.
 
 ## GameMode
 
