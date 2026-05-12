@@ -83,8 +83,11 @@ fi
 
 GAMESCOPE_WIDTH=${GAMESCOPE_WIDTH:-1920}
 GAMESCOPE_HEIGHT=${GAMESCOPE_HEIGHT:-1080}
+GAMESCOPE_GAME_WIDTH=${GAMESCOPE_GAME_WIDTH:-${GAMESCOPE_WIDTH}}
+GAMESCOPE_GAME_HEIGHT=${GAMESCOPE_GAME_HEIGHT:-${GAMESCOPE_HEIGHT}}
 GAMESCOPE_REFRESH=${GAMESCOPE_REFRESH:-60}
 GAMESCOPE_MODE=${GAMESCOPE_MODE:-"-b"}
+GAMESCOPE_FORCE_WINDOWS_FULLSCREEN="${GAMESCOPE_FORCE_WINDOWS_FULLSCREEN:-off}"
 
 log_info "Display environment: WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
 if [ "${GOW_DEBUG_LEVEL}" -ge 1 ]; then
@@ -162,6 +165,17 @@ log_steam_exit_diagnostics() {
 
 GAMESCOPE_EXTRA_ARGS=""
 
+case "${GAMESCOPE_FORCE_WINDOWS_FULLSCREEN,,}" in
+    1|true|yes|on)
+        GAMESCOPE_EXTRA_ARGS="${GAMESCOPE_EXTRA_ARGS} --force-windows-fullscreen"
+        ;;
+    0|false|no|off)
+        ;;
+    *)
+        log_warn "GAMESCOPE_FORCE_WINDOWS_FULLSCREEN: unknown value '${GAMESCOPE_FORCE_WINDOWS_FULLSCREEN}', defaulting to off"
+        ;;
+esac
+
 if [[ "${GAMESCOPE_STEAM_MODE}" == "on" ]]; then
     # Steam integration mode: set up stats pipe and ready socket for MangoApp
     tmpdir="$(mktemp -p "$XDG_RUNTIME_DIR" -d -t gamescope.XXXXXXX)"
@@ -184,12 +198,13 @@ if [[ "${GAMESCOPE_STEAM_MODE}" == "on" ]]; then
     fi
 
     # -e enables Steam integration (SteamOS UI, MangoApp, stats pipe)
-    GAMESCOPE_EXTRA_ARGS="-e --mangoapp -R $socket -T $stats"
+    GAMESCOPE_EXTRA_ARGS="${GAMESCOPE_EXTRA_ARGS} -e --mangoapp -R $socket -T $stats"
 fi
 
 # shellcheck disable=SC2086
 VK_LOADER_DEBUG=error /usr/bin/gamescope --backend wayland ${GAMESCOPE_EXTRA_ARGS} \
     ${GAMESCOPE_MODE} \
+    -w "${GAMESCOPE_GAME_WIDTH}" -h "${GAMESCOPE_GAME_HEIGHT}" \
     -W "${GAMESCOPE_WIDTH}" -H "${GAMESCOPE_HEIGHT}" -r "${GAMESCOPE_REFRESH}" \
     2>/tmp/gamescope.log &
 
