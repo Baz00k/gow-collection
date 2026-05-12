@@ -2,15 +2,7 @@
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/logging.sh"
 
-# =============================================================================
-# Entrypoint for Steam container (Fedora-based)
-# Handles PUID/PGID user mapping, init scripts, and privilege dropping
-# =============================================================================
-
-# =============================================================================
 # User/Group Configuration
-# =============================================================================
-
 PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
 UNAME="retro"
@@ -33,9 +25,7 @@ log_info "Configuring user '${UNAME}' with PUID=${PUID}, PGID=${PGID}"
 export UNAME
 export UHOME
 
-# =============================================================================
 # Root-only initialization
-# =============================================================================
 if [ "$(id -u)" = "0" ]; then
     # Create /run/dbus directory for D-Bus system bus
     log_info "Creating /run/dbus directory"
@@ -117,7 +107,6 @@ if [ "$(id -u)" = "0" ]; then
         chown -R "${PUID}:${PGID}" "${UHOME}/.steam"
         chown -R "${PUID}:${PGID}" "${UHOME}/.local"
 
-        # =====================================================================
         # Device group handling (matches upstream GoW ensure-groups pattern)
         # Adds user to groups owning GPU/input devices so gamescope can access
         # DRM primary nodes (/dev/dri/card*) and NVIDIA devices.
@@ -166,9 +155,7 @@ if [ "$(id -u)" = "0" ]; then
     fi
 fi
 
-# =============================================================================
 # Handle command passthrough
-# =============================================================================
 # If a command was passed, run that instead of the usual startup script
 if [ $# -gt 0 ]; then
     log_info "Running custom command: $*"
@@ -179,9 +166,7 @@ if [ $# -gt 0 ]; then
     fi
 fi
 
-# =============================================================================
 # Launch startup script
-# =============================================================================
 if [ "${PUID}" != "0" ] && [ "$(id -u)" = "0" ]; then
     log_info "Launching startup script as user '${UNAME}'"
     if [ ! -f /opt/gow/startup.sh ]; then
