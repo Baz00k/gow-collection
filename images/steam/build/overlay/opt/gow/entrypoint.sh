@@ -108,12 +108,11 @@ if [ "$(id -u)" = "0" ]; then
         chown -R "${PUID}:${PGID}" "${UHOME}/.local"
 
         # Device group handling (matches upstream GoW ensure-groups pattern)
-        # Adds user to groups owning GPU/input devices so gamescope can access
-        # DRM primary nodes (/dev/dri/card*) and NVIDIA devices.
-        # =====================================================================
+        # Adds user to groups owning GPU/input devices so gamescope and Steam
+        # Input can access DRM, hidraw, evdev, and uinput nodes exposed by Wolf.
         log_info "Configuring device group access"
         declare -A _dev_groups
-        for _dev_glob in /dev/dri/* /dev/nvidia*; do
+        for _dev_glob in /dev/dri/* /dev/nvidia* /dev/input/* /dev/hidraw* /dev/uinput; do
             # shellcheck disable=SC2086
             for _dev in $_dev_glob; do
                 if [ -e "${_dev}" ]; then
