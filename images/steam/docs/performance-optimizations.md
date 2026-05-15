@@ -20,7 +20,15 @@ If a client needs a lower stream resolution while games should still render at a
 
 ## GameMode
 
-GameMode from Feral Interactive switches the CPU governor to `performance` mode and raises I/O priority when games are running. It's implemented as a daemon that listens for the `com.feralinteractive.GameMode` D-Bus interface. Steam launches games through `gamemoderun` which signals the daemon to activate. This provides automatic performance tuning without manual intervention.
+GameMode from Feral Interactive switches the CPU governor to `performance` mode and raises I/O priority when games are running. It's implemented as a daemon that listens for the `com.feralinteractive.GameMode` D-Bus interface. Launching a game through `gamemoderun` signals the daemon to activate.
+
+If a game appears to use only a small subset of available CPU threads, add this to the game's Steam launch options:
+
+```text
+gamemoderun %command%
+```
+
+This has fixed games observed running with only 4 threads inside the container, allowing them to use all available threads.
 
 The main limitation is that it only affects processes inside the container — it cannot change the host CPU governor.
 On systems where the host already runs in performance mode, this provides no benefit.

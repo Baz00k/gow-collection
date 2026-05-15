@@ -59,6 +59,18 @@ sudo sysctl -w vm.max_map_count=1048576
 
 Affected games: The Finals, Hogwarts Legacy, DayZ, CS2.
 
+### Games only use 4 CPU threads
+
+Some games may only use 4 CPU threads when launched normally inside the container.
+
+**Workaround:** Add this to the game's Steam launch options:
+
+```text
+gamemoderun %command%
+```
+
+This runs the game through GameMode. In tested games, this allowed them to use all available CPU threads.
+
 ### MangoHud not visible
 
 - In standard mode: MangoHud starts hidden. Press `Right Shift + F12` to toggle it on.
