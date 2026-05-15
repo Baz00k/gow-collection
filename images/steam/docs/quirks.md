@@ -59,17 +59,6 @@ sudo sysctl -w vm.max_map_count=1048576
 
 Affected games: The Finals, Hogwarts Legacy, DayZ, CS2.
 
-### GPU not detected (NVIDIA)
-
-This image doesn't bundle NVIDIA drivers. Ensure your host has:
-
-- NVIDIA drivers installed
-- `nvidia-container-toolkit` configured
-
-### gamescope fails to start
-
-Ensure `XDG_RUNTIME_DIR` is set. The entrypoint creates `/tmp/.X11-unix` automatically.
-
 ### MangoHud not visible
 
 - In standard mode: MangoHud starts hidden. Press `Right Shift + F12` to toggle it on.

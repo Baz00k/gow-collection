@@ -27,17 +27,17 @@ Enables gamescope's Steam integration (`-e` flag). Steam enters the SteamOS/Deck
 
 ### Mode Comparison
 
-| Feature               | `off` (default)          | `on`                                    |
-| --------------------- | ------------------------ | --------------------------------------- |
-| Steam UI              | Standard Big Picture     | SteamOS GamepadUI                       |
-| Exit button           | "Exit Big Picture"       | "Switch to desktop"                     |
-| Power menu            | Hidden                   | Shutdown / Restart / Suspend            |
+| Feature               | `off` (default)             | `on`                                  |
+| --------------------- | --------------------------- | ------------------------------------- |
+| Steam UI              | Standard Big Picture        | SteamOS GamepadUI                     |
+| Exit button           | "Exit Big Picture"          | "Switch to desktop"                   |
+| Power menu            | Hidden                      | Shutdown / Restart / Suspend          |
 | MangoHud overlay      | Vulkan layer (`MANGOHUD=1`) | MangoApp via gamescope (`--mangoapp`) |
-| Variable Rate Shading | Not available            | Enabled                                 |
-| Gamescope scaling     | Not available            | Enabled                                 |
-| Desktop mode switch   | Available                | Broken¹                                 |
+| Variable Rate Shading | Not available               | Enabled                               |
+| Gamescope scaling     | Not available               | Enabled                               |
+| Desktop mode switch   | Available                   | Broken¹                               |
 
-¹ "Switch to desktop" doesn't work in containers—there's no underlying desktop session.
+¹ "Switch to desktop" doesn't work in containers — there's no underlying desktop session.
 
 ## MangoHud Keyboard Shortcuts
 

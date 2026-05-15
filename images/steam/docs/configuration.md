@@ -50,16 +50,9 @@ base_create_json = """
 """
 ```
 
-`/dev/input/*` is required for Moonlight/Wolf virtual input devices. If remote
-or controller input does not work, run `ls -l /dev/input /dev/uinput` and
-`id retro` inside the container. The `retro` user must have group access to the
-exposed input nodes. Add `/dev/hidraw*` or `/dev/uinput` only when a specific
-host input path requires it.
-
 ### Debugging Startup Issues
 
-Keep `GOW_DEBUG` disabled for normal use. When troubleshooting a failing
-profile, enable it temporarily:
+When troubleshooting, enable the debug mode:
 
 ```toml
 env = [
@@ -67,8 +60,7 @@ env = [
 ]
 ```
 
-Debug mode prints redacted diagnostics for startup and exit handling. It does
-not print raw `STEAM_STARTUP_FLAGS` values or full process command lines.
+Debug mode prints redacted diagnostics for startup and exit handling.
 Use `GOW_DEBUG=2` for more verbose filesystem and driver probes. `GOW_DEBUG=3`
 enables shell tracing and should only be used in trusted environments because
 shell traces can expose environment values.
