@@ -1,0 +1,49 @@
+#!/bin/bash
+set -euo pipefail
+
+# Fedora's packaged /usr/bin/steam has been fragile in the GoW container
+# environment. Bootstrap and launch Steam directly from the packaged runtime.
+STEAMDIR="${HOME}/.local/share/Steam"
+STEAMDIR_LEGACY="${HOME}/.steam/steam"
+STEAM_BOOTSTRAP="/usr/lib/steam/bootstraplinux_ubuntu12_32.tar.xz"
+
+echo "Steam directory: ${STEAMDIR}"
+
+if [[ ! -f "${STEAMDIR}/steam.sh" ]]; then
+    mkdir -p "${STEAMDIR}"
+    cd "${STEAMDIR}"
+    tar xJf "${STEAM_BOOTSTRAP}"
+fi
+
+# Ensure ~/.steam/steam is a symlink to the real Steam directory.
+# Do not create ~/.steam/steam as a directory first: that prevents Steam's
+# expected symlink layout and can make every startup look like a migration.
+mkdir -p "$(dirname "${STEAMDIR_LEGACY}")"
+if [ -L "${STEAMDIR_LEGACY}" ] || [ ! -e "${STEAMDIR_LEGACY}" ]; then
+    ln -sfn "${STEAMDIR}" "${STEAMDIR_LEGACY}"
+elif [ -d "${STEAMDIR_LEGACY}" ] && [ -z "$(ls -A "${STEAMDIR_LEGACY}" 2>/dev/null)" ]; then
+    rmdir "${STEAMDIR_LEGACY}"
+    ln -sfn "${STEAMDIR}" "${STEAMDIR_LEGACY}"
+else
+    echo "WARN: ${STEAMDIR_LEGACY} is a non-empty real directory; refusing to replace it with a symlink." >&2
+fi
+
+cd "${STEAMDIR}"
+
+if [[ "${1:-}" == "-shutdown" ]]; then
+    exec ./steam.sh "$@"
+fi
+
+while true; do
+    echo "Steam arguments received: $*"
+    ./steam.sh "$@"
+    EXIT_CODE=$?
+
+    if [[ ${EXIT_CODE} -eq 0 ]]; then
+        echo "Steam exited cleanly"
+        break
+    fi
+
+    echo "Steam exited with code ${EXIT_CODE}, restarting in 2 seconds..."
+    sleep 2
+done

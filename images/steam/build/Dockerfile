@@ -61,6 +61,7 @@ RUN curl -fsSL -o /tmp/rpmfusion-free-release.rpm "${RPMFUSION_FREE_URL}" && \
     dnf install -y \
         /tmp/rpmfusion-free-release.rpm \
         /tmp/rpmfusion-nonfree-release.rpm && \
+    dnf config-manager setopt fedora-cisco-openh264.enabled=1 && \
     rm -f /tmp/rpmfusion-free-release.rpm /tmp/rpmfusion-nonfree-release.rpm
 
 # -----------------------------------------------------------------------------
@@ -83,6 +84,7 @@ RUN dnf install -y \
     xdg-user-dirs \
     xdg-utils \
     pciutils \
+    lsb-release \
     mesa-demos \
     vulkan-tools \
     dejavu-fonts-all \
@@ -98,7 +100,8 @@ RUN dnf install -y \
 # Decky Loader
 # -----------------------------------------------------------------------------
 RUN mkdir -p /opt/decky && \
-    curl -fsSL -o /opt/decky/PluginLoader "${DECKY_LOADER_URL}" && \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 60 \
+        -o /opt/decky/PluginLoader "${DECKY_LOADER_URL}" && \
     echo "${DECKY_LOADER_SHA256}  /opt/decky/PluginLoader" | sha256sum -c - && \
     chmod +x /opt/decky/PluginLoader
 

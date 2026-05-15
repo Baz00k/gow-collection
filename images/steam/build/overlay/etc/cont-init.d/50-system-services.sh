@@ -4,6 +4,8 @@ set -euo pipefail
 # System service bootstrap for Steam on Fedora (runs as ROOT before user switch)
 # Starts: dbus-daemon, bluetoothd, NetworkManager, D-Bus watchdog, Decky Loader
 
+source /opt/gow/logging.sh
+
 gow_log() { echo "$(date +"[%Y-%m-%d %H:%M:%S]") $*"; }
 
 start_dbus() {
@@ -20,11 +22,15 @@ start_dbus() {
 }
 
 start_bluetooth() {
-    if ! command -v bluetoothd &>/dev/null; then
+    local bluetoothd_path
+    bluetoothd_path="$(command -v bluetoothd || true)"
+    bluetoothd_path="${bluetoothd_path:-/usr/libexec/bluetooth/bluetoothd}"
+
+    if [ ! -x "${bluetoothd_path}" ]; then
         gow_log "WARNING: bluetoothd not found, skipping"
         return 1
     fi
-    bluetoothd --nodetach &
+    "${bluetoothd_path}" --nodetach &
     log_debug "Bluez started"
     return 0
 }
@@ -81,6 +87,7 @@ start_decky_loader() {
             return 1
         fi
     fi
+    chown -R "${PUID:-1000}:${PGID:-1000}" "${UHOME}/homebrew" "${STEAM_DATA}" 2>/dev/null || true
 
     log_debug "Starting Decky Loader"
     "${UHOME}/homebrew/services/PluginLoader" &

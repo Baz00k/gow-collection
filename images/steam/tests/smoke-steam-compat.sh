@@ -147,11 +147,15 @@ log_info "Checking Steam bootstrap files..."
 STEAM_BOOTSTRAP_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f /usr/lib/steam/bootstraplinux_ubuntu12_32.tar.xz && echo "yes" || echo "no")
 STEAM_LAUNCHER_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f /usr/lib/steam/bin_steam.sh && echo "yes" || echo "no")
 STEAM_BIN_EXISTS=$(docker exec "${CONTAINER_NAME}" test -x /usr/bin/steam && echo "yes" || echo "no")
+STEAM_WRAPPER_BOOTSTRAP=$(docker exec "${CONTAINER_NAME}" grep -cF 'bootstraplinux_ubuntu12_32.tar.xz' /usr/bin/steam 2>/dev/null || echo "0")
+STEAM_WRAPPER_SYMLINK_GUARD=$(docker exec "${CONTAINER_NAME}" grep -cF 'refusing to replace it with a symlink' /usr/bin/steam 2>/dev/null || echo "0")
 
 {
     echo "/usr/lib/steam/bootstraplinux_ubuntu12_32.tar.xz: ${STEAM_BOOTSTRAP_EXISTS}"
     echo "/usr/lib/steam/bin_steam.sh: ${STEAM_LAUNCHER_EXISTS}"
     echo "/usr/bin/steam (executable): ${STEAM_BIN_EXISTS}"
+    echo "/usr/bin/steam wrapper bootstrap pattern: ${STEAM_WRAPPER_BOOTSTRAP}"
+    echo "/usr/bin/steam wrapper symlink guard pattern: ${STEAM_WRAPPER_SYMLINK_GUARD}"
 } >> "${EVIDENCE_FILE}"
 
 if [[ "${STEAM_BOOTSTRAP_EXISTS}" != "yes" ]]; then
@@ -176,6 +180,22 @@ if [[ "${STEAM_BIN_EXISTS}" != "yes" ]]; then
 else
     log_pass "Steam binary exists and is executable"
     echo "[PASS] Steam binary exists and is executable" >> "${EVIDENCE_FILE}"
+fi
+
+if [[ "${STEAM_WRAPPER_BOOTSTRAP}" -lt 1 ]]; then
+    log_fail "Steam wrapper does not bootstrap Fedora Steam runtime directly"
+    echo "[FAIL] Steam wrapper bootstrap pattern missing" >> "${EVIDENCE_FILE}"
+else
+    log_pass "Steam wrapper bootstraps Fedora Steam runtime directly"
+    echo "[PASS] Steam wrapper bootstrap pattern present" >> "${EVIDENCE_FILE}"
+fi
+
+if [[ "${STEAM_WRAPPER_SYMLINK_GUARD}" -lt 1 ]]; then
+    log_fail "Steam wrapper does not guard against replacing a non-empty legacy directory"
+    echo "[FAIL] Steam wrapper legacy symlink guard missing" >> "${EVIDENCE_FILE}"
+else
+    log_pass "Steam wrapper guards legacy symlink replacement"
+    echo "[PASS] Steam wrapper legacy symlink guard present" >> "${EVIDENCE_FILE}"
 fi
 
 echo "" >> "${EVIDENCE_FILE}"

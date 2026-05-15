@@ -7,32 +7,12 @@ log_info "Steam startup.sh"
 # Ensure HOME is set (runuser may not set it on all distros)
 export HOME="${HOME:-$(getent passwd "$(whoami)" | cut -d: -f6)}"
 
-# Apply performance tunings (sysctl) where container capabilities permit
-# launch-comp.sh exits 0 with graceful degradation if permissions insufficient
-/opt/gow/launch-comp.sh || true
-
 # Recursively creating Steam necessary folders
 # https://github.com/ValveSoftware/steam-for-linux/issues/6492
 mkdir -p "$HOME/.steam/ubuntu12_32/steam-runtime"
 
-# Use big picture mode by default
-STEAM_STARTUP_FLAGS=${STEAM_STARTUP_FLAGS:-"-bigpicture"}
+STEAM_STARTUP_FLAGS="${STEAM_STARTUP_FLAGS:--bigpicture}"
 
-export MANGOHUD_CONFIGFILE=$(mktemp /tmp/mangohud.XXXXXXXX)
-mkdir -p "$(dirname "$MANGOHUD_CONFIGFILE")"
-cat > "$MANGOHUD_CONFIGFILE" << 'MANGOHUD_EOF'
-fps
-gpu_stats
-cpu_stats
-frametime
-position=top-right
-no_display
-MANGOHUD_EOF
-log_info "MangoHud config: ${MANGOHUD_CONFIGFILE}"
-
-# =============================================================================
-# Gamescope Steam integration mode
-# =============================================================================
 # GAMESCOPE_STEAM_MODE controls whether gamescope runs with Steam integration
 # (-e flag), which makes Steam enter SteamOS/GamepadUI mode:
 #   - "on"  → SteamOS-like experience: MangoApp overlay, VRS, fancy scaling,
@@ -42,40 +22,7 @@ log_info "MangoHud config: ${MANGOHUD_CONFIGFILE}"
 GAMESCOPE_STEAM_MODE="${GAMESCOPE_STEAM_MODE:-off}"
 log_info "Gamescope Steam integration mode: ${GAMESCOPE_STEAM_MODE}"
 
-# Some game fixes taken from the Steam Deck
-export SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS=0
-
-# Have SteamRT's xdg-open send http:// and https:// URLs to Steam
-export SRT_URLOPEN_PREFER_STEAM=1
-
-# Set input method modules for Qt/GTK that will show the Steam keyboard
-export QT_IM_MODULE=steam
-export GTK_IM_MODULE=Steam
-
-# To expose vram info from radv
-export WINEDLLOVERRIDES=dxgi=n
-
-# =============================================================================
-# SteamOS integration features (only in Steam mode)
-# =============================================================================
-if [[ "${GAMESCOPE_STEAM_MODE}" == "on" ]]; then
-    export STEAM_USE_MANGOAPP=1
-    export STEAM_MANGOAPP_HORIZONTAL_SUPPORTED=1
-    export STEAM_MANGOAPP_PRESETS_SUPPORTED=1
-    export STEAM_USE_DYNAMIC_VRS=1
-    export STEAM_GAMESCOPE_FANCY_SCALING_SUPPORT=1
-    export STEAM_DISABLE_MANGOAPP_ATOM_WORKAROUND=1
-
-    export RADV_FORCE_VRS_CONFIG_FILE=$(mktemp /tmp/radv_vrs.XXXXXXXX)
-    mkdir -p "$(dirname "$RADV_FORCE_VRS_CONFIG_FILE")"
-    echo "1x1" > "$RADV_FORCE_VRS_CONFIG_FILE"
-else
-    export MANGOHUD=1
-fi
-
-# =============================================================================
 # Gamescope launch
-# =============================================================================
 if [[ -z "${XDG_RUNTIME_DIR+x}" ]]; then
     log_error "XDG_RUNTIME_DIR is not set — cannot start gamescope"
     exit 1
