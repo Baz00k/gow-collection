@@ -15,7 +15,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   fetch-depth: 1
             - name: Make policy check script executable
@@ -24,7 +24,7 @@ jobs:
               run: ./tests/policy-check.sh --strict
             - name: Upload policy check results (on failure)
               if: failure()
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: policy-check-results
                   path: test-results/
