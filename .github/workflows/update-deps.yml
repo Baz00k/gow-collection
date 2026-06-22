@@ -145,7 +145,7 @@ jobs:
           commit-message: "chore: update dependencies"
           title: "chore: update dependencies"
           body-path: /tmp/pr-body.md
-          branch: auto-update/deps-${{ github.run_number }}
+          branch: auto-update/deps
           labels: automated, dependencies
           delete-branch: true
 
