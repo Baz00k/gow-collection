@@ -57,8 +57,20 @@ jobs:
             BASE="origin/$BASE"
           fi
           
+          # If the pushed range is unavailable (for example after a branch
+          # rewrite), fail safe and build everything instead of skipping builds.
+          if ! git cat-file -e "${BASE}^{commit}" 2>/dev/null || ! git cat-file -e "${HEAD}^{commit}" 2>/dev/null; then
+            echo "::warning::Diff range unavailable (${BASE}..${HEAD}) - building all images"
+            echo "changed=all" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           # Find changed files under images/
-          CHANGED_FILES=$(git diff --name-only "$BASE" "$HEAD" -- 'images/*' 2>/dev/null || true)
+          if ! CHANGED_FILES=$(git diff --name-only "$BASE" "$HEAD" -- 'images/*'); then
+            echo "::warning::Unable to diff ${BASE}..${HEAD} - building all images"
+            echo "changed=all" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           
           if [[ -z "$CHANGED_FILES" ]]; then
             echo "No image changes detected"
