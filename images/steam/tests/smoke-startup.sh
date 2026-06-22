@@ -114,19 +114,23 @@ PERF_TUNING_EXEC=$(docker exec "${CONTAINER_NAME}" test -x /opt/gow/apply-perfor
 LAUNCH_COMP_REMOVED=$(docker exec "${CONTAINER_NAME}" test ! -e /opt/gow/launch-comp.sh && echo "yes" || echo "no")
 
 log_info "Checking for system-services script..."
+# 10-setup-user.sh, 20-setup-devices.sh and 30-nvidia.sh are provided by the
+# shared base image; steam only adds the steam-specific init scripts on top.
 USER_SETUP_PATH="/etc/cont-init.d/10-setup-user.sh"
+STEAM_USER_SETUP_PATH="/etc/cont-init.d/15-setup-steam-user.sh"
 DEVICE_SETUP_PATH="/etc/cont-init.d/20-setup-devices.sh"
 NVIDIA_INIT_PATH="/etc/cont-init.d/30-nvidia.sh"
 STEAM_SESSION_PATH="/etc/cont-init.d/40-setup-steam-session.sh"
 SYSTEM_SERVICES_PATH="/etc/cont-init.d/50-system-services.sh"
 
 INIT_SCRIPT_LIST=$(docker exec "${CONTAINER_NAME}" bash -lc 'printf "%s\n" /etc/cont-init.d/*.sh | xargs -n1 basename' 2>/dev/null || true)
-EXPECTED_INIT_SCRIPT_LIST=$'10-setup-user.sh\n20-setup-devices.sh\n30-nvidia.sh\n40-setup-steam-session.sh\n50-system-services.sh'
+EXPECTED_INIT_SCRIPT_LIST=$'10-setup-user.sh\n15-setup-steam-user.sh\n20-setup-devices.sh\n30-nvidia.sh\n40-setup-steam-session.sh\n50-system-services.sh'
 
 USER_SETUP_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f "${USER_SETUP_PATH}" && echo "yes" || echo "no")
 USER_SETUP_EXEC=$(docker exec "${CONTAINER_NAME}" test -x "${USER_SETUP_PATH}" && echo "yes" || echo "no")
-USER_SETUP_LEGACY_GUARD=$(docker exec "${CONTAINER_NAME}" grep -cF 'automatic migration is disabled' "${USER_SETUP_PATH}" 2>/dev/null || echo "0")
-USER_SETUP_XDG_CHOWN=$(docker exec "${CONTAINER_NAME}" grep -cF 'chown -R "${PUID}:${PGID}" "${UHOME}" "${XDG_RUNTIME_DIR}"' "${USER_SETUP_PATH}" 2>/dev/null || echo "0")
+STEAM_USER_SETUP_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f "${STEAM_USER_SETUP_PATH}" && echo "yes" || echo "no")
+STEAM_USER_SETUP_EXEC=$(docker exec "${CONTAINER_NAME}" test -x "${STEAM_USER_SETUP_PATH}" && echo "yes" || echo "no")
+USER_SETUP_LEGACY_GUARD=$(docker exec "${CONTAINER_NAME}" grep -cF 'automatic migration is disabled' "${STEAM_USER_SETUP_PATH}" 2>/dev/null || echo "0")
 
 DEVICE_SETUP_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f "${DEVICE_SETUP_PATH}" && echo "yes" || echo "no")
 DEVICE_SETUP_EXEC=$(docker exec "${CONTAINER_NAME}" test -x "${DEVICE_SETUP_PATH}" && echo "yes" || echo "no")
@@ -158,12 +162,12 @@ NVIDIA_SOURCED_RETURN=$(docker exec "${CONTAINER_NAME}" grep -cF 'return 0 2>/de
     echo "init scripts:"
     printf '%s\n' "${INIT_SCRIPT_LIST}"
     echo "${USER_SETUP_PATH}: ${USER_SETUP_EXISTS} (executable: ${USER_SETUP_EXEC})"
+    echo "${STEAM_USER_SETUP_PATH}: ${STEAM_USER_SETUP_EXISTS} (executable: ${STEAM_USER_SETUP_EXEC})"
     echo "${DEVICE_SETUP_PATH}: ${DEVICE_SETUP_EXISTS} (executable: ${DEVICE_SETUP_EXEC})"
     echo "${STEAM_SESSION_PATH}: ${STEAM_SESSION_EXISTS} (executable: ${STEAM_SESSION_EXEC})"
     echo "${SYSTEM_SERVICES_PATH}: ${SYSTEM_SERVICES_EXISTS} (executable: ${SYSTEM_SERVICES_EXEC})"
     echo "system-services bluetoothd Fedora fallback pattern: ${SYSTEM_SERVICES_BLUETOOTH_FALLBACK}"
-    echo "user setup legacy migration guard pattern: ${USER_SETUP_LEGACY_GUARD}"
-    echo "user setup XDG chown pattern: ${USER_SETUP_XDG_CHOWN}"
+    echo "steam user setup legacy migration guard pattern: ${USER_SETUP_LEGACY_GUARD}"
     echo "steam session MangoHud pattern: ${STEAM_SESSION_MANGOHUD}"
     echo "steam session VRS pattern: ${STEAM_SESSION_VRS}"
     echo "${NVIDIA_INIT_PATH}: ${NVIDIA_INIT_EXISTS} (executable: ${NVIDIA_INIT_EXEC})"
@@ -210,8 +214,14 @@ if [[ "${INIT_SCRIPT_LIST}" != "${EXPECTED_INIT_SCRIPT_LIST}" ]]; then
 fi
 
 if [[ "${USER_SETUP_EXISTS}" != "yes" || "${USER_SETUP_EXEC}" != "yes" ]]; then
-    log_error "User setup script not found or not executable at ${USER_SETUP_PATH}"
+    log_error "Base user setup script not found or not executable at ${USER_SETUP_PATH}"
     echo "RESULT: FAILED (user setup script)" >> "${EVIDENCE_FILE}"
+    exit 1
+fi
+
+if [[ "${STEAM_USER_SETUP_EXISTS}" != "yes" || "${STEAM_USER_SETUP_EXEC}" != "yes" ]]; then
+    log_error "Steam user setup script not found or not executable at ${STEAM_USER_SETUP_PATH}"
+    echo "RESULT: FAILED (steam user setup script)" >> "${EVIDENCE_FILE}"
     exit 1
 fi
 
@@ -252,14 +262,8 @@ if [[ "${SYSTEM_SERVICES_BLUETOOTH_FALLBACK}" -lt 1 ]]; then
 fi
 
 if [[ "${USER_SETUP_LEGACY_GUARD}" -lt 1 ]]; then
-    log_error "User setup script does not guard legacy Steam directory migration"
-    echo "RESULT: FAILED (user setup legacy Steam guard)" >> "${EVIDENCE_FILE}"
-    exit 1
-fi
-
-if [[ "${USER_SETUP_XDG_CHOWN}" -lt 1 ]]; then
-    log_error "User setup script does not own XDG_RUNTIME_DIR"
-    echo "RESULT: FAILED (user setup XDG ownership)" >> "${EVIDENCE_FILE}"
+    log_error "Steam user setup script does not guard legacy Steam directory migration"
+    echo "RESULT: FAILED (steam user setup legacy Steam guard)" >> "${EVIDENCE_FILE}"
     exit 1
 fi
 
@@ -290,6 +294,8 @@ fi
 log_info "All GoW scripts found and executable"
 
 log_info "Checking runtime user convention in entrypoint..."
+# Entrypoint (provided by the base image) defaults UNAME to retro, written as
+# UNAME="${UNAME:-retro}"; accept either the literal or the default-expansion form.
 RUNTIME_USER=$(docker exec "${CONTAINER_NAME}" awk -F'"' '/^UNAME=/{print $2}' /opt/gow/entrypoint.sh)
 
 {
@@ -297,7 +303,7 @@ RUNTIME_USER=$(docker exec "${CONTAINER_NAME}" awk -F'"' '/^UNAME=/{print $2}' /
     echo "Entrypoint UNAME: ${RUNTIME_USER}"
 } >> "${EVIDENCE_FILE}"
 
-if [[ "${RUNTIME_USER}" != "retro" ]]; then
+if [[ "${RUNTIME_USER}" != *retro* ]]; then
     log_error "Entrypoint runtime user is ${RUNTIME_USER}, expected retro"
     echo "RESULT: FAILED (runtime user mismatch)" >> "${EVIDENCE_FILE}"
     exit 1

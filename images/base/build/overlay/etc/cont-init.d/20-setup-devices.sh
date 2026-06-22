@@ -10,7 +10,7 @@ fi
 
 log_info "Configuring device group access"
 
-declare -A dev_groups
+declare -A dev_groups=()
 for dev_glob in /dev/dri/* /dev/nvidia* /dev/input/* /dev/hidraw* /dev/uinput; do
     # shellcheck disable=SC2086
     for dev in $dev_glob; do
@@ -32,7 +32,7 @@ for dev_glob in /dev/dri/* /dev/nvidia* /dev/input/* /dev/hidraw* /dev/uinput; d
     done
 done
 
-if [ ${#dev_groups[@]} -gt 0 ]; then
+if [ "${#dev_groups[@]}" -gt 0 ]; then
     groups_csv=$(IFS=,; echo "${!dev_groups[*]}")
     log_info "Adding user '${UNAME}' to device groups: ${groups_csv}"
     usermod -aG "${groups_csv}" "${UNAME}"

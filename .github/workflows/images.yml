@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has-base: ${{ steps.set-matrix.outputs.has-base }}
     
     steps:
       - name: Checkout repository
@@ -91,6 +92,7 @@ jobs:
           elif [[ -z "${{ steps.detect.outputs.changed }}" ]]; then
             # No changes
             echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
+            echo 'has-base=false' >> "$GITHUB_OUTPUT"
             exit 0
           else
             IMAGE_DIRS="${{ steps.detect.outputs.changed }}"
@@ -98,9 +100,13 @@ jobs:
           
           # Build JSON matrix
           MATRIX_ITEMS=()
+          HAS_BASE=false
           for DIR in $IMAGE_DIRS; do
             # Extract image name from path (images/<name> -> <name>)
             IMAGE_NAME=$(basename "$DIR")
+            if [[ "${IMAGE_NAME}" == "base" ]]; then
+              HAS_BASE=true
+            fi
             
             # Verify pins.env exists
             if [[ -f "${DIR}/build/pins.env" ]]; then
@@ -112,6 +118,7 @@ jobs:
           
           if [[ ${#MATRIX_ITEMS[@]} -eq 0 ]]; then
             echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
+            echo 'has-base=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           
@@ -122,6 +129,7 @@ jobs:
           
           echo "Matrix: $MATRIX"
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "has-base=$HAS_BASE" >> "$GITHUB_OUTPUT"
 
   build-images:
     needs: discover-images
@@ -136,3 +144,16 @@ jobs:
     permissions:
       contents: read
       packages: write
+
+  bump-base-dependents:
+    needs:
+      - discover-images
+      - build-images
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      needs.discover-images.outputs.has-base == 'true'
+    uses: ./.github/workflows/base-rebuild.yml
+    permissions:
+      contents: write
+      pull-requests: write

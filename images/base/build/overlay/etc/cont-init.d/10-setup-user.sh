@@ -3,10 +3,6 @@ set -euo pipefail
 
 source /opt/gow/logging.sh
 
-fail_init() {
-    return 1 2>/dev/null || exit 1
-}
-
 if [ "${PUID}" = "0" ]; then
     log_warn "PUID=0, running as root (no runtime user creation)"
     return 0 2>/dev/null || exit 0
@@ -37,15 +33,6 @@ else
     mkdir -p "${UHOME}"
 fi
 
-log_info "Creating Steam runtime directories"
-mkdir -p "${UHOME}/.steam" "${UHOME}/.local/share/Steam"
-
-if [ -d "${UHOME}/.steam/steam" ] && [ ! -L "${UHOME}/.steam/steam" ]; then
-    log_error "Legacy ~/.steam/steam directory detected; automatic migration is disabled"
-    log_error "Move ~/.steam/steam/* into ~/.local/share/Steam/ manually, then remove ~/.steam/steam so the symlink can be recreated"
-    fail_init
-fi
-
 log_info "Creating /home/deck symlink -> ${UHOME}"
 ln -sf "${UHOME}" /home/deck
 
@@ -55,8 +42,3 @@ chmod 0700 "${XDG_RUNTIME_DIR}"
 
 log_info "Setting runtime ownership for ${UHOME} and ${XDG_RUNTIME_DIR}"
 chown -R "${PUID}:${PGID}" "${UHOME}" "${XDG_RUNTIME_DIR}"
-
-if [ -f /usr/bin/gamescope ]; then
-    log_info "Setting gamescope ownership to ${UNAME}:${UNAME}"
-    chown "${UNAME}:${UNAME}" /usr/bin/gamescope 2>/dev/null || true
-fi

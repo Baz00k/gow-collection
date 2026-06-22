@@ -5,8 +5,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/logging.sh"
 
 PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
-UNAME="retro"
-UHOME="/home/${UNAME}"
+UNAME="${UNAME:-retro}"
+UHOME="${UHOME:-/home/${UNAME}}"
 XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/.X11-unix}"
 export PUID PGID UNAME UHOME XDG_RUNTIME_DIR
 
@@ -55,9 +55,9 @@ if [ ! -f /opt/gow/startup.sh ]; then
 fi
 
 if [ "${PUID}" != "0" ] && [ "$(id -u)" = "0" ]; then
-    log_info "Launching Steam session as user '${UNAME}'"
+    log_info "Launching session as user '${UNAME}'"
     exec gosu "${UNAME}" env HOME="${UHOME}" /opt/gow/startup.sh
 else
-    log_info "Launching Steam session as root"
+    log_info "Launching session as root"
     exec /opt/gow/startup.sh
 fi

@@ -4,6 +4,12 @@
 
 Docker image collection for [Games on Whales](https://github.com/games-on-whales/gow) / [Wolf](https://github.com/games-on-whales/wolf). Each image lives under `images/<name>/` with a standardized directory structure. There is no application source code — only Dockerfiles, bash scripts, and GitHub Actions workflows.
 
+### Shared base image
+
+`images/base/` is a Fedora-based image that provides the common Games on Whales runtime contract (runtime user setup, `gosu` handoff, `/etc/cont-init.d/*` runner, NVIDIA/device init, patched bubblewrap, gosu). All other images build on it via `BASE_APP_IMAGE` and inherit its `ENTRYPOINT` (`/opt/gow/entrypoint.sh`), so they only add app-specific packages + a `startup.sh`.
+
+The base pins the upstream Fedora image with a **rolling tag plus a tracked digest** (`BASE_IMAGE` + `BASE_IMAGE_DIGEST`, Dockerfile builds `FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}`) because the Fedora registry garbage-collects old digests. Downstream images pin the base by digest on our own GHCR (which retains digests), so their pins never rot.
+
 ## Repository Structure
 
 ```
@@ -83,8 +89,14 @@ GITHUB_OUTPUT=/dev/null bash images/<name>/update/apply.sh
 | `docker-build-and-publish.yml` | Called by images.yml | Build → smoke test → publish (reusable) |
 | `policy.yml` | Push/PR to main | Runs `./tests/policy-check.sh --strict` |
 | `update-deps.yml` | Weekly (Mon 06:00 UTC) | Auto-discovers `update/check.sh`, creates PRs |
+| `base-rebuild.yml` | Called by images.yml after `base` builds on main; manual dispatch | Bumps images that pin our base to the new base digest, opens an auto-merge PR |
+| `auto-merge.yml` | PR opened/labeled `automated` | Enables auto-merge (squash) so automated PRs land once required checks pass |
 
 Adding an image under `images/` with `build/pins.env` is all that's needed for CI integration. No workflow files need modification.
+
+**Chained base rebuild:** when `images/base` is included in the `images.yml` build matrix and publishes successfully on main, `images.yml` calls `base-rebuild.yml`. That workflow runs each dependent image's `update/apply.sh` with `BASE_IMAGE` pointing at the base, bumps `BASE_APP_IMAGE` to the new digest, and opens a PR. That pins change re-triggers `images.yml`, rebuilding only the affected app images — so apps pick up a new base within minutes instead of waiting for the weekly cron. Unrelated image builds do not call `base-rebuild.yml`.
+
+> **Workflow-trigger caveat:** PRs created by `peter-evans/create-pull-request` using the default `GITHUB_TOKEN` do **not** trigger other workflows (`images.yml`, `policy.yml`). For auto-merge to be gated by build/smoke checks, configure a PAT (or a GitHub App token) as the PR-creation token, or use branch protection that requires those checks (which only appear once a non-`GITHUB_TOKEN` actor pushes the branch). This applies to both `update-deps.yml` and `base-rebuild.yml`.
 
 ## Code Style & Conventions
 

@@ -1,45 +1,18 @@
 # syntax=docker/dockerfile:1.4
 
 # -----------------------------------------------------------------------------
-# Stage 1: Build patched bubblewrap
+# Steam environment for Games on Whales (Wolf).
 # -----------------------------------------------------------------------------
-# Bubblewrap needs patching to work in containers with explicit CAP_SYS_ADMIN.
-# The ignore_capabilities.patch removes capability validation that breaks
-# when capabilities are explicitly granted (common in container runtimes).
-ARG BASE_IMAGE
-
-FROM ${BASE_IMAGE} AS bwrap-builder
-
-ARG BUBBLEWRAP_VERSION
-ARG BUBBLEWRAP_COMMIT
-
-WORKDIR /root
-
-# hadolint ignore=DL3008,DL3041
-RUN dnf install -y \
-    git \
-    meson \
-    gcc \
-    pkgconf-pkg-config \
-    patch \
-    libcap-devel \
-    && dnf clean all \
-    && rm -rf /var/cache/dnf
-
-COPY ignore_capabilities.patch /root/
-
-RUN git clone --depth=1 https://github.com/containers/bubblewrap.git -b ${BUBBLEWRAP_VERSION} && \
-    cd bubblewrap && \
-    test "$(git rev-parse HEAD)" = "${BUBBLEWRAP_COMMIT}" || \
-        { echo "ERROR: bubblewrap commit mismatch! Expected ${BUBBLEWRAP_COMMIT}, got $(git rev-parse HEAD)"; exit 1; } && \
-    patch -p1 < ../ignore_capabilities.patch && \
-    meson _builddir && \
-    meson compile -C _builddir
-
+# Builds on the shared gow-collection base image, which already provides the
+# Games on Whales runtime contract (entrypoint, runtime user setup, gosu
+# handoff, device/NVIDIA cont-init scripts, patched bubblewrap, gosu).
+# This image only adds Steam itself, the gamescope session, Decky Loader and
+# the Steam-specific cont-init/session scripts.
 # -----------------------------------------------------------------------------
-# Stage 2: Main Steam environment
-# -----------------------------------------------------------------------------
-FROM ${BASE_IMAGE}
+ARG BASE_APP_IMAGE
+
+# hadolint ignore=DL3006
+FROM ${BASE_APP_IMAGE}
 
 ARG RPMFUSION_FREE_URL
 ARG RPMFUSION_FREE_SHA256
@@ -77,7 +50,6 @@ RUN dnf install -y \
     NetworkManager \
     bluez \
     ibus \
-    curl \
     xz \
     zenity \
     file \
@@ -91,8 +63,6 @@ RUN dnf install -y \
     google-noto-fonts-common \
     python3 \
     jq \
-    util-linux \
-    glibc-langpack-en \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
@@ -106,40 +76,16 @@ RUN mkdir -p /opt/decky && \
     chmod +x /opt/decky/PluginLoader
 
 # -----------------------------------------------------------------------------
-# gosu — privilege dropping tool
-# -----------------------------------------------------------------------------
-ARG TARGETARCH
-ARG GOSU_AMD64_URL
-ARG GOSU_AMD64_SHA256
-
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "x86_64" ]; then \
-        curl -fsSL -o /usr/bin/gosu "${GOSU_AMD64_URL}" && \
-        echo "${GOSU_AMD64_SHA256}  /usr/bin/gosu" | sha256sum -c - && \
-        chmod +x /usr/bin/gosu; \
-    else \
-        echo "Unsupported architecture: $ARCH" >&2 && \
-        exit 1; \
-    fi
-
-# -----------------------------------------------------------------------------
 # System Configuration
 # -----------------------------------------------------------------------------
 RUN touch /etc/NetworkManager/conf.d/10-globally-managed-devices.conf
 
 RUN fc-cache -f -v
 
-# Wolf mounts NVIDIA drivers at /usr/nvidia — pre-configure linker search paths
-# Vulkan ICD and EGL configs are copied at runtime by /etc/cont-init.d/10-nvidia.sh
-RUN printf '%s\n' '/usr/nvidia/lib' '/usr/nvidia/lib32' > /etc/ld.so.conf.d/nvidia.conf
-
-RUN ln -sf /home/retro /home/deck
-
 # -----------------------------------------------------------------------------
-# Overlay and bwrap
+# Overlay (Steam-specific cont-init scripts, startup, SteamOS stubs)
 # -----------------------------------------------------------------------------
 COPY --chmod=755 overlay /
-COPY --from=bwrap-builder --chmod=755 /root/bubblewrap/_builddir/bwrap /usr/bin/bwrap
 
 # -----------------------------------------------------------------------------
 # Environment and Labels
@@ -154,7 +100,4 @@ LABEL org.opencontainers.image.authors="Baz00k"
 LABEL org.opencontainers.image.source=$IMAGE_SOURCE
 LABEL org.opencontainers.image.licenses="GPL-3.0-only"
 
-# -----------------------------------------------------------------------------
-# Entry Point
-# -----------------------------------------------------------------------------
-ENTRYPOINT ["/opt/gow/entrypoint.sh"]
+# ENTRYPOINT is inherited from the base image (/opt/gow/entrypoint.sh).
