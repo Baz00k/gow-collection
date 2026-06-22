@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Check for steam dependency updates
-# Checks: BASE_IMAGE digest, Decky Loader version
+# Checks: Decky Loader version, Bubblewrap version
 
 set -euo pipefail
 
@@ -8,51 +8,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${SCRIPT_DIR}/../build/pins.env"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
-BASE_IMAGE_REGISTRY="${BASE_IMAGE_REGISTRY:-quay.io}"
-BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-fedora/fedora}"
-BASE_IMAGE_TAG="${BASE_IMAGE_TAG:-44}"
-
 inplace() {
     sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"
 }
 
 abort() { echo "ERROR: $1" >&2; exit 1; }
-
-get_current_base_digest() {
-    local full_image
-    full_image=$(grep '^BASE_IMAGE=' "$PINS_FILE" | cut -d'=' -f2) || return 1
-    [[ -z "$full_image" ]] && return 1
-    echo "$full_image" | sed 's/.*@sha256://'
-}
-
-fetch_latest_base_digest() {
-    local ref="${BASE_IMAGE_REGISTRY}/${BASE_IMAGE_NAME}:${BASE_IMAGE_TAG}"
-    local digest
-
-    if command -v crane &>/dev/null; then
-        digest=$(crane digest "$ref" 2>/dev/null | sed 's/sha256://' || true)
-        [[ -n "$digest" ]] && { echo "$digest"; return 0; }
-    fi
-
-    if command -v docker &>/dev/null; then
-        docker pull "$ref" >/dev/null 2>&1 || true
-        digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$ref" 2>/dev/null | \
-            sed 's/.*@sha256://' || true)
-        [[ -n "$digest" ]] && { echo "$digest"; return 0; }
-    fi
-
-    if command -v curl &>/dev/null; then
-        digest=$(curl -fsSI \
-            -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json' \
-            "https://${BASE_IMAGE_REGISTRY}/v2/${BASE_IMAGE_NAME}/manifests/${BASE_IMAGE_TAG}" | \
-            tr -d '\r' | \
-            tr '[:upper:]' '[:lower:]' | \
-            awk '/^docker-content-digest:/ { sub(/^docker-content-digest:[[:space:]]*sha256:/, ""); print; exit }' || true)
-        [[ -n "$digest" ]] && { echo "$digest"; return 0; }
-    fi
-
-    echo ""
-}
 
 get_current_decky_version() {
     grep '^DECKY_LOADER_VERSION=' "$PINS_FILE" | cut -d'=' -f2 || echo ""
@@ -94,22 +54,6 @@ fetch_latest_bwrap_version() {
 
 updates=()
 summary=""
-
-echo "Checking base image..."
-current_base=$(get_current_base_digest) || abort "Could not read BASE_IMAGE from $PINS_FILE"
-latest_base=$(fetch_latest_base_digest)
-
-if [[ -n "$latest_base" ]]; then
-    if [[ "$current_base" != "$latest_base" ]]; then
-        echo "Base image update available: ${current_base:0:12} -> ${latest_base:0:12}"
-        updates+=("base")
-        summary+="### Base Image\n\n| Field | Value |\n|-------|-------|\n| Previous | \`${current_base:0:16}...\` |\n| New | \`${latest_base:0:16}...\` |\n\n"
-    else
-        echo "Base image up to date"
-    fi
-else
-    echo "Warning: Could not fetch latest base image digest"
-fi
 
 echo "Checking Decky Loader..."
 current_decky=$(get_current_decky_version)

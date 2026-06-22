@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Apply steam dependency updates
-# Updates: BASE_IMAGE digest, Decky Loader version/URL/SHA256
+# Updates: Decky Loader version/URL/SHA256, Bubblewrap version/commit
 
 set -euo pipefail
 
@@ -8,50 +8,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${SCRIPT_DIR}/../build/pins.env"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
-BASE_IMAGE_REGISTRY="${BASE_IMAGE_REGISTRY:-quay.io}"
-BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-fedora/fedora}"
-BASE_IMAGE_TAG="${BASE_IMAGE_TAG:-44}"
-
 inplace() {
     sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"
 }
 
 abort() { echo "ERROR: $1" >&2; exit 1; }
-
-fetch_latest_base_digest() {
-    local ref="${BASE_IMAGE_REGISTRY}/${BASE_IMAGE_NAME}:${BASE_IMAGE_TAG}"
-    local digest
-
-    if command -v crane &>/dev/null; then
-        digest=$(crane digest "$ref" 2>/dev/null | sed 's/sha256://' || true)
-        [[ -n "$digest" ]] && { echo "$digest"; return 0; }
-    fi
-
-    if command -v docker &>/dev/null; then
-        docker pull "$ref" >/dev/null 2>&1 || true
-        digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$ref" 2>/dev/null | \
-            sed 's/.*@sha256://' || true)
-        [[ -n "$digest" ]] && { echo "$digest"; return 0; }
-    fi
-
-    if command -v curl &>/dev/null; then
-        digest=$(curl -fsSI \
-            -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json' \
-            "https://${BASE_IMAGE_REGISTRY}/v2/${BASE_IMAGE_NAME}/manifests/${BASE_IMAGE_TAG}" | \
-            tr -d '\r' | \
-            tr '[:upper:]' '[:lower:]' | \
-            awk '/^docker-content-digest:/ { sub(/^docker-content-digest:[[:space:]]*sha256:/, ""); print; exit }' || true)
-        [[ -n "$digest" ]] && { echo "$digest"; return 0; }
-    fi
-
-    echo ""
-}
-
-get_current_base_digest() {
-    local full_image
-    full_image=$(grep '^BASE_IMAGE=' "$PINS_FILE" | cut -d'=' -f2) || return 1
-    echo "$full_image" | sed 's/.*@sha256://'
-}
 
 get_current_decky_version() {
     grep '^DECKY_LOADER_VERSION=' "$PINS_FILE" | cut -d'=' -f2 || echo ""
@@ -127,17 +88,6 @@ fetch_bwrap_commit() {
 
 applied=false
 summary=""
-
-current_base=$(get_current_base_digest)
-latest_base=$(fetch_latest_base_digest)
-
-if [[ -n "$latest_base" && "$current_base" != "$latest_base" ]]; then
-    echo "Updating base image: ${current_base:0:12} -> ${latest_base:0:12}"
-    new_image="${BASE_IMAGE_REGISTRY}/${BASE_IMAGE_NAME}:${BASE_IMAGE_TAG}@sha256:${latest_base}"
-    inplace "s|^BASE_IMAGE=.*|BASE_IMAGE=${new_image}|" "$PINS_FILE"
-    applied=true
-    summary+="### Base Image\n\nUpdated to \`${latest_base:0:16}...\`\n\n"
-fi
 
 decky_repo=$(get_decky_repo)
 current_decky=$(get_current_decky_version)
