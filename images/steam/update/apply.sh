@@ -8,8 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${SCRIPT_DIR}/../build/pins.env"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
-BASE_IMAGE_REGISTRY="${BASE_IMAGE_REGISTRY:-quay.io}"
-BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-fedora/fedora}"
+BASE_IMAGE_REGISTRY="${BASE_IMAGE_REGISTRY:-registry.fedoraproject.org}"
+BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-fedora}"
 BASE_IMAGE_TAG="${BASE_IMAGE_TAG:-44}"
 
 inplace() {
