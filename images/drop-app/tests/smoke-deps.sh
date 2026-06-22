@@ -147,18 +147,18 @@ fi
 echo "" >> "${EVIDENCE_FILE}"
 echo "=== File Checks ===" >> "${EVIDENCE_FILE}"
 
-log_info "Checking startup script: /opt/gow/startup-app.sh..."
-if docker exec "${CONTAINER_NAME}" test -f /opt/gow/startup-app.sh; then
-    if docker exec "${CONTAINER_NAME}" test -x /opt/gow/startup-app.sh; then
-        log_pass "File: /opt/gow/startup-app.sh (executable)"
-        echo "[PASS] File: /opt/gow/startup-app.sh (executable)" >> "${EVIDENCE_FILE}"
+log_info "Checking startup script: /opt/gow/startup.sh..."
+if docker exec "${CONTAINER_NAME}" test -f /opt/gow/startup.sh; then
+    if docker exec "${CONTAINER_NAME}" test -x /opt/gow/startup.sh; then
+        log_pass "File: /opt/gow/startup.sh (executable)"
+        echo "[PASS] File: /opt/gow/startup.sh (executable)" >> "${EVIDENCE_FILE}"
     else
-        log_fail "File: /opt/gow/startup-app.sh - not executable"
-        echo "[FAIL] File: /opt/gow/startup-app.sh - not executable" >> "${EVIDENCE_FILE}"
+        log_fail "File: /opt/gow/startup.sh - not executable"
+        echo "[FAIL] File: /opt/gow/startup.sh - not executable" >> "${EVIDENCE_FILE}"
     fi
 else
-    log_fail "File: /opt/gow/startup-app.sh - does not exist"
-    echo "[FAIL] File: /opt/gow/startup-app.sh - does not exist" >> "${EVIDENCE_FILE}"
+    log_fail "File: /opt/gow/startup.sh - does not exist"
+    echo "[FAIL] File: /opt/gow/startup.sh - does not exist" >> "${EVIDENCE_FILE}"
 fi
 
 echo "" >> "${EVIDENCE_FILE}"

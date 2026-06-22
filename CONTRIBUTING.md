@@ -40,14 +40,14 @@ Add `update/check.sh` and `update/apply.sh` for automated version updates. Both 
 
 ```bash
 # Base image MUST include sha256 digest
-BASE_APP_IMAGE=ghcr.io/games-on-whales/base-app:edge@sha256:abc123...
+BASE_APP_IMAGE=ghcr.io/<owner>/gow-collection/base:edge@sha256:<digest>
 
 # App-specific versions
 APP_VERSION=1.2.3
 APP_SHA256=def456...
 ```
 
-Always pin base images to a digest. Floating tags break reproducibility.
+Always pin base images to a digest. Floating tags break reproducibility. App update scripts must not modify `BASE_APP_IMAGE`; base digest propagation is centralized in `.github/workflows/base-rebuild.yml`.
 
 ## Smoke Tests
 

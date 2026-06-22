@@ -8,48 +8,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
+source "${SCRIPT_DIR}/lib/base-digest.sh"
+
 abort() { echo "ERROR: $1" >&2; exit 1; }
 
 get_pin() {
     grep "^$1=" "$PINS_FILE" | head -1 | cut -d'=' -f2- || echo ""
-}
-
-# Resolve the digest that a registry tag currently points at.
-# Works against the Fedora registry (no auth) and is the same approach the app
-# images use against GHCR.
-fetch_remote_digest() {
-    local ref="$1"            # registry/repo:tag
-    local registry repo tag rest
-    rest="${ref#*/}"          # repo[/...]:tag  (strip registry host)
-    registry="${ref%%/*}"
-    repo="${rest%:*}"
-    tag="${rest##*:}"
-
-    # crane (most reliable, handles auth + multi-arch indexes)
-    if command -v crane &>/dev/null; then
-        crane digest "$ref" 2>/dev/null && return 0
-    fi
-
-    # skopeo fallback
-    if command -v skopeo &>/dev/null; then
-        skopeo inspect --raw "docker://${ref}" 2>/dev/null \
-            | { command -v sha256sum >/dev/null && { local body; body=$(cat); printf 'sha256:%s' "$(printf '%s' "$body" | sha256sum | cut -d' ' -f1)"; }; } \
-            && return 0
-    fi
-
-    # Registry v2 API fallback (Fedora registry is anonymous-pull).
-    # Read the Docker-Content-Digest response header for the manifest.
-    local accept digest
-    accept="application/vnd.oci.image.index.v1+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json"
-    digest=$(curl -fsSL -I \
-        -H "Accept: ${accept}" \
-        "https://${registry}/v2/${repo}/manifests/${tag}" 2>/dev/null \
-        | tr -d '\r' \
-        | awk -F': ' 'tolower($1)=="docker-content-digest"{print $2}' \
-        | tail -1)
-    [[ -n "$digest" ]] && { echo "$digest"; return 0; }
-
-    return 1
 }
 
 get_bwrap_repo() {

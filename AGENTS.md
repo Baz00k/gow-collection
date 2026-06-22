@@ -10,6 +10,8 @@ Docker image collection for [Games on Whales](https://github.com/games-on-whales
 
 The base pins the upstream Fedora image with a **rolling tag plus a tracked digest** (`BASE_IMAGE` + `BASE_IMAGE_DIGEST`, Dockerfile builds `FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}`) because the Fedora registry garbage-collects old digests. Downstream images pin the base by digest on our own GHCR (which retains digests), so their pins never rot.
 
+Base ownership is intentionally split: `images/base/update/*` owns the base's upstream inputs (Fedora digest, bubblewrap, gosu); `.github/workflows/base-rebuild.yml` is the only writer of app `BASE_APP_IMAGE` pins after a new base publishes; each app's `update/*` scripts own only app-specific dependencies.
+
 ## Repository Structure
 
 ```
@@ -94,7 +96,7 @@ GITHUB_OUTPUT=/dev/null bash images/<name>/update/apply.sh
 
 Adding an image under `images/` with `build/pins.env` is all that's needed for CI integration. No workflow files need modification.
 
-**Chained base rebuild:** when `images/base` is included in the `images.yml` build matrix and publishes successfully on main, `images.yml` calls `base-rebuild.yml`. That workflow runs each dependent image's `update/apply.sh` with `BASE_IMAGE` pointing at the base, bumps `BASE_APP_IMAGE` to the new digest, and opens a PR. That pins change re-triggers `images.yml`, rebuilding only the affected app images — so apps pick up a new base within minutes instead of waiting for the weekly cron. Unrelated image builds do not call `base-rebuild.yml`.
+**Chained base rebuild:** when `images/base` is included in the `images.yml` build matrix and publishes successfully on main, `images.yml` calls `base-rebuild.yml`. That workflow resolves the freshly published base digest once, rewrites every dependent image's `BASE_APP_IMAGE` pin, and opens a PR. That pins change re-triggers `images.yml`, rebuilding only the affected app images — so apps pick up a new base within minutes instead of waiting for the weekly cron. Unrelated image builds do not call `base-rebuild.yml`.
 
 > **Workflow-trigger caveat:** PRs created by `peter-evans/create-pull-request` using the default `GITHUB_TOKEN` do **not** trigger other workflows (`images.yml`, `policy.yml`). For auto-merge to be gated by build/smoke checks, configure a PAT (or a GitHub App token) as the PR-creation token, or use branch protection that requires those checks (which only appear once a non-`GITHUB_TOKEN` actor pushes the branch). This applies to both `update-deps.yml` and `base-rebuild.yml`.
 
@@ -140,7 +142,7 @@ inplace() { sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"; }
 ### Dockerfiles
 
 - Start with `# syntax=docker/dockerfile:1.4`
-- Use `ARG BASE_APP_IMAGE` and `FROM ${BASE_APP_IMAGE}` (base image comes from pins.env)
+- Use `ARG BASE_APP_IMAGE` and `FROM ${BASE_APP_IMAGE}` (base image comes from pins.env). Non-base images may not use direct upstream/distro `FROM` lines.
 - Use hadolint ignore comments where needed: `# hadolint ignore=DL3006,DL3008`
 - Always verify downloads with `sha256sum -c -`
 - Clean apt caches: `apt-get clean && rm -rf /var/lib/apt/lists/*`
@@ -152,7 +154,7 @@ inplace() { sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"; }
 
 ```bash
 # Base image MUST include sha256 digest — floating tags break reproducibility
-BASE_APP_IMAGE=ghcr.io/games-on-whales/base-app:edge@sha256:<digest>
+BASE_APP_IMAGE=ghcr.io/<owner>/gow-collection/base:edge@sha256:<digest>
 
 # App-specific pinned versions
 APP_VERSION=1.2.3
@@ -178,13 +180,14 @@ Scripts communicate with CI via `GITHUB_OUTPUT`:
 - `apply.sh` outputs: `applied=true|false`, optional `summary_md`
 - Both receive: `PINS_FILE` and `IMAGE_DIR` env vars from CI
 - Both must be executable (`chmod +x`)
+- App update scripts must not modify `BASE_APP_IMAGE`; base-digest propagation is centralized in `base-rebuild.yml`.
 
 ## Security Rules
 
 - **Always pin base images to sha256 digest** — never use floating tags alone
 - **Always verify downloaded artifacts** with sha256 checksums
 - **Never commit secrets** — `.env` files are gitignored (except `pins.env`)
-- Policy check enforces: no floating refs, no unverified downloads, no secrets in tracked files
+- Policy check enforces: no floating refs, all non-base images use the shared base contract, no placeholder base digests, no legacy upstream base-app references, no unverified downloads, no secrets in tracked files
 
 ## Adding a New Image
 

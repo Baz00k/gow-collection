@@ -154,6 +154,7 @@ jobs:
       github.event_name != 'pull_request' &&
       needs.discover-images.outputs.has-base == 'true'
     uses: ./.github/workflows/base-rebuild.yml
+    secrets: inherit
     permissions:
       contents: write
       pull-requests: write

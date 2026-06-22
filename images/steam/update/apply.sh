@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
 # Apply steam dependency updates
-# Updates: shared base image digest (GHCR), Decky Loader version/URL/SHA256
+# Updates: Decky Loader version/URL/SHA256
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
-
-BASE_IMAGE="${BASE_IMAGE:-ghcr.io/baz00k/gow-collection/base}"
-BASE_IMAGE_TAG="${BASE_IMAGE_TAG:-edge}"
 
 inplace() {
     sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"
@@ -19,36 +16,6 @@ abort() { echo "ERROR: $1" >&2; exit 1; }
 
 get_pin() {
     grep "^$1=" "$PINS_FILE" | head -1 | cut -d'=' -f2- || echo ""
-}
-
-get_current_base_digest() {
-    local full_image
-    full_image=$(get_pin BASE_APP_IMAGE)
-    [[ -z "$full_image" ]] && return 1
-    echo "$full_image" | sed 's/.*@//'
-}
-
-fetch_latest_base_digest() {
-    local repo="${BASE_IMAGE#ghcr.io/}"
-    local token digest
-
-    token=$(curl -fsSL "https://ghcr.io/token?service=ghcr.io&scope=repository:${repo}:pull" 2>/dev/null | jq -r '.token' || true)
-    if [[ -n "$token" && "$token" != "null" ]]; then
-        digest=$(curl -fsSL -I \
-            -H "Accept: application/vnd.oci.image.index.v1+json" \
-            -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
-            -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-            -H "Authorization: Bearer ${token}" \
-            "https://ghcr.io/v2/${repo}/manifests/${BASE_IMAGE_TAG}" 2>/dev/null \
-            | tr -d '\r' | awk -F': ' 'tolower($1)=="docker-content-digest"{print $2}' | tail -1)
-        [[ -n "$digest" ]] && { echo "$digest"; return 0; }
-    fi
-
-    if command -v crane &>/dev/null; then
-        crane digest "${BASE_IMAGE}:${BASE_IMAGE_TAG}" 2>/dev/null && return 0
-    fi
-
-    return 1
 }
 
 get_decky_repo() {
@@ -77,18 +44,6 @@ fetch_file_sha256() {
 
 applied=false
 summary=""
-
-# --- Base image digest ---
-current_base=$(get_current_base_digest || true)
-latest_base=$(fetch_latest_base_digest || true)
-
-if [[ -n "$latest_base" && "$current_base" != "$latest_base" ]]; then
-    echo "Updating base image: ${current_base} -> ${latest_base}"
-    new_image="${BASE_IMAGE}:${BASE_IMAGE_TAG}@${latest_base}"
-    inplace "s|^BASE_APP_IMAGE=.*|BASE_APP_IMAGE=${new_image}|" "$PINS_FILE"
-    applied=true
-    summary+="### Base Image\n\nUpdated to \`${latest_base}\`.\n\n"
-fi
 
 # --- Decky Loader ---
 decky_repo=$(get_decky_repo)

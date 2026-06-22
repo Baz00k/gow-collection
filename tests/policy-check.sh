@@ -118,6 +118,76 @@ check_floating_refs() {
     fi
 }
 
+check_shared_base_usage() {
+    log_info "Checking shared base image usage..."
+    local found_violations=0
+    local zero_digest="sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+    while IFS= read -r imgdir; do
+        local name dockerfile pins_env base_image from_lines
+        name=$(basename "${imgdir}")
+        [[ "${name}" == "base" ]] && continue
+
+        dockerfile="${imgdir}/build/Dockerfile"
+        pins_env="${imgdir}/build/pins.env"
+
+        if [[ ! -f "${dockerfile}" ]]; then
+            log_error "Missing Dockerfile for ${name}: ${dockerfile}"
+            ((found_violations++)) || true
+            continue
+        fi
+
+        if [[ ! -f "${pins_env}" ]]; then
+            log_error "Missing pins.env for ${name}: ${pins_env}"
+            ((found_violations++)) || true
+            continue
+        fi
+
+        if ! grep -q '^ARG BASE_APP_IMAGE' "${dockerfile}"; then
+            log_error "${dockerfile} must declare ARG BASE_APP_IMAGE"
+            ((found_violations++)) || true
+        fi
+
+        if ! grep -qE '^FROM[[:space:]]+\$\{BASE_APP_IMAGE\}([[:space:]]|$)' "${dockerfile}"; then
+            log_error "${dockerfile} must use FROM \${BASE_APP_IMAGE}"
+            ((found_violations++)) || true
+        fi
+
+        from_lines=$(grep -nE '^FROM[[:space:]]+' "${dockerfile}" || true)
+        while IFS= read -r line; do
+            [[ -z "${line}" ]] && continue
+            if ! echo "${line}" | grep -qE '^([0-9]+:)?FROM[[:space:]]+\$\{BASE_APP_IMAGE\}([[:space:]]|$)'; then
+                log_error "App Dockerfile may only use the shared base in ${dockerfile}:${line}"
+                ((found_violations++)) || true
+            fi
+        done <<< "${from_lines}"
+
+        base_image=$(grep '^BASE_APP_IMAGE=' "${pins_env}" | head -1 | cut -d= -f2- || true)
+        if [[ -z "${base_image}" ]]; then
+            log_error "${pins_env} must declare BASE_APP_IMAGE"
+            ((found_violations++)) || true
+        elif ! [[ "${base_image}" =~ ^ghcr\.io/[^/]+/gow-collection/base:edge@sha256:[0-9a-f]{64}$ ]]; then
+            log_error "BASE_APP_IMAGE in ${pins_env} must pin ghcr.io/<owner>/gow-collection/base:edge by sha256 digest: ${base_image}"
+            ((found_violations++)) || true
+        elif [[ "${base_image}" == *"${zero_digest}" ]]; then
+            log_error "BASE_APP_IMAGE in ${pins_env} still uses placeholder digest"
+            ((found_violations++)) || true
+        fi
+    done < <(get_image_dirs)
+
+    while IFS= read -r match; do
+        [[ -z "${match}" ]] && continue
+        log_error "Legacy base image reference found: ${match}"
+        ((found_violations++)) || true
+    done < <(cd "${PROJECT_ROOT}" && grep -RIn 'ghcr.io/games-on-whales/base-app' \
+        --include='Dockerfile*' --include='pins.env' --include='*.md' \
+        images AGENTS.md CONTRIBUTING.md README.md 2>/dev/null || true)
+
+    if [[ ${found_violations} -eq 0 ]]; then
+        log_pass "All app images use the shared base image contract"
+    fi
+}
+
 check_unverified_downloads() {
     log_info "Checking for unverified downloads..."
     local found_violations=0
@@ -200,6 +270,7 @@ fi
 echo "" >> "${RESULTS_FILE}"
 
 check_floating_refs
+check_shared_base_usage
 check_unverified_downloads
 check_secrets
 

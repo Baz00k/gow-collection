@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 # Apply prism-offline dependency updates
-# Updates: BASE_APP_IMAGE digest, Prism version and AppImage SHA256s
+# Updates: Prism version and AppImage SHA256s
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PINS_FILE="${SCRIPT_DIR}/../build/pins.env"
+PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
-BASE_IMAGE="${BASE_IMAGE:-ghcr.io/games-on-whales/base-app}"
-BASE_IMAGE_TAG="${BASE_IMAGE_TAG:-edge}"
 PRISM_REPO="${PRISM_REPO:-Diegiwg/PrismLauncher-Cracked}"
 
 inplace() {
@@ -18,43 +16,12 @@ inplace() {
 
 abort() { echo "ERROR: $1" >&2; exit 1; }
 
-fetch_latest_base_digest() {
-    local digest=""
-
-    local token manifest
-    token=$(curl -fsSL "https://ghcr.io/token?service=ghcr.io&scope=repository:games-on-whales/base-app:pull" 2>/dev/null | jq -r '.token' || true)
-    if [[ -n "$token" ]]; then
-        manifest=$(curl -fsSL \
-            -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-            -H "Authorization: Bearer $token" \
-            "https://ghcr.io/v2/games-on-whales/base-app/manifests/${BASE_IMAGE_TAG}" 2>/dev/null || true)
-        digest=$(echo "$manifest" | jq -r '.config.digest // empty' 2>/dev/null | sed 's/sha256://' || true)
-        [[ -n "$digest" ]] && { echo "$digest"; return 0; }
-    fi
-
-    if command -v crane &>/dev/null; then
-        digest=$(crane digest "${BASE_IMAGE}:${BASE_IMAGE_TAG}" 2>/dev/null | sed 's/sha256://' || true)
-        [[ -n "$digest" ]] && { echo "$digest"; return 0; }
-    fi
-
-    if command -v docker &>/dev/null; then
-        docker pull "${BASE_IMAGE}:${BASE_IMAGE_TAG}" >/dev/null 2>&1 || true
-        digest=$(docker inspect --format='{{index .RepoDigests 0}}' "${BASE_IMAGE}:${BASE_IMAGE_TAG}" 2>/dev/null | \
-            sed 's/.*@sha256://' || true)
-        [[ -n "$digest" ]] && { echo "$digest"; return 0; }
-    fi
-
-    echo "$digest"
-}
-
-get_current_base_digest() {
-    local full_image
-    full_image=$(grep '^BASE_APP_IMAGE=' "$PINS_FILE" | cut -d'=' -f2) || return 1
-    echo "$full_image" | sed 's/.*@sha256://'
+get_pin() {
+    grep "^$1=" "$PINS_FILE" | head -1 | cut -d'=' -f2- || echo ""
 }
 
 get_current_prism_version() {
-    grep '^PRISM_LAUNCHER_VERSION=' "$PINS_FILE" | cut -d'=' -f2 || echo ""
+    get_pin PRISM_LAUNCHER_VERSION
 }
 
 fetch_latest_prism_version() {
@@ -76,17 +43,6 @@ fetch_appimage_sha256() {
 
 applied=false
 summary=""
-
-current_base=$(get_current_base_digest)
-latest_base=$(fetch_latest_base_digest)
-
-if [[ -n "$latest_base" && "$current_base" != "$latest_base" ]]; then
-    echo "Updating base image: ${current_base:0:12} -> ${latest_base:0:12}"
-    new_image="${BASE_IMAGE}:${BASE_IMAGE_TAG}@sha256:${latest_base}"
-    inplace "s|^BASE_APP_IMAGE=.*|BASE_APP_IMAGE=${new_image}|" "$PINS_FILE"
-    applied=true
-    summary+="### Base Image\n\nUpdated to \`${latest_base:0:16}...\`\n\n"
-fi
 
 current_prism=$(get_current_prism_version)
 latest_prism=$(fetch_latest_prism_version)

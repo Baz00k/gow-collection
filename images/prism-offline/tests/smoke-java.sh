@@ -73,18 +73,7 @@ for JAVA_VER in "${REQUIRED_JAVA_VERSIONS[@]}"; do
     TESTS_TOTAL=$((TESTS_TOTAL + 1))
     log_info "Testing Java ${JAVA_VER}..."
 
-    JAVA_CMD=""
-    if docker exec "${CONTAINER_NAME}" which "java-${JAVA_VER}-openjdk-amd64" >/dev/null 2>&1; then
-        JAVA_CMD="java-${JAVA_VER}-openjdk-amd64"
-    elif docker exec "${CONTAINER_NAME}" which "java${JAVA_VER}" >/dev/null 2>&1; then
-        JAVA_CMD="java${JAVA_VER}"
-    elif docker exec "${CONTAINER_NAME}" test -f "/usr/lib/jvm/java-${JAVA_VER}-openjdk-amd64/bin/java" 2>/dev/null; then
-        JAVA_CMD="/usr/lib/jvm/java-${JAVA_VER}-openjdk-amd64/bin/java"
-    elif docker exec "${CONTAINER_NAME}" test -f "/usr/lib/jvm/java-${JAVA_VER}-openjdk-${JAVA_VER}-openjdk-amd64/bin/java" 2>/dev/null; then
-        JAVA_CMD="/usr/lib/jvm/java-${JAVA_VER}-openjdk-${JAVA_VER}-openjdk-amd64/bin/java"
-    else
-        JAVA_CMD="java"
-    fi
+    JAVA_CMD="/opt/java/${JAVA_VER}/bin/java"
 
     JAVA_VERSION_OUTPUT=$(docker exec "${CONTAINER_NAME}" ${JAVA_CMD} -version 2>&1 || true)
 
@@ -116,11 +105,8 @@ done
 
 log_info "Listing all Java installations..."
 {
-    echo "=== All Java Installations ==="
-    docker exec "${CONTAINER_NAME}" bash -c 'ls -la /usr/lib/jvm/ 2>/dev/null || echo "No /usr/lib/jvm directory"'
-    echo ""
-    echo "=== update-alternatives java ==="
-    docker exec "${CONTAINER_NAME}" update-alternatives --list java 2>/dev/null || echo "update-alternatives not configured"
+    echo "=== Bundled Java Installations ==="
+    docker exec "${CONTAINER_NAME}" bash -c 'find /opt/java -maxdepth 2 -type f -path "*/bin/java" -print 2>/dev/null || echo "No /opt/java runtimes"'
     echo ""
     echo "=== Default java -version ==="
     docker exec "${CONTAINER_NAME}" java -version 2>&1 || echo "No default java"

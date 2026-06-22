@@ -4,38 +4,38 @@ ARG BASE_APP_IMAGE
 # hadolint ignore=DL3006
 FROM ${BASE_APP_IMAGE}
 
-ARG DEBIAN_FRONTEND=noninteractive
 ARG DROP_APP_VERSION
-ARG DROP_APP_SHA256
+ARG DROP_APP_RPM_X86_64_URL
+ARG DROP_APP_RPM_X86_64_SHA256
+ARG TARGETARCH
 
-# hadolint ignore=DL3008,DL3015
+# hadolint ignore=DL3041
 RUN <<_INSTALL_DROP_APP
-set -e
-# Remove the Ubuntu snap stub for Firefox (doesn't work in Docker)
-apt-get update
-apt-get remove -y firefox 2>/dev/null || true
-# Add Mozilla's official APT repository for real Firefox .deb
-install -d -m 0755 /etc/apt/keyrings
-curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg -o /etc/apt/keyrings/mozilla.asc
-echo "deb [signed-by=/etc/apt/keyrings/mozilla.asc] https://packages.mozilla.org/apt mozilla main" > /etc/apt/sources.list.d/mozilla.list
-# Pin Mozilla repo so its Firefox always wins over the Ubuntu snap stub
-printf 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000\n' > /etc/apt/preferences.d/mozilla
-apt-get update
-apt-get install -y --no-install-recommends \
-    libayatana-appindicator3-1 \
-    libwebkit2gtk-4.1-0 \
+set -eux
+case "${TARGETARCH}" in
+    amd64)
+        DROP_APP_RPM_URL="${DROP_APP_RPM_X86_64_URL}"
+        DROP_APP_RPM_SHA256="${DROP_APP_RPM_X86_64_SHA256}"
+        ;;
+    *)
+        echo "Unsupported architecture: ${TARGETARCH}"
+        exit 1
+        ;;
+esac
+dnf install -y \
     firefox \
+    libayatana-appindicator-gtk3 \
+    webkit2gtk4.1 \
     xdg-utils
-curl -fsSL -o /tmp/drop-desktop-client.deb \
-    "https://github.com/Drop-OSS/drop-app/releases/download/v${DROP_APP_VERSION}/Drop.Desktop.Client_${DROP_APP_VERSION}_amd64.deb"
-echo "${DROP_APP_SHA256}  /tmp/drop-desktop-client.deb" | sha256sum -c -
-dpkg -i /tmp/drop-desktop-client.deb || apt-get install -f -y
-rm -f /tmp/drop-desktop-client.deb
-apt-get clean
-rm -rf /var/lib/apt/lists/*
+curl -fsSL -o /tmp/drop-desktop-client.rpm "${DROP_APP_RPM_URL}"
+echo "${DROP_APP_RPM_SHA256}  /tmp/drop-desktop-client.rpm" | sha256sum -c -
+dnf install -y /tmp/drop-desktop-client.rpm
+rm -f /tmp/drop-desktop-client.rpm
+dnf clean all
+rm -rf /var/cache/dnf
 _INSTALL_DROP_APP
 
-COPY --chmod=777 scripts/startup.sh /opt/gow/startup-app.sh
+COPY --chmod=777 scripts/startup.sh /opt/gow/startup.sh
 
 RUN mkdir -p /tmp/.X11-unix
 ENV XDG_RUNTIME_DIR=/tmp/.X11-unix

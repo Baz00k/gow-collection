@@ -4,22 +4,72 @@ ARG BASE_APP_IMAGE
 # hadolint ignore=DL3006
 FROM ${BASE_APP_IMAGE}
 
-# Java versions required for different Minecraft versions:
-# - Java 21: Minecraft 1.21+
-# - Java 17: Minecraft 1.18 - 1.20.4
-# - Java 8:  Minecraft 1.16 and below
 ARG REQUIRED_PACKAGES=" \
     ca-certificates \
     curl \
-    openjdk-21-jre \
-    openjdk-17-jre \
-    openjdk-8-jre \
+    bsdtar \
+    gzip \
     "
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends $REQUIRED_PACKAGES && \
-    apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/*
+# hadolint ignore=DL3041
+RUN dnf install -y $REQUIRED_PACKAGES && \
+    dnf clean all && \
+    rm -rf /var/cache/dnf
+
+# Bundled Temurin JREs required for different Minecraft versions:
+# - Java 21: Minecraft 1.21+
+# - Java 17: Minecraft 1.18 - 1.20.4
+# - Java 8:  Minecraft 1.16 and below
+# These are app-owned pins instead of Fedora packages to avoid distro package drift.
+ARG TEMURIN_JRE_8_X86_64_URL
+ARG TEMURIN_JRE_8_X86_64_SHA256
+ARG TEMURIN_JRE_8_AARCH64_URL
+ARG TEMURIN_JRE_8_AARCH64_SHA256
+ARG TEMURIN_JRE_17_X86_64_URL
+ARG TEMURIN_JRE_17_X86_64_SHA256
+ARG TEMURIN_JRE_17_AARCH64_URL
+ARG TEMURIN_JRE_17_AARCH64_SHA256
+ARG TEMURIN_JRE_21_X86_64_URL
+ARG TEMURIN_JRE_21_X86_64_SHA256
+ARG TEMURIN_JRE_21_AARCH64_URL
+ARG TEMURIN_JRE_21_AARCH64_SHA256
+ARG TARGETARCH
+
+RUN set -eux; \
+    mkdir -p /opt/java; \
+    case "${TARGETARCH}" in \
+        amd64) \
+            JRE_8_URL="${TEMURIN_JRE_8_X86_64_URL}"; \
+            JRE_8_SHA256="${TEMURIN_JRE_8_X86_64_SHA256}"; \
+            JRE_17_URL="${TEMURIN_JRE_17_X86_64_URL}"; \
+            JRE_17_SHA256="${TEMURIN_JRE_17_X86_64_SHA256}"; \
+            JRE_21_URL="${TEMURIN_JRE_21_X86_64_URL}"; \
+            JRE_21_SHA256="${TEMURIN_JRE_21_X86_64_SHA256}"; \
+            ;; \
+        arm64) \
+            JRE_8_URL="${TEMURIN_JRE_8_AARCH64_URL}"; \
+            JRE_8_SHA256="${TEMURIN_JRE_8_AARCH64_SHA256}"; \
+            JRE_17_URL="${TEMURIN_JRE_17_AARCH64_URL}"; \
+            JRE_17_SHA256="${TEMURIN_JRE_17_AARCH64_SHA256}"; \
+            JRE_21_URL="${TEMURIN_JRE_21_AARCH64_URL}"; \
+            JRE_21_SHA256="${TEMURIN_JRE_21_AARCH64_SHA256}"; \
+            ;; \
+        *) \
+            echo "Unsupported architecture: ${TARGETARCH}"; \
+            exit 1; \
+            ;; \
+    esac; \
+    for version in 8 17 21; do \
+        eval "url=\${JRE_${version}_URL}"; \
+        eval "sha256=\${JRE_${version}_SHA256}"; \
+        curl -fsSL "${url}" -o "/tmp/temurin-jre-${version}.tar.gz"; \
+        echo "${sha256}  /tmp/temurin-jre-${version}.tar.gz" | sha256sum -c -; \
+        mkdir -p "/opt/java/${version}"; \
+        bsdtar -xzf "/tmp/temurin-jre-${version}.tar.gz" -C "/opt/java/${version}" --strip-components=1; \
+        test -x "/opt/java/${version}/bin/java"; \
+        rm -f "/tmp/temurin-jre-${version}.tar.gz"; \
+    done; \
+    ln -sf /opt/java/21/bin/java /usr/local/bin/java
 
 # Install Prism Launcher (Offline-Enabled Fork)
 # Using Diegiwg/PrismLauncher-Cracked AppImage for portability
@@ -32,8 +82,6 @@ ARG PRISM_LAUNCHER_APPIMAGE_X86_64_URL
 ARG PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256
 ARG PRISM_LAUNCHER_APPIMAGE_AARCH64_URL
 ARG PRISM_LAUNCHER_APPIMAGE_AARCH64_SHA256
-
-ARG TARGETARCH
 
 RUN set -eux; \
     # Select the correct AppImage URL and checksum based on architecture \
@@ -66,7 +114,7 @@ RUN set -eux; \
 # Copy the Wolf-compatible startup script that launches Prism Launcher
 # through the GoW compositor helper.
 
-COPY --chmod=755 scripts/startup.sh /opt/gow/startup-app.sh
+COPY --chmod=755 scripts/startup.sh /opt/gow/startup.sh
 
 # XDG_RUNTIME_DIR is required for Wayland compositor integration
 # Wolf sets up /tmp/.X11-unix for X11 socket forwarding
