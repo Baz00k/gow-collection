@@ -32,6 +32,8 @@ images/{name}/
 - `tests/run-smoke.sh`: Smoke test orchestrator
 - `README.md`: Image documentation
 
+Image READMEs should describe only what is specific to that image and include a Wolf app example. Shared runtime behavior belongs in `docs/common-runtime.md`, and common troubleshooting belongs in `docs/troubleshooting.md`.
+
 ### Optional: Dependency Updates
 
 Add `update/check.sh` and `update/apply.sh` for automated version updates. Both scripts must be executable.
@@ -97,6 +99,7 @@ echo "EOF" >> "$GITHUB_OUTPUT"
 ```
 
 Both scripts receive these environment variables:
+
 - `PINS_FILE`: Path to `images/{name}/build/pins.env`
 - `IMAGE_DIR`: Path to `images/{name}/`
 
@@ -104,10 +107,10 @@ Both scripts receive these environment variables:
 
 Global workflows are generic and auto-discover images. No per-image workflow files needed.
 
-| Workflow | Purpose |
-|----------|---------|
-| `images.yml` | Discovers changed images via git diff, triggers builds |
-| `docker-build-and-publish.yml` | Reusable build workflow called by `images.yml` |
-| `update-deps.yml` | Discovers `images/*/update/check.sh` and runs updates |
+| Workflow                       | Purpose                                                |
+| ------------------------------ | ------------------------------------------------------ |
+| `images.yml`                   | Discovers changed images via git diff, triggers builds |
+| `docker-build-and-publish.yml` | Reusable build workflow called by `images.yml`         |
+| `update-deps.yml`              | Discovers `images/*/update/check.sh` and runs updates  |
 
 Adding an image under `images/` with `build/pins.env` is all that's required for CI integration.

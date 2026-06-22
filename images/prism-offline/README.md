@@ -1,39 +1,66 @@
-# GoW Prism Launcher (Offline-Enabled)
+# Prism Launcher Offline
 
-A Games on Whales (Wolf) custom Docker image for Prism Launcher with offline account support.
+Offline-capable Prism Launcher image for Games on Whales / Wolf.
 
-## Overview
+## Quick Start
 
-This project provides a containerized Prism Launcher image designed for use with [Wolf](https://github.com/games-on-whales/wolf), the Games on Whales streaming platform. The image supports offline/local profiles for LAN play and servers configured with `online-mode=false`.
+```toml
+[[profiles.apps]]
+title = "Prism Launcher"
+icon_png_path = "https://raw.githubusercontent.com/PrismLauncher/PrismLauncher/develop/program_info/org.prismlauncher.PrismLauncher.png"
+start_virtual_compositor = true
 
-> **Note:** This is a launcher container only. No Minecraft game assets are bundled.
-
-## Features
-
-- Prism Launcher in a Wolf-compatible container
-- Offline/local profile support for LAN and offline-server play
-- GPU acceleration (NVIDIA and AMD)
-- Published to GitHub Container Registry (GHCR)
-
-## Usage
-
-```bash
-docker pull ghcr.io/Baz00k/gow-collection/prism-offline:edge
+[profiles.apps.runner]
+type = "docker"
+name = "WolfPrismLauncher"
+image = "ghcr.io/Baz00k/gow-collection/prism-offline:edge"
+mounts = []
+env = [
+    "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*"
+]
+devices = []
+ports = []
+base_create_json = """
+{
+  "HostConfig": {
+    "IpcMode": "host",
+    "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN"],
+    "Privileged": false,
+    "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+  }
+}
+\
+"""
 ```
 
-## Legal & Usage
+## What Is Included
 
-**IMPORTANT:** Read [LEGAL.md](./LEGAL.md) before using this image.
+- Offline-capable Prism Launcher fork from [Diegiwg/PrismLauncher-Cracked](https://github.com/Diegiwg/PrismLauncher-Cracked).
+- Bundled Temurin JREs for Minecraft version coverage:
+    - Java 21 for Minecraft 1.21+.
+    - Java 17 for Minecraft 1.18 through 1.20.4.
+    - Java 8 for Minecraft 1.16 and older.
+- No Minecraft game assets or accounts.
 
-- Users must own a legitimate Minecraft license for gameplay
-- Offline profiles are for local/LAN play or `online-mode=false` servers only
-- This project does NOT bypass Mojang/Microsoft authentication
-- Certain launchers are prohibited due to security concerns
+## Legal And Account Policy
 
-## Launcher Policy Note
+Read [LEGAL.md](LEGAL.md) before using this image.
 
-This image intentionally uses an offline-capable Prism fork. The rationale for forbidding certain launchers remains documented in [LEGAL.md](./LEGAL.md).
+- Users must own a legitimate Minecraft license for gameplay.
+- Offline profiles are for local/LAN play or `online-mode=false` servers.
+- This project does not bypass Mojang/Microsoft authentication.
+- Certain launchers are prohibited due to security concerns documented in `LEGAL.md`.
 
-## License
+## App-Specific Configuration
 
-GPL-3.0-only — see [LICENSE](/LICENSE)
+There are no required image-specific environment variables.
+
+Common variables such as `PUID`, `PGID`, and `GOW_DEBUG` are documented in [common runtime](../../docs/common-runtime.md).
+
+## Updates
+
+Prism AppImage URLs/checksums and Temurin JRE URLs/checksums are tracked in `build/pins.env`.
+
+## Troubleshooting
+
+See [shared troubleshooting](../../docs/troubleshooting.md) first. Prism-specific problems are usually launcher/profile/account configuration or missing Minecraft assets downloaded by the launcher at runtime.

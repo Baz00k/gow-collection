@@ -54,4 +54,4 @@ THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPL
 
 ## License
 
-This project is licensed under GPL-3.0-only. See [LICENSE](/LICENSE) for details.
+This project is licensed under GPL-3.0-only. See [LICENSE](../../LICENSE) for details.

@@ -1,9 +1,10 @@
-# base
+# Base Image
 
-Shared Fedora base image for the gow-collection. Every other image in this repo
-builds on top of this one (`BASE_APP_IMAGE` in their `pins.env`).
+Shared Fedora base image for the gow-collection. Every other image in this repo builds on top of this image through `BASE_APP_IMAGE` in its `pins.env`.
 
-## What it provides
+This is primarily maintainer documentation. User-facing shared behavior is documented in [common runtime](../../docs/common-runtime.md).
+
+## What It Provides
 
 The common Games on Whales runtime contract:
 
@@ -22,7 +23,7 @@ The common Games on Whales runtime contract:
 App images add their own packages, a `startup.sh`, and any app-specific
 `cont-init.d` scripts on top. They inherit the `ENTRYPOINT` from this image.
 
-## Why a rolling Fedora tag + tracked digest
+## Why A Rolling Fedora Tag Plus Tracked Digest
 
 `pins.env` keeps the human-facing Fedora tag (`registry.fedoraproject.org/fedora:44`)
 as a rolling tag and records the digest it currently resolves to in
@@ -36,7 +37,7 @@ detects when the rolling tag moves to a new digest.
 Downstream images do **not** have this problem — they pin this base by digest on
 **our** GHCR, which retains old digests, so their pins never rot.
 
-## Update flow
+## Update Flow
 
 1. `update/check.sh` + `apply.sh` (run weekly by `update-deps.yml`) detect and
    apply a new Fedora digest or bubblewrap release here.

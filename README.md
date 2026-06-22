@@ -1,42 +1,46 @@
 # GoW Collection
 
-My collection of custom Docker images for [Games on Whales](https://github.com/games-on-whales/gow) / [Wolf](https://github.com/games-on-whales/wolf).
+Custom Docker images for [Games on Whales](https://github.com/games-on-whales/gow) / [Wolf](https://github.com/games-on-whales/wolf).
+
+The images are meant to be used as Wolf Docker apps.
 
 ## Images
 
-| Image                                           | Description                                                       | Pull                                                           |
-| ----------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
-| [drop-app](images/drop-app/README.md)           | [Drop](https://github.com/Drop-OSS/drop-app) game launcher        | `docker pull ghcr.io/Baz00k/gow-collection/drop-app:edge`      |
-| [prism-offline](images/prism-offline/README.md) | [Prism Launcher](https://prismlauncher.org/) with offline support | `docker pull ghcr.io/Baz00k/gow-collection/prism-offline:edge` |
-| [steam](images/steam/README.md)                 | Steam via gamescope with performance tuning                       | `docker pull ghcr.io/Baz00k/gow-collection/steam:edge`         |
+| Image                                           | What it is                                                         | Pull                                                           |
+| ----------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------- |
+| [drop-app](images/drop-app/README.md)           | [Drop](https://github.com/Drop-OSS/drop-app) desktop client        | `docker pull ghcr.io/Baz00k/gow-collection/drop-app:edge`      |
+| [prism-offline](images/prism-offline/README.md) | Offline-capable [Prism Launcher](https://prismlauncher.org/) image | `docker pull ghcr.io/Baz00k/gow-collection/prism-offline:edge` |
+| [steam](images/steam/README.md)                 | Steam with gamescope, MangoHud, GameMode, and Decky Loader         | `docker pull ghcr.io/Baz00k/gow-collection/steam:edge`         |
 
-## Repository Structure
+## Start Here
 
-```
+- [Common runtime](docs/common-runtime.md): shared user, debug, host tuning, and tag behavior.
+- [Troubleshooting](docs/troubleshooting.md): common permission, GPU, startup, and game-crash issues.
+
+Each image README includes its Wolf app example and image-specific settings.
+
+## Updates And Safety
+
+Dependency updates are automated with pull requests. Automated PRs are only merged after policy checks and image build/smoke tests pass.
+
+## Repository Layout
+
+```text
 gow-collection/
+├── docs/                    # Shared user docs
 ├── images/
 │   └── <name>/
-│       ├── build/           # Dockerfile, pins.env, scripts
+│       ├── build/           # Dockerfile, pins.env, startup script, overlay
 │       ├── tests/           # Smoke tests
-│       ├── update/          # Dependency update scripts (optional)
-│       │   ├── check.sh     # Check for available updates
-│       │   └── apply.sh     # Apply updates to pins.env
-│       └── README.md
-├── .github/workflows/
-│   ├── images.yml                    # Orchestrator: discovers changed images
-│   ├── docker-build-and-publish.yml  # Reusable build workflow
-│   ├── update-deps.yml               # Discovers image-local update scripts
-│   └── policy.yml                    # Policy checks
-└── tests/                            # Global policy checks
+│       ├── update/          # Optional dependency update scripts
+│       └── README.md        # Image-specific notes
+├── tests/                   # Repository policy checks
+└── .github/workflows/       # Build, publish, update, and auto-merge workflows
 ```
-
-## Automation
-
-All builds and updates are automated and the images should be kept up to date.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add new images.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add or update images.
 
 ## License
 

@@ -114,11 +114,11 @@ LAUNCH_COMP_EXISTS=$(docker exec "${CONTAINER_NAME}" test -f /opt/gow/launch-com
 } >> "${EVIDENCE_FILE}"
 
 if [[ "${GOW_UTILS_EXISTS}" != "yes" ]]; then
-    log_warn "GoW utils.sh not found (may be expected in base image)"
+    log_warn "GoW utils.sh not found"
 fi
 
 if [[ "${LAUNCH_COMP_EXISTS}" != "yes" ]]; then
-    log_warn "GoW launch-comp.sh not found (may be expected in base image)"
+    log_warn "GoW launch-comp.sh not found"
 fi
 
 log_info "Checking XDG_RUNTIME_DIR environment variable..."

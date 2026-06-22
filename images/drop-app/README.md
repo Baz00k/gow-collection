@@ -1,67 +1,64 @@
-# drop-app on GoW
+# Drop App
 
-Docker image for running [Drop](https://github.com/Drop-OSS/drop-app) on [Games on Whales](https://github.com/games-on-whales/gow) (`base-app:edge`).
+[Drop](https://github.com/Drop-OSS/drop-app) desktop client packaged for Games on Whales / Wolf.
 
-## Usage
-
-```bash
-docker pull ghcr.io/Baz00k/gow-collection/drop-app:edge
-```
-
-## Configuration
-
-| Variable           | Description                    |
-| ------------------ | ------------------------------ |
-| `DROP_SERVER_URL`  | Your Drop server URL           |
-| `PUID` / `PGID`    | User/group IDs (default: 1000) |
-| `RUN_GAMESCOPE`    | Use gamescope compositor       |
-| `GAMESCOPE_WIDTH`  | Display width (default: 1920)  |
-| `GAMESCOPE_HEIGHT` | Display height (default: 1080) |
-
-## Wolf
-
-Example `apps.toml` entry:
+## Quick Start
 
 ```toml
-[apps.drop]
+[[profiles.apps]]
 title = "Drop"
-icon_png_path = "https://raw.githubusercontent.com/Drop-OSS/drop-app/develop/src-tauri/icons/icon.png"
+icon_png_path = "https://raw.githubusercontent.com/Drop-OSS/drop-app/main/app-icon.png"
 start_virtual_compositor = true
 
-[apps.drop.runner]
+[profiles.apps.runner]
 type = "docker"
-name = "drop-app"
+name = "WolfDrop"
 image = "ghcr.io/Baz00k/gow-collection/drop-app:edge"
-env = ["DROP_SERVER_URL=https://your-server.example.com"]
+mounts = []
+env = [
+    "DROP_SERVER_URL=https://your-server.example.com"
+]
+devices = []
+ports = []
+base_create_json = """
+{
+  "HostConfig": {
+    "IpcMode": "host",
+    "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN"],
+    "Privileged": false,
+    "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+  }
+}
+\
+"""
 ```
 
-## Tags
+## App-Specific Configuration
 
-- `edge` — latest main branch build
-- `vX.Y.Z` — release versions
-- `sha-abc1234` — commit-pinned
+| Variable          | Required | Description                                                         |
+| ----------------- | -------- | ------------------------------------------------------------------- |
+| `DROP_SERVER_URL` | Usually  | URL of your Drop server                                             |
+| `BROWSER`         | No       | Browser used by Drop for auth/external links. Defaults to `firefox` |
 
-## Updates
+Common variables such as `PUID`, `PGID`, and `GOW_DEBUG` are documented in [common runtime](../../docs/common-runtime.md).
 
-Upstream dependency updates (base image, drop-app releases) are detected weekly and proposed as PRs automatically.
+## Notes
 
-## Windows Games (Proton)
-
-Drop's `develop` branch has built-in [Proton/UMU support](https://github.com/Drop-OSS/drop-app/blob/develop/src-tauri/process/src/compat.rs) for running Windows games on Linux, but this is not yet included in the latest release (v0.3.4). Once a new version ships with compatibility layer support, this image will be updated to bundle `umu-run` and Proton.
-
-## Troubleshooting
-
-### "Too many open files" during downloads
-
-Games with many files can hit the container's open-file limit ([Drop-OSS/drop-app#127](https://github.com/Drop-OSS/drop-app/issues/127)). The startup script raises this automatically, but if you still see the error, pass the limit explicitly:
+If you hit open-file limits, set the limit explicitly in Wolf:
 
 ```toml
-[apps.drop.runner]
+[profiles.apps.runner]
 ulimits = ["nofile=65536:65536"]
 ```
 
-## Rollback
+## Windows Games
 
-```bash
-docker pull ghcr.io/Baz00k/gow-collection/drop-app@sha256:<digest>
-```
+Drop's `develop` branch has built-in [Proton/UMU support](https://github.com/Drop-OSS/drop-app/blob/develop/src-tauri/process/src/compat.rs), but this is not yet included in the latest release used here. When a release ships compatibility-layer support, this image can add `umu-run` and Proton.
+
+## Updates
+
+The Drop release URL and checksum are tracked in `build/pins.env` and updated by this image's update scripts.
+
+## Troubleshooting
+
+See [shared troubleshooting](../../docs/troubleshooting.md) first. Drop-specific startup failures are usually missing `DROP_SERVER_URL`, browser/auth problems, or open-file limits during downloads.

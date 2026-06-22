@@ -85,14 +85,14 @@ GITHUB_OUTPUT=/dev/null bash images/<name>/update/apply.sh
 
 ## CI Workflows
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `images.yml` | Push/PR changing `images/**` | Discovers changed images, triggers builds |
-| `docker-build-and-publish.yml` | Called by images.yml | Build → smoke test → publish (reusable) |
-| `policy.yml` | Push/PR to main | Runs `./tests/policy-check.sh --strict` |
-| `update-deps.yml` | Weekly (Mon 06:00 UTC) | Auto-discovers `update/check.sh`, creates PRs |
-| `base-rebuild.yml` | Called by images.yml after `base` builds on main; manual dispatch | Bumps images that pin our base to the new base digest, opens an auto-merge PR |
-| `auto-merge.yml` | PR opened/labeled `automated` | Enables auto-merge (squash) so automated PRs land once required checks pass |
+| Workflow                       | Trigger                                                           | Purpose                                                                       |
+| ------------------------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `images.yml`                   | Push/PR changing `images/**`                                      | Discovers changed images, triggers builds                                     |
+| `docker-build-and-publish.yml` | Called by images.yml                                              | Build → smoke test → publish (reusable)                                       |
+| `policy.yml`                   | Push/PR to main                                                   | Runs `./tests/policy-check.sh --strict`                                       |
+| `update-deps.yml`              | Weekly (Mon 06:00 UTC)                                            | Auto-discovers `update/check.sh`, creates PRs                                 |
+| `base-rebuild.yml`             | Called by images.yml after `base` builds on main; manual dispatch | Bumps images that pin our base to the new base digest, opens an auto-merge PR |
+| `auto-merge.yml`               | PR opened/labeled `automated`                                     | Enables auto-merge (squash) so automated PRs land once required checks pass   |
 
 Adding an image under `images/` with `build/pins.env` is all that's needed for CI integration. No workflow files need modification.
 
@@ -111,6 +111,7 @@ Adding an image under `images/` with `build/pins.env` is all that's needed for C
 **Variable quoting**: Always double-quote variables — `"${VAR}"` not `$VAR`. Use `${VAR:-default}` for optional env vars with defaults.
 
 **Naming conventions**:
+
 - Variables: `UPPER_SNAKE_CASE` for environment variables and script-level vars
 - Functions: `lower_snake_case` (e.g., `log_info`, `fetch_latest_base_digest`)
 - File names: `kebab-case` (e.g., `run-smoke.sh`, `smoke-startup.sh`, `policy-check.sh`)
@@ -146,7 +147,7 @@ inplace() { sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"; }
 - Use hadolint ignore comments where needed: `# hadolint ignore=DL3006,DL3008`
 - Always verify downloads with `sha256sum -c -`
 - Clean apt caches: `apt-get clean && rm -rf /var/lib/apt/lists/*`
-- Copy startup script to `/opt/gow/startup-app.sh` with `--chmod=755` (or `--chmod=777`)
+- Copy startup script to `/opt/gow/startup.sh` with `--chmod=755` (or `--chmod=777`)
 - Set `ENV XDG_RUNTIME_DIR=/tmp/.X11-unix`
 - Add OCI labels at the end: `org.opencontainers.image.{title,description,authors,source,licenses}`
 
@@ -164,6 +165,7 @@ APP_SHA256=<sha256-of-downloaded-artifact>
 ### Smoke Tests
 
 Each test script follows this structure:
+
 1. Parse env vars (`IMAGE_NAME`, `CONTAINER_NAME`, `EVIDENCE_DIR`)
 2. Write evidence header to `EVIDENCE_FILE`
 3. Set `trap cleanup EXIT` to remove containers
@@ -176,6 +178,7 @@ Each test script follows this structure:
 ### Update Scripts Contract
 
 Scripts communicate with CI via `GITHUB_OUTPUT`:
+
 - `check.sh` outputs: `update_available=true|false`, optional `summary_md`
 - `apply.sh` outputs: `applied=true|false`, optional `summary_md`
 - Both receive: `PINS_FILE` and `IMAGE_DIR` env vars from CI
