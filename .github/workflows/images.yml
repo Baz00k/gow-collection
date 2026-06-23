@@ -65,6 +65,21 @@ jobs:
             exit 0
           fi
 
+          # Changes to the build workflows can affect every image, so rebuild
+          # all of them when either workflow file changed in this range.
+          if ! WORKFLOW_CHANGES=$(git diff --name-only "$BASE" "$HEAD" -- \
+            '.github/workflows/images.yml' \
+            '.github/workflows/docker-build-and-publish.yml'); then
+            echo "::warning::Unable to diff workflows - building all images"
+            echo "changed=all" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ -n "$WORKFLOW_CHANGES" ]]; then
+            echo "Build workflow changed - building all images"
+            echo "changed=all" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           # Find changed files under images/
           if ! CHANGED_FILES=$(git diff --name-only "$BASE" "$HEAD" -- 'images/*'); then
             echo "::warning::Unable to diff ${BASE}..${HEAD} - building all images"
