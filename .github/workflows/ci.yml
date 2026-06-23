@@ -1,0 +1,414 @@
+name: CI
+
+# Single canonical CI/CD workflow.
+#
+#   detect → policy → (build/smoke/publish apps  |  validate+publish base)
+#                                                                   ↓ ci-gate
+#
+# Branch protection requires exactly one check: `ci-gate`.
+#
+# Domain rule (see .github/scripts/plan-builds.sh): `base` is the only parent;
+# every app builds FROM the committed BASE_APP_IMAGE digest. When `base` itself
+# changes we validate all apps against the freshly-built base in one job, but
+# we do NOT publish apps from a base change — their committed pins are bumped
+# afterwards by the update workflow (base-digest propagation).
+
+on:
+    pull_request:
+    push:
+        branches: [main]
+        paths:
+            - "images/**"
+            - "tests/**"
+            - ".github/workflows/**"
+            - ".github/dependabot.yml"
+            - ".github/scripts/**"
+    workflow_dispatch:
+
+run-name: "ci: ${{ github.event_name }} ${{ github.ref_name }}"
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    REGISTRY: ghcr.io
+    BASE_REPO: ${{ github.repository_owner }}/gow-collection/base
+
+jobs:
+    detect:
+        name: detect affected images
+        runs-on: ubuntu-latest
+        outputs:
+            base_changed: ${{ steps.plan.outputs.base_changed }}
+            has_app_changes: ${{ steps.plan.outputs.has_app_changes }}
+            app_matrix: ${{ steps.plan.outputs.app_matrix }}
+            summary: ${{ steps.plan.outputs.summary }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+              with:
+                  fetch-depth: 0
+
+            - name: Plan builds
+              id: plan
+              env:
+                  EVENT_NAME: ${{ github.event_name }}
+              run: |
+                  set -euo pipefail
+                  if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+                    git fetch origin "${{ github.base_ref }}" --depth=1
+                    export BASE_REF="origin/${{ github.base_ref }}"
+                    export HEAD_REF="HEAD"
+                  elif [[ "${{ github.event_name }}" == "push" ]]; then
+                    export BASE_REF="${{ github.event.before }}"
+                    export HEAD_REF="${{ github.event.after }}"
+                    # Initial push has an all-zero "before"; treat as full build.
+                    [[ "$BASE_REF" == "0000000000000000000000000000000000000000" ]] && export BASE_REF=""
+                  else
+                    export BASE_REF=""
+                  fi
+                  bash .github/scripts/plan-builds.sh
+
+            - name: Summary
+              run: 'echo "### Affected images: ${{ steps.plan.outputs.summary }}" >> "$GITHUB_STEP_SUMMARY"'
+
+    policy:
+        name: policy
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+              with:
+                  fetch-depth: 1
+
+            - name: Run policy checks
+              run: |
+                  chmod +x tests/policy-check.sh
+                  ./tests/policy-check.sh --strict
+
+            - name: Upload policy results (on failure)
+              if: failure()
+              uses: actions/upload-artifact@v7
+              with:
+                  name: policy-check-results
+                  path: test-results/
+                  retention-days: 7
+                  if-no-files-found: ignore
+
+    # --- Base-change path -------------------------------------------------------
+    # Build the candidate base, then build + smoke every app against it in the
+    # SAME job. Uses the `docker` driver so apps can FROM the locally-loaded base.
+    validate-base-graph:
+        name: validate base graph
+        needs: [detect, policy]
+        if: needs.detect.outputs.base_changed == 'true'
+        runs-on: ubuntu-latest
+        outputs:
+            published_base_ref: ${{ steps.publish.outputs.published_base_ref }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+
+            - name: Set up Docker Buildx (docker driver)
+              uses: docker/setup-buildx-action@v4
+              with:
+                  driver: docker
+
+            - name: Build base + all apps against it, smoke each
+              env:
+                  GITHUB_REPOSITORY: ${{ github.repository }}
+              run: |
+                  set -euo pipefail
+                  LOCAL_BASE="gow-ci/base:${GITHUB_SHA}"
+
+                  echo "::group::Build base -> ${LOCAL_BASE}"
+                  mapfile -t BASE_ARGS < <(bash .github/scripts/pins-to-build-args.sh images/base)
+                  BASE_BUILD_ARGS=()
+                  for arg in "${BASE_ARGS[@]}"; do
+                    BASE_BUILD_ARGS+=(--build-arg "$arg")
+                  done
+                  docker build \
+                    "${BASE_BUILD_ARGS[@]}" \
+                    -t "${LOCAL_BASE}" \
+                    images/base/build
+                  echo "::endgroup::"
+
+                  echo "::group::Smoke base"
+                  chmod +x images/base/tests/run-smoke.sh
+                  IMAGE_NAME="${LOCAL_BASE}" images/base/tests/run-smoke.sh
+                  echo "::endgroup::"
+
+                  for dir in $(find images -maxdepth 1 -mindepth 1 -type d ! -name base | sort); do
+                    name=$(basename "$dir")
+                    [[ -f "${dir}/build/pins.env" ]] || continue
+                    app_image="gow-ci/${name}:${GITHUB_SHA}"
+                    echo "::group::Build ${name} against ${LOCAL_BASE}"
+                    mapfile -t APP_ARGS < <(bash .github/scripts/pins-to-build-args.sh "$dir" "$LOCAL_BASE")
+                    APP_BUILD_ARGS=()
+                    for arg in "${APP_ARGS[@]}"; do
+                      APP_BUILD_ARGS+=(--build-arg "$arg")
+                    done
+                    docker build \
+                      "${APP_BUILD_ARGS[@]}" \
+                      -t "${app_image}" \
+                      "${dir}/build"
+                    echo "::endgroup::"
+                    echo "::group::Smoke ${name}"
+                    chmod +x "${dir}/tests/run-smoke.sh"
+                    IMAGE_NAME="${app_image}" "${dir}/tests/run-smoke.sh"
+                    echo "::endgroup::"
+                  done
+
+            - name: Upload smoke evidence (on failure)
+              if: failure()
+              uses: actions/upload-artifact@v7
+              with:
+                  name: smoke-evidence-base-graph
+                  path: test-results/
+                  retention-days: 7
+                  if-no-files-found: warn
+
+            - name: Publish base (main only)
+              id: publish
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  set -euo pipefail
+                  BASE_IMAGE="${REGISTRY}/${BASE_REPO}"
+                  BASE_IMAGE="${BASE_IMAGE,,}"   # GHCR repos are lowercase
+                  echo "${GITHUB_TOKEN}" | docker login "${REGISTRY}" -u "${{ github.actor }}" --password-stdin
+
+                  mapfile -t BASE_ARGS < <(bash .github/scripts/pins-to-build-args.sh images/base)
+                  BASE_BUILD_ARGS=()
+                  for arg in "${BASE_ARGS[@]}"; do
+                    BASE_BUILD_ARGS+=(--build-arg "$arg")
+                  done
+                  docker build \
+                    "${BASE_BUILD_ARGS[@]}" \
+                    -t "${BASE_IMAGE}:edge" \
+                    -t "${BASE_IMAGE}:sha-${GITHUB_SHA}" \
+                    images/base/build
+                  docker push "${BASE_IMAGE}:edge"
+                  docker push "${BASE_IMAGE}:sha-${GITHUB_SHA}"
+
+                  digest=$(docker inspect --format='{{index .RepoDigests 0}}' "${BASE_IMAGE}:edge" | cut -d'@' -f2)
+                  echo "published_base_ref=${BASE_IMAGE}:edge@${digest}" >> "$GITHUB_OUTPUT"
+                  echo "::notice::Published base ${BASE_IMAGE}:edge@${digest}"
+        permissions:
+            contents: read
+            packages: write
+
+    # --- After base publishes on main: trigger dependent repin via update.yml ---
+    trigger-base-propagation:
+        name: trigger base digest propagation
+        needs: [detect, validate-base-graph]
+        if: >-
+            github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+            needs.detect.outputs.base_changed == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Generate GitHub App token
+              id: app-token
+              uses: actions/create-github-app-token@v2
+              with:
+                  app-id: ${{ secrets.GOW_UPDATER_APP_ID }}
+                  private-key: ${{ secrets.GOW_UPDATER_PRIVATE_KEY }}
+            - name: Dispatch base-digest-published
+              env:
+                  GH_TOKEN: ${{ steps.app-token.outputs.token }}
+              run: |
+                  gh api "repos/${{ github.repository }}/dispatches" \
+                    -f event_type=base-digest-published \
+                    -F "client_payload[base_ref]=${{ needs.validate-base-graph.outputs.published_base_ref }}" \
+                    -F "client_payload[source_sha]=${{ github.sha }}"
+
+    # --- Normal app-change path (matrix) ---------------------------------------
+    build-apps:
+        name: build ${{ matrix.image_name }}
+        needs: [detect, policy]
+        if: needs.detect.outputs.base_changed != 'true' && needs.detect.outputs.has_app_changes == 'true'
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJSON(needs.detect.outputs.app_matrix) }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v4
+
+            - name: Expose GitHub Actions cache runtime
+              uses: crazy-max/ghaction-github-runtime@v4
+
+            - name: Build image
+              env:
+                  GITHUB_REPOSITORY: ${{ github.repository }}
+              run: |
+                  set -euo pipefail
+                  IMG="gow-ci/${{ matrix.image_name }}:${GITHUB_SHA}"
+                  mapfile -t ARGS < <(bash .github/scripts/pins-to-build-args.sh "${{ matrix.image_dir }}")
+                  BUILD_ARGS=()
+                  for arg in "${ARGS[@]}"; do
+                    BUILD_ARGS+=(--build-arg "$arg")
+                  done
+                  docker buildx build \
+                    "${BUILD_ARGS[@]}" \
+                    --cache-from "type=gha,scope=${{ matrix.image_name }}" \
+                    --cache-to "type=gha,scope=${{ matrix.image_name }},mode=max" \
+                    --load \
+                    -t "${IMG}" \
+                    "${{ matrix.image_dir }}/build"
+                  docker save -o /tmp/image.tar "${IMG}"
+
+            - name: Upload image artifact
+              uses: actions/upload-artifact@v7
+              with:
+                  name: docker-image-${{ matrix.image_name }}
+                  path: /tmp/image.tar
+                  retention-days: 1
+                  if-no-files-found: error
+
+    smoke-apps:
+        name: smoke ${{ matrix.image_name }}
+        needs: [detect, build-apps]
+        if: needs.detect.outputs.base_changed != 'true' && needs.detect.outputs.has_app_changes == 'true'
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJSON(needs.detect.outputs.app_matrix) }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+            - name: Download image artifact
+              uses: actions/download-artifact@v8
+              with:
+                  name: docker-image-${{ matrix.image_name }}
+                  path: /tmp
+            - name: Load and smoke test
+              run: |
+                  set -euo pipefail
+                  docker load --input /tmp/image.tar
+                  IMG="gow-ci/${{ matrix.image_name }}:${GITHUB_SHA}"
+                  chmod +x "${{ matrix.image_dir }}/tests/run-smoke.sh"
+                  IMAGE_NAME="${IMG}" "${{ matrix.image_dir }}/tests/run-smoke.sh"
+            - name: Upload smoke evidence (on failure)
+              if: failure()
+              uses: actions/upload-artifact@v7
+              with:
+                  name: smoke-evidence-${{ matrix.image_name }}
+                  path: test-results/${{ matrix.image_name }}/
+                  retention-days: 7
+                  if-no-files-found: warn
+
+    publish-apps:
+        name: publish ${{ matrix.image_name }}
+        needs: [detect, smoke-apps]
+        if: >-
+            github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+            needs.detect.outputs.base_changed != 'true' && needs.detect.outputs.has_app_changes == 'true'
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJSON(needs.detect.outputs.app_matrix) }}
+        permissions:
+            contents: read
+            packages: write
+        steps:
+            - name: Download image artifact
+              uses: actions/download-artifact@v8
+              with:
+                  name: docker-image-${{ matrix.image_name }}
+                  path: /tmp
+            - name: Push image
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  set -euo pipefail
+                  docker load --input /tmp/image.tar
+                  SRC="gow-ci/${{ matrix.image_name }}:${GITHUB_SHA}"
+                  DEST="${REGISTRY}/${{ github.repository_owner }}/gow-collection/${{ matrix.image_name }}"
+                  DEST="${DEST,,}"
+                  echo "${GITHUB_TOKEN}" | docker login "${REGISTRY}" -u "${{ github.actor }}" --password-stdin
+                  docker tag "${SRC}" "${DEST}:edge"
+                  docker tag "${SRC}" "${DEST}:sha-${GITHUB_SHA}"
+                  docker push "${DEST}:edge"
+                  docker push "${DEST}:sha-${GITHUB_SHA}"
+                  echo "::notice::Published ${DEST}:edge"
+
+    # --- Single fixed required check -------------------------------------------
+    ci-gate:
+        name: ci-gate
+        needs:
+            - detect
+            - policy
+            - validate-base-graph
+            - trigger-base-propagation
+            - build-apps
+            - smoke-apps
+            - publish-apps
+        if: always()
+        runs-on: ubuntu-latest
+        steps:
+            - name: Evaluate required jobs
+              env:
+                  DETECT: ${{ needs.detect.result }}
+                  POLICY: ${{ needs.policy.result }}
+                  BASE_CHANGED: ${{ needs.detect.outputs.base_changed }}
+                  HAS_APPS: ${{ needs.detect.outputs.has_app_changes }}
+                  VALIDATE_BASE: ${{ needs.validate-base-graph.result }}
+                  TRIGGER_PROP: ${{ needs.trigger-base-propagation.result }}
+                  BUILD_APPS: ${{ needs.build-apps.result }}
+                  SMOKE_APPS: ${{ needs.smoke-apps.result }}
+                  PUBLISH_APPS: ${{ needs.publish-apps.result }}
+                  IS_MAIN_PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+              run: |
+                  set -euo pipefail
+                  fail=0
+                  require() {
+                    local name="$1" result="$2"
+                    if [[ "$result" != "success" ]]; then
+                      echo "::error::${name} did not succeed (got: ${result})"
+                      fail=1
+                    else
+                      echo "${name}: success"
+                    fi
+                  }
+                  allow_skip_or_success() {
+                    local name="$1" result="$2"
+                    if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+                      echo "::error::${name} failed (got: ${result})"
+                      fail=1
+                    else
+                      echo "${name}: ${result}"
+                    fi
+                  }
+
+                  require "detect" "$DETECT"
+                  require "policy" "$POLICY"
+
+                  if [[ "$BASE_CHANGED" == "true" ]]; then
+                    require "validate-base-graph" "$VALIDATE_BASE"
+                    if [[ "$IS_MAIN_PUSH" == "true" ]]; then
+                      require "trigger-base-propagation" "$TRIGGER_PROP"
+                    fi
+                  fi
+
+                  if [[ "$BASE_CHANGED" != "true" && "$HAS_APPS" == "true" ]]; then
+                    require "build-apps" "$BUILD_APPS"
+                    require "smoke-apps" "$SMOKE_APPS"
+                    if [[ "$IS_MAIN_PUSH" == "true" ]]; then
+                      require "publish-apps" "$PUBLISH_APPS"
+                    fi
+                  fi
+
+                  # Jobs that did not apply must be skipped, never failed.
+                  allow_skip_or_success "validate-base-graph" "$VALIDATE_BASE"
+                  allow_skip_or_success "build-apps" "$BUILD_APPS"
+
+                  exit $fail

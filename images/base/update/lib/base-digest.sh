@@ -2,10 +2,10 @@
 # Shared helper: resolve the current digest of a registry tag.
 #
 # This is the single source of truth for "what digest does this tag point at".
-# It is used by base-rebuild.yml to propagate the freshly published base image
-# digest into every dependent image's pins.env, and by images/base/update to
-# track the upstream Fedora rolling tag. No other copy of this logic should
-# exist in the repository.
+# It is used by images/base/update/{check,apply}.sh to track the upstream Fedora
+# rolling tag and to propagate the freshly published base image digest into every
+# dependent image's pins.env. No other copy of this logic should exist in the
+# repository.
 #
 # Usage:
 #   source images/base/update/lib/base-digest.sh

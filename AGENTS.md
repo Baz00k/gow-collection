@@ -10,7 +10,7 @@ Docker image collection for [Games on Whales](https://github.com/games-on-whales
 
 The base pins the upstream Fedora image with a **rolling tag plus a tracked digest** (`BASE_IMAGE` + `BASE_IMAGE_DIGEST`, Dockerfile builds `FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}`) because the Fedora registry garbage-collects old digests. Downstream images pin the base by digest on our own GHCR (which retains digests), so their pins never rot.
 
-Base ownership is intentionally split: `images/base/update/*` owns the base's upstream inputs (Fedora digest, bubblewrap, gosu); `.github/workflows/base-rebuild.yml` is the only writer of app `BASE_APP_IMAGE` pins after a new base publishes; each app's `update/*` scripts own only app-specific dependencies.
+Base ownership is intentionally split: `images/base/update/*` owns only the base image's own upstream dependencies (Fedora digest, bubblewrap, gosu); each app's `update/*` scripts own only app-specific dependencies and must never touch `BASE_APP_IMAGE`. Base-digest propagation is repo graph orchestration handled by `.github/scripts/propagate-base-digest.sh` from `update.yml` after a new base image is published.
 
 ## Repository Structure
 
@@ -85,20 +85,32 @@ GITHUB_OUTPUT=/dev/null bash images/<name>/update/apply.sh
 
 ## CI Workflows
 
-| Workflow                       | Trigger                                                           | Purpose                                                                       |
-| ------------------------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `images.yml`                   | Push/PR changing `images/**`                                      | Discovers changed images, triggers builds                                     |
-| `docker-build-and-publish.yml` | Called by images.yml                                              | Build → smoke test → publish (reusable)                                       |
-| `policy.yml`                   | Push/PR to main                                                   | Runs `./tests/policy-check.sh --strict`                                       |
-| `update-deps.yml`              | Weekly (Mon 06:00 UTC)                                            | Auto-discovers `update/check.sh`, creates PRs                                 |
-| `base-rebuild.yml`             | Called by images.yml after `base` builds on main; manual dispatch | Bumps images that pin our base to the new base digest, opens an auto-merge PR |
-| `auto-merge.yml`               | PR opened/labeled `automated`                                     | Enables auto-merge (squash) so automated PRs land once required checks pass   |
+Three workflows total (plus Dependabot for GitHub Actions). Branch protection requires exactly **one** status check: `ci-gate`.
+
+| Workflow         | Trigger                                                                     | Purpose                                                                                              |
+| ---------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `ci.yml`         | Push to main / PR changing `images/**`, `tests/**`, `ci.yml`, `scripts/**`  | Detect affected images → policy → build/smoke/publish (least images) → `ci-gate` (single req check) |
+| `update.yml`     | Weekly (Mon 06:00 UTC); dispatch; `repository_dispatch: base-digest-published` | Runs dependency update scripts or base-digest propagation, opens ONE batch PR, enables native auto-merge |
+| `auto-merge.yml` | `pull_request_target: [labeled]` with label `automated`                     | Enables GitHub native auto-merge (mainly for Dependabot PRs)                                         |
+
+Helper scripts (`.github/scripts/`) keep the YAML thin and testable:
+
+- `plan-builds.sh` — single source of truth for "what to build". Domain rule: `base` is the only parent; every app builds `FROM` the committed `BASE_APP_IMAGE` digest. base/global change → build everything; app change → only those apps.
+- `pins-to-build-args.sh` — converts a `pins.env` into `--build-arg` pairs, with an optional `BASE_APP_IMAGE` override used by the base-graph validation path.
+- `propagate-base-digest.sh` — repo-level base graph propagation: resolves published `base:edge` and rewrites dependent app `BASE_APP_IMAGE` pins.
 
 Adding an image under `images/` with `build/pins.env` is all that's needed for CI integration. No workflow files need modification.
 
-**Chained base rebuild:** when `images/base` is included in the `images.yml` build matrix and publishes successfully on main, `images.yml` calls `base-rebuild.yml`. That workflow resolves the freshly published base digest once, rewrites every dependent image's `BASE_APP_IMAGE` pin, and opens a PR. That pins change re-triggers `images.yml`, rebuilding only the affected app images — so apps pick up a new base within minutes instead of waiting for the weekly cron. Unrelated image builds do not call `base-rebuild.yml`.
+**Build minimization & base graph.** `ci.yml`'s `detect` job runs `plan-builds.sh`:
 
-> **Workflow-trigger caveat:** PRs created by `peter-evans/create-pull-request` using the default `GITHUB_TOKEN` do **not** trigger other workflows (`images.yml`, `policy.yml`). For auto-merge to be gated by build/smoke checks, configure a PAT (or a GitHub App token) as the PR-creation token, or use branch protection that requires those checks (which only appear once a non-`GITHUB_TOKEN` actor pushes the branch). This applies to both `update-deps.yml` and `base-rebuild.yml`.
+- **App change** → matrix builds only the changed apps from their committed base pins (`build → smoke → publish`).
+- **Base change** → the `validate-base-graph` job builds the candidate base, then builds + smoke-tests **every** app against it in one job (buildx `docker` driver, local `--load`, `BASE_APP_IMAGE` overridden to the local base). Apps are NOT published from a base change. On `main` it then publishes `base:edge` and fires `repository_dispatch: base-digest-published`.
+
+**Base-digest propagation (no second workflow).** The dispatch invokes `update.yml`'s explicit `base digest propagation` path. That job runs `.github/scripts/propagate-base-digest.sh`, which detects dependents pinning an old base digest, repins them, and opens one auto-merge PR. Merging it re-triggers `ci.yml`, which rebuilds/publishes the affected apps from their new committed pins.
+
+**Single required check.** Matrix job sets vary per event, so they can't be required individually. `ci-gate` always runs (`if: always()`), depends on all jobs, and fails unless the jobs that *should* have run for this event succeeded (skipped non-applicable jobs are fine). Configure branch protection to require only `ci-gate`.
+
+> **Workflow-trigger caveat:** PRs created by `peter-evans/create-pull-request` with the default `GITHUB_TOKEN` do **not** trigger `ci.yml`. `update.yml` therefore creates PRs with a GitHub App token so `ci-gate` runs and native auto-merge can gate on it.
 
 ## Code Style & Conventions
 
@@ -183,7 +195,7 @@ Scripts communicate with CI via `GITHUB_OUTPUT`:
 - `apply.sh` outputs: `applied=true|false`, optional `summary_md`
 - Both receive: `PINS_FILE` and `IMAGE_DIR` env vars from CI
 - Both must be executable (`chmod +x`)
-- App update scripts must not modify `BASE_APP_IMAGE`; base-digest propagation is centralized in `base-rebuild.yml`.
+- App update scripts must not modify `BASE_APP_IMAGE`; base-digest propagation is owned solely by `.github/scripts/propagate-base-digest.sh` and runs only from `update.yml`'s propagation path.
 
 ## Security Rules
 

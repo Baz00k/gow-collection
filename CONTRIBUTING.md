@@ -49,7 +49,7 @@ APP_VERSION=1.2.3
 APP_SHA256=def456...
 ```
 
-Always pin base images to a digest. Floating tags break reproducibility. App update scripts must not modify `BASE_APP_IMAGE`; base digest propagation is centralized in `.github/workflows/base-rebuild.yml`.
+Always pin base images to a digest. Floating tags break reproducibility. App update scripts must not modify `BASE_APP_IMAGE`; base digest propagation is owned solely by `.github/scripts/propagate-base-digest.sh`.
 
 ## Smoke Tests
 
@@ -107,10 +107,10 @@ Both scripts receive these environment variables:
 
 Global workflows are generic and auto-discover images. No per-image workflow files needed.
 
-| Workflow                       | Purpose                                                |
-| ------------------------------ | ------------------------------------------------------ |
-| `images.yml`                   | Discovers changed images via git diff, triggers builds |
-| `docker-build-and-publish.yml` | Reusable build workflow called by `images.yml`         |
-| `update-deps.yml`              | Discovers `images/*/update/check.sh` and runs updates  |
+| Workflow         | Purpose                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------ |
+| `ci.yml`         | Detects affected images, builds the least required, smoke tests, publishes on `main` |
+| `update.yml`     | Runs dependency updates and base-digest propagation, opens one auto-merge PR          |
+| `auto-merge.yml` | Enables native auto-merge for `automated`-labeled PRs                                 |
 
-Adding an image under `images/` with `build/pins.env` is all that's required for CI integration.
+Branch protection requires one check: `ci-gate`. Adding an image under `images/` with `build/pins.env` is all that's required for CI integration.

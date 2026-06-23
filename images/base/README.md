@@ -39,8 +39,10 @@ Downstream images do **not** have this problem — they pin this base by digest 
 
 ## Update Flow
 
-1. `update/check.sh` + `apply.sh` (run weekly by `update-deps.yml`) detect and
-   apply a new Fedora digest or bubblewrap release here.
-2. When this image is rebuilt and published, `base-rebuild.yml` bumps every image
-   that pins it to the new base digest, opening an auto-merge PR. Merging that
-   PR triggers `images.yml`, which rebuilds the affected app images.
+1. `update/check.sh` + `apply.sh` (run by `update.yml`) detect and apply a new
+   Fedora digest or bubblewrap release here.
+2. When this image is rebuilt and published on `main`, `ci.yml` fires
+   `repository_dispatch: base-digest-published`, which runs `update.yml`'s
+   repo-level propagation path. `.github/scripts/propagate-base-digest.sh` then
+   bumps every image that pins the published base, opening one auto-merge PR.
+   Merging that PR triggers `ci.yml`, which rebuilds the affected app images.

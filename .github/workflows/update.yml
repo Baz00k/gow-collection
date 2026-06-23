@@ -1,0 +1,206 @@
+name: Update Dependencies
+
+# Two explicit update paths:
+#
+# - Scheduled/manual dependency updates run each image's update/check.sh + apply.sh.
+# - base-digest-published propagation repins apps to the newly published base
+#   digest using a repo-level propagation script.
+#
+# Both paths open one batch PR and enable native auto-merge. Branch protection's
+# required `ci-gate` check decides when the PR is allowed to merge.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+  repository_dispatch:
+    types: [base-digest-published]
+
+permissions:
+  contents: read
+
+run-name: "updates: ${{ github.event_name }}"
+
+concurrency:
+  group: update-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-updates:
+    name: dependency updates
+    if: github.event_name != 'repository_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      applied: ${{ steps.run.outputs.applied }}
+      summaries: ${{ steps.run.outputs.summaries }}
+    env:
+      GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Check and apply dependency updates
+        id: run
+        run: |
+          set -euo pipefail
+          all_summaries=""
+          any_applied=false
+
+          for check_script in images/*/update/check.sh; do
+            [[ -x "$check_script" ]] || continue
+            image_dir=$(dirname "$(dirname "$check_script")")
+            name=$(basename "$image_dir")
+            apply_script="${image_dir}/update/apply.sh"
+            [[ -x "$apply_script" ]] || { echo "::warning::${name} has check.sh but no apply.sh"; continue; }
+
+            echo "::group::check ${name}"
+            tmp=$(mktemp)
+            GITHUB_OUTPUT="$tmp" PINS_FILE="${image_dir}/build/pins.env" IMAGE_DIR="$image_dir" bash "$check_script"
+            available=$(grep '^update_available=' "$tmp" | cut -d= -f2 || echo false)
+            rm -f "$tmp"
+            echo "::endgroup::"
+            [[ "$available" == "true" ]] || { echo "${name}: up to date"; continue; }
+
+            echo "::group::apply ${name}"
+            tmp=$(mktemp)
+            GITHUB_OUTPUT="$tmp" PINS_FILE="${image_dir}/build/pins.env" IMAGE_DIR="$image_dir" bash "$apply_script"
+            applied=$(grep '^applied=' "$tmp" | cut -d= -f2 || echo false)
+            if [[ "$applied" == "true" ]]; then
+              any_applied=true
+              summary=$(sed -n '/^summary_md<<EOF$/,/^EOF$/p' "$tmp" | sed '1d;$d')
+              [[ -n "$summary" ]] && all_summaries+="## ${name}\n\n${summary}\n\n"
+            fi
+            rm -f "$tmp"
+            echo "::endgroup::"
+          done
+
+          echo "applied=${any_applied}" >> "$GITHUB_OUTPUT"
+          {
+            echo "summaries<<EOF"
+            printf "%b" "$all_summaries"
+            echo
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  base-digest-propagation:
+    name: base digest propagation
+    if: github.event_name == 'repository_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      applied: ${{ steps.propagate.outputs.applied }}
+      summaries: ${{ steps.propagate.outputs.summary_md }}
+    env:
+      GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Propagate published base digest
+        id: propagate
+        run: bash .github/scripts/propagate-base-digest.sh
+
+  create-pr:
+    name: create update PR
+    needs:
+      - dependency-updates
+      - base-digest-propagation
+    if: >-
+      always() &&
+      (needs.dependency-updates.outputs.applied == 'true' ||
+       needs.base-digest-propagation.outputs.applied == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Re-apply changes for PR branch
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DEP_APPLIED: ${{ needs.dependency-updates.outputs.applied }}
+          PROP_APPLIED: ${{ needs.base-digest-propagation.outputs.applied }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "repository_dispatch" && "$PROP_APPLIED" == "true" ]]; then
+            bash .github/scripts/propagate-base-digest.sh
+          elif [[ "$DEP_APPLIED" == "true" ]]; then
+            for check_script in images/*/update/check.sh; do
+              [[ -x "$check_script" ]] || continue
+              image_dir=$(dirname "$(dirname "$check_script")")
+              apply_script="${image_dir}/update/apply.sh"
+              [[ -x "$apply_script" ]] || continue
+              tmp=$(mktemp)
+              GITHUB_OUTPUT="$tmp" PINS_FILE="${image_dir}/build/pins.env" IMAGE_DIR="$image_dir" bash "$check_script"
+              available=$(grep '^update_available=' "$tmp" | cut -d= -f2 || echo false)
+              rm -f "$tmp"
+              [[ "$available" == "true" ]] || continue
+              GITHUB_OUTPUT=/dev/null PINS_FILE="${image_dir}/build/pins.env" IMAGE_DIR="$image_dir" bash "$apply_script"
+            done
+          fi
+
+      - name: Generate PR body
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DEP_SUMMARIES: ${{ needs.dependency-updates.outputs.summaries }}
+          PROP_SUMMARIES: ${{ needs.base-digest-propagation.outputs.summaries }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "repository_dispatch" ]]; then
+            title="Base Digest Propagation"
+            body="$PROP_SUMMARIES"
+          else
+            title="Dependency Updates"
+            body="$DEP_SUMMARIES"
+          fi
+          {
+            echo "## ${title}"
+            echo
+            printf "%b" "$body"
+            echo
+            echo "---"
+            echo
+            echo "*Auto-generated by update workflow*"
+          } > /tmp/pr-body.md
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.GOW_UPDATER_APP_ID }}
+          private-key: ${{ secrets.GOW_UPDATER_PRIVATE_KEY }}
+
+      - name: Create PR
+        id: cpr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          commit-message: "chore(deps): update image pins"
+          title: "chore(deps): update image pins"
+          body-path: /tmp/pr-body.md
+          branch: auto-update/image-pins
+          labels: automated, dependencies
+          delete-branch: true
+
+      - name: Enable native auto-merge
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh pr merge "${{ steps.cpr.outputs.pull-request-number }}" \
+            --repo "${{ github.repository }}" --auto --squash --delete-branch
+
+  no-updates:
+    name: no updates
+    needs:
+      - dependency-updates
+      - base-digest-propagation
+    if: >-
+      always() &&
+      needs.dependency-updates.outputs.applied != 'true' &&
+      needs.base-digest-propagation.outputs.applied != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No updates to apply"

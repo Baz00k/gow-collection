@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Apply base image dependency updates
-# Updates: Fedora base digest (BASE_IMAGE_DIGEST), Bubblewrap version/commit
+# Apply base image dependency updates.
+# Updates: Fedora base digest (BASE_IMAGE_DIGEST), Bubblewrap version/commit.
 
 set -euo pipefail
 

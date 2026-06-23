@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Check for base image dependency updates
-# Checks: Fedora base digest (rolling tag -> digest), Bubblewrap version
+# Check for base image dependency updates.
+# Checks: Fedora base digest (rolling tag -> digest), Bubblewrap version.
 
 set -euo pipefail
 
