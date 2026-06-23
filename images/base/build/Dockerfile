@@ -78,6 +78,13 @@ RUN dnf install -y \
     curl \
     fontconfig \
     glibc-langpack-en \
+    mesa-dri-drivers \
+    mesa-libEGL \
+    mesa-libGL \
+    mesa-libgbm \
+    mesa-vulkan-drivers \
+    pciutils \
+    vulkan-loader \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
