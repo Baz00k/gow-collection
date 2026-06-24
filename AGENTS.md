@@ -1,186 +1,62 @@
 # AGENTS.md
 
-## Project Overview
+Docker image collection for [Games on Whales](https://github.com/games-on-whales/gow) / [Wolf](https://github.com/games-on-whales/wolf). No application source — only Dockerfiles, bash scripts, and GitHub Actions. The code is the source of truth; read it before changing it.
 
-Docker image collection for [Games on Whales](https://github.com/games-on-whales/gow) / [Wolf](https://github.com/games-on-whales/wolf). Each image lives under `images/<name>/` with a standardized directory structure. There is no application source code — only Dockerfiles, bash scripts, and GitHub Actions workflows.
-
-### Shared base image
-
-`images/base/` is a Fedora-based image that provides the common Games on Whales runtime contract (runtime user setup, `gosu` handoff, `/etc/cont-init.d/*` runner, NVIDIA/device init, patched bubblewrap, gosu). All other images build on it via `BASE_APP_IMAGE` and inherit its `ENTRYPOINT` (`/opt/gow/entrypoint.sh`), so they only add app-specific packages + a `startup.sh`.
-
-The base pins the upstream Fedora image with a **rolling tag plus a tracked digest** (`BASE_IMAGE` + `BASE_IMAGE_DIGEST`, Dockerfile builds `FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}`) because the Fedora registry garbage-collects old digests. Downstream images pin the base by digest on our own GHCR (which retains digests), so their pins never rot.
-
-Base ownership is intentionally split: `images/base/update/*` owns only the base image's own upstream dependencies (Fedora digest, bubblewrap, gosu); each app's `update/*` scripts own only app-specific dependencies and must never touch `BASE_APP_IMAGE`. Base-digest propagation is repo graph orchestration handled by `.github/scripts/propagate-base-digest.sh` from `update.yml` after a new base image is published.
-
-## Repository Structure
+## Layout
 
 ```
 images/<name>/
-├── build/
-│   ├── Dockerfile          # Container definition
-│   ├── pins.env            # Pinned dependency versions (tracked by git)
-│   ├── scripts/startup.sh  # Container startup script
-│   └── .dockerignore
-├── tests/
-│   ├── run-smoke.sh        # Test orchestrator — runs all smoke-*.sh
-│   └── smoke-*.sh          # Individual smoke test scripts
-├── update/                 # Optional: automated dependency updates
-│   ├── check.sh            # Detects available updates
-│   └── apply.sh            # Applies updates to pins.env
+├── build/        # Dockerfile, pins.env, overlay/ (copied to / in the image), .dockerignore
+├── tests/        # run-smoke.sh orchestrator + smoke-*.sh
+├── update/       # optional: check.sh + apply.sh for automated dependency bumps
 └── README.md
 
-tests/                      # Global policy checks
-.github/workflows/          # CI — never needs per-image modifications
+tests/policy-check.sh    # repo-wide policy checks (no Docker needed)
+.github/                 # CI; auto-discovers images via images/*/build/pins.env
+docs/                    # common-runtime.md, troubleshooting.md
 ```
 
-## Build & Test Commands
+## Base image
 
-### Policy Check (no Docker required)
+`images/base/` is a Fedora-based image providing the shared runtime contract (runtime user + `gosu` handoff, `/etc/cont-init.d/*` runner, NVIDIA/device init, patched bubblewrap). It owns the `ENTRYPOINT` (`/opt/gow/entrypoint.sh`). App images `FROM ${BASE_APP_IMAGE}` and only add packages + an overlay `startup.sh`.
+
+Pinning:
+- Base pins upstream Fedora by rolling tag **and** digest (`BASE_IMAGE` + `BASE_IMAGE_DIGEST`) because the Fedora registry garbage-collects old digests.
+- App images pin the base by digest on our GHCR (which retains digests), so the pin never rots.
+
+Ownership is split: `images/base/update/*` owns only base dependencies; each app's `update/*` owns only app dependencies and must never touch `BASE_APP_IMAGE`. Base-digest propagation across the repo is handled by `.github/scripts/propagate-base-digest.sh` from `update.yml`.
+
+## Commands
 
 ```bash
-# Run all policy checks (floating refs, unverified downloads, secrets)
+# Policy checks (all images, or one)
 ./tests/policy-check.sh
-
-# Strict mode — warnings also fail
-./tests/policy-check.sh --strict
-
-# Single image only
 ./tests/policy-check.sh images/drop-app
-```
 
-### Docker Build (single image)
-
-```bash
-# Build from pins.env build-args
+# Build one image
 docker build \
   --build-arg BASE_APP_IMAGE="$(grep BASE_APP_IMAGE images/<name>/build/pins.env | cut -d= -f2)" \
-  -t gow-collection/<name>:test \
-  images/<name>/build/
-```
+  -t gow-collection/<name>:test images/<name>/build/
 
-### Smoke Tests (require Docker + built image)
-
-```bash
-# Run full smoke suite for an image
+# Smoke tests (needs the built image)
 IMAGE_NAME="gow-collection/<name>:test" images/<name>/tests/run-smoke.sh
 
-# Run a single smoke test
-IMAGE_NAME="gow-collection/<name>:test" images/<name>/tests/smoke-startup.sh
-
-# Skip build step (image already loaded)
-SKIP_BUILD=true IMAGE_NAME="..." images/<name>/tests/run-smoke.sh
-```
-
-Test evidence is written to `test-results/<name>/` (gitignored).
-
-### Update Scripts (check for upstream changes)
-
-```bash
-# Check if updates are available
+# Update scripts
 GITHUB_OUTPUT=/dev/null bash images/<name>/update/check.sh
-
-# Apply updates to pins.env
 GITHUB_OUTPUT=/dev/null bash images/<name>/update/apply.sh
 ```
 
-## Code Style & Conventions
+Smoke evidence goes to `test-results/<name>/` (gitignored).
 
-### Shell Scripts (Bash)
+## Conventions
 
-**Shebang**: Use `#!/bin/bash` for scripts, `#!/usr/bin/env bash` for update scripts.
+- **Bash**: `set -euo pipefail`; double-quote variables; `UPPER_SNAKE` vars, `lower_snake` functions, `kebab-case` files; smoke tests prefixed `smoke-`. Shebang `#!/bin/bash` (update scripts use `#!/usr/bin/env bash`).
+- **Dockerfiles**: start `# syntax=docker/dockerfile:1.4`; app images declare `ARG BASE_APP_IMAGE` and use exactly one `FROM ${BASE_APP_IMAGE}` (no direct upstream `FROM`); Fedora uses `dnf` (`dnf clean all && rm -rf /var/cache/dnf`); verify downloads with `sha256sum -c`; copy the overlay with `COPY --chmod=755 overlay /`; set `ENV XDG_RUNTIME_DIR=/tmp/.X11-unix`; end with OCI labels.
+- **pins.env**: `BASE_APP_IMAGE` must pin `ghcr.io/<owner>/gow-collection/base:edge@sha256:<digest>`; app versions get a matching `*_SHA256`.
+- **Update scripts**: communicate via `$GITHUB_OUTPUT` (`check.sh` → `update_available`, `apply.sh` → `applied`, both optionally `summary_md`); receive `PINS_FILE` and `IMAGE_DIR`; must be executable.
 
-**Error handling**: Always `set -euo pipefail` at the top of every script.
+These are enforced by `tests/policy-check.sh` (digest pinning, single base `FROM`, no placeholder digests, verified downloads, no committed secrets). Run it before assuming a change is correct.
 
-**Variable quoting**: Always double-quote variables — `"${VAR}"` not `$VAR`. Use `${VAR:-default}` for optional env vars with defaults.
+## Adding an image
 
-**Naming conventions**:
-
-- Variables: `UPPER_SNAKE_CASE` for environment variables and script-level vars
-- Functions: `lower_snake_case` (e.g., `log_info`, `fetch_latest_base_digest`)
-- File names: `kebab-case` (e.g., `run-smoke.sh`, `smoke-startup.sh`, `policy-check.sh`)
-- Test scripts: Prefix with `smoke-` (e.g., `smoke-startup.sh`, `smoke-deps.sh`)
-
-**Logging**: Use colored log functions. Standard pattern:
-
-```bash
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-log_info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
-```
-
-**Cleanup**: Use `trap cleanup EXIT` for container/temp file cleanup.
-
-**Portable sed**: Use the `inplace()` wrapper for in-place sed (no `-i` flag):
-
-```bash
-inplace() { sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"; }
-```
-
-**Error exit**: Use `abort() { echo "ERROR: $1" >&2; exit 1; }` for fatal errors.
-
-### Dockerfiles
-
-- Start with `# syntax=docker/dockerfile:1.4`
-- Use `ARG BASE_APP_IMAGE` and `FROM ${BASE_APP_IMAGE}` (base image comes from pins.env). Non-base images may not use direct upstream/distro `FROM` lines.
-- Use hadolint ignore comments where needed: `# hadolint ignore=DL3006,DL3008`
-- Always verify downloads with `sha256sum -c -`
-- Clean apt caches: `apt-get clean && rm -rf /var/lib/apt/lists/*`
-- Copy startup script to `/opt/gow/startup.sh` with `--chmod=755` (or `--chmod=777`)
-- Set `ENV XDG_RUNTIME_DIR=/tmp/.X11-unix`
-- Add OCI labels at the end: `org.opencontainers.image.{title,description,authors,source,licenses}`
-
-### pins.env Format
-
-```bash
-# Base image MUST include sha256 digest — floating tags break reproducibility
-BASE_APP_IMAGE=ghcr.io/<owner>/gow-collection/base:edge@sha256:<digest>
-
-# App-specific pinned versions
-APP_VERSION=1.2.3
-APP_SHA256=<sha256-of-downloaded-artifact>
-```
-
-### Smoke Tests
-
-Each test script follows this structure:
-
-1. Parse env vars (`IMAGE_NAME`, `CONTAINER_NAME`, `EVIDENCE_DIR`)
-2. Write evidence header to `EVIDENCE_FILE`
-3. Set `trap cleanup EXIT` to remove containers
-4. Verify image exists with `docker image inspect`
-5. Run container with `docker run -d --entrypoint "" ... sleep infinity`
-6. Execute checks via `docker exec`
-7. Write results to evidence file
-8. Exit 0 on pass, exit 1 on failure
-
-### Update Scripts Contract
-
-Scripts communicate with CI via `GITHUB_OUTPUT`:
-
-- `check.sh` outputs: `update_available=true|false`, optional `summary_md`
-- `apply.sh` outputs: `applied=true|false`, optional `summary_md`
-- Both receive: `PINS_FILE` and `IMAGE_DIR` env vars from CI
-- Both must be executable (`chmod +x`)
-- App update scripts must not modify `BASE_APP_IMAGE`; base-digest propagation is owned solely by `.github/scripts/propagate-base-digest.sh` and runs only from `update.yml`'s propagation path.
-
-## Security Rules
-
-- **Always pin base images to sha256 digest** — never use floating tags alone
-- **Always verify downloaded artifacts** with sha256 checksums
-- **Never commit secrets** — `.env` files are gitignored (except `pins.env`)
-- Policy check enforces: no floating refs, all non-base images use the shared base contract, no placeholder base digests, no legacy upstream base-app references, no unverified downloads, no secrets in tracked files
-
-## Adding a New Image
-
-1. Create `images/<name>/build/Dockerfile`, `build/pins.env`, `build/scripts/startup.sh`, `build/.dockerignore`
-2. Create `images/<name>/tests/run-smoke.sh` and individual `smoke-*.sh` tests
-3. Create `images/<name>/README.md`
-4. Optionally add `images/<name>/update/check.sh` and `update/apply.sh`
-5. No workflow changes needed — CI auto-discovers via `images/*/build/pins.env`
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for full details.
+Create `build/` (Dockerfile, pins.env, overlay/, .dockerignore), `tests/` (run-smoke.sh + smoke-*.sh), `README.md`, and optionally `update/`. No workflow changes — CI discovers images via `images/*/build/pins.env`. See [CONTRIBUTING.md](CONTRIBUTING.md).

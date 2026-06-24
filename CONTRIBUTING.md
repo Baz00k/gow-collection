@@ -1,108 +1,44 @@
 # Contributing
 
-## Adding a New Image
+All image-specific logic lives under `images/<name>/`. Adding an image never requires touching workflow files — CI auto-discovers images via `images/*/build/pins.env`.
 
-All image-specific logic lives under `images/<name>/`. Adding an image never requires creating or modifying workflow files.
-
-### Directory Structure
+## Adding an image
 
 ```
-images/{name}/
+images/<name>/
 ├── build/
 │   ├── Dockerfile
 │   ├── pins.env
-│   ├── scripts/
-│   │   └── startup.sh
+│   ├── overlay/          # copied to / in the image (e.g. opt/gow/startup.sh)
 │   └── .dockerignore
 ├── tests/
 │   ├── run-smoke.sh
 │   └── smoke-*.sh
-├── update/                  # Optional: automated dependency updates
-│   ├── check.sh
-│   └── apply.sh
+├── update/               # optional: check.sh + apply.sh
 └── README.md
 ```
 
-### Required Files
+App Dockerfiles declare `ARG BASE_APP_IMAGE` and use a single `FROM ${BASE_APP_IMAGE}`. Shared runtime behavior comes from the base image — keep image READMEs to what's specific to that image plus a Wolf app example. Common runtime and troubleshooting live in `docs/`.
 
-- `build/Dockerfile`: Container definition
-- `build/pins.env`: Dependency versions with digest pinning
-- `build/scripts/startup.sh`: Container startup script
-- `build/.dockerignore`: Build context filter
-- `tests/run-smoke.sh`: Smoke test orchestrator
-- `README.md`: Image documentation
-
-Image READMEs should describe only what is specific to that image and include a Wolf app example. Shared runtime behavior belongs in `docs/common-runtime.md`, and common troubleshooting belongs in `docs/troubleshooting.md`.
-
-### Optional: Dependency Updates
-
-Add `update/check.sh` and `update/apply.sh` for automated version updates. Both scripts must be executable.
-
-## pins.env Format
+## pins.env
 
 ```bash
-# Base image MUST include sha256 digest
+# Must pin the base by sha256 digest — floating tags break reproducibility.
 BASE_APP_IMAGE=ghcr.io/<owner>/gow-collection/base:edge@sha256:<digest>
 
-# App-specific versions
 APP_VERSION=1.2.3
-APP_SHA256=def456...
+APP_SHA256=<sha256-of-artifact>
 ```
 
-Always pin base images to a digest. Floating tags break reproducibility. App update scripts must not modify `BASE_APP_IMAGE`; base digest propagation is owned solely by `.github/scripts/propagate-base-digest.sh`.
+App update scripts must not modify `BASE_APP_IMAGE`; base-digest propagation is owned by `.github/scripts/propagate-base-digest.sh`.
 
-## Smoke Tests
+## Update scripts
 
-Create `tests/run-smoke.sh` that orchestrates individual tests:
+Optional `update/check.sh` and `update/apply.sh` (both executable) communicate with CI via `$GITHUB_OUTPUT` and receive `PINS_FILE` and `IMAGE_DIR`:
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
+- `check.sh` → `update_available=true|false` (+ optional `summary_md` heredoc)
+- `apply.sh` → `applied=true|false` (+ optional `summary_md` heredoc)
 
-IMAGE_NAME="${IMAGE_NAME:-ghcr.io/Baz00k/gow-collection/{name}:test}"
-EVIDENCE_DIR="test-results/{name}"
+## Before opening a PR
 
-./tests/smoke-startup.sh
-./tests/smoke-deps.sh
-```
-
-Individual test scripts (`smoke-*.sh`) verify specific functionality and write evidence to `$EVIDENCE_DIR/`.
-
-## Update Script Contract
-
-Scripts communicate with CI via `GITHUB_OUTPUT`. Output these keys:
-
-### check.sh
-
-```bash
-# Required
-echo "update_available=true" >> "$GITHUB_OUTPUT"
-
-# Optional: summary for PR body (markdown)
-echo "summary_md<<EOF" >> "$GITHUB_OUTPUT"
-echo "- Updated APP_VERSION from 1.2.3 to 1.2.4" >> "$GITHUB_OUTPUT"
-echo "EOF" >> "$GITHUB_OUTPUT"
-```
-
-Set `update_available=false` if no updates found.
-
-### apply.sh
-
-```bash
-# Required
-echo "applied=true" >> "$GITHUB_OUTPUT"
-
-# Optional: summary for PR body (markdown)
-echo "summary_md<<EOF" >> "$GITHUB_OUTPUT"
-echo "Updated pins.env with new versions" >> "$GITHUB_OUTPUT"
-echo "EOF" >> "$GITHUB_OUTPUT"
-```
-
-Both scripts receive these environment variables:
-
-- `PINS_FILE`: Path to `images/{name}/build/pins.env`
-- `IMAGE_DIR`: Path to `images/{name}/`
-
-## CI Workflows
-
-Global workflows are generic and auto-discover images. No per-image workflow files needed.
+Run `./tests/policy-check.sh` and the image's `tests/run-smoke.sh`.
