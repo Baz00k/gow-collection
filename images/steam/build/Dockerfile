@@ -1,14 +1,4 @@
 # syntax=docker/dockerfile:1.4
-
-# -----------------------------------------------------------------------------
-# Steam environment for Games on Whales (Wolf).
-# -----------------------------------------------------------------------------
-# Builds on the shared gow-collection base image, which already provides the
-# Games on Whales runtime contract (entrypoint, runtime user setup, gosu
-# handoff, device/NVIDIA cont-init scripts, patched bubblewrap, gosu).
-# This image only adds Steam itself, the gamescope session, Decky Loader and
-# the Steam-specific cont-init/session scripts.
-# -----------------------------------------------------------------------------
 ARG BASE_APP_IMAGE
 
 # hadolint ignore=DL3006
@@ -43,7 +33,6 @@ RUN curl -fsSL -o /tmp/rpmfusion-free-release.rpm "${RPMFUSION_FREE_URL}" && \
 # hadolint ignore=DL3041
 RUN dnf install -y \
     steam \
-    gamescope \
     mangohud \
     gamemode \
     dbus-daemon \
@@ -55,7 +44,6 @@ RUN dnf install -y \
     file \
     xdg-user-dirs \
     xdg-utils \
-    pciutils \
     lsb-release \
     mesa-demos \
     vulkan-tools \

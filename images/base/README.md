@@ -11,6 +11,8 @@ The common Games on Whales runtime contract:
 - `/opt/gow/entrypoint.sh` — runtime user creation + `gosu` privilege-drop handoff,
   `/etc/cont-init.d/*` runner, performance tuning. This is the image `ENTRYPOINT`.
 - `/opt/gow/logging.sh` — shared colored logging helpers (`log_info`, …).
+- `/opt/gow/launch-gamescope.sh` — runs a command inside gamescope.
+- `/opt/gow/gamescope-lib.sh` — shared gamescope helpers.
 - `/opt/gow/apply-performance-tuning.sh` — best-effort sysctl tuning.
 - `/etc/cont-init.d/10-setup-user.sh` — runtime user/group, home, `XDG_RUNTIME_DIR`,
   `/home/deck` symlink, ownership.
@@ -22,6 +24,8 @@ The common Games on Whales runtime contract:
 
 App images add their own packages, a `startup.sh`, and any app-specific
 `cont-init.d` scripts on top. They inherit the `ENTRYPOINT` from this image.
+
+The entrypoint does not force gamescope; images choose their own session in `startup.sh`.
 
 ## Why A Rolling Fedora Tag Plus Tracked Digest
 

@@ -83,35 +83,6 @@ GITHUB_OUTPUT=/dev/null bash images/<name>/update/check.sh
 GITHUB_OUTPUT=/dev/null bash images/<name>/update/apply.sh
 ```
 
-## CI Workflows
-
-Three workflows total (plus Dependabot for GitHub Actions). Branch protection requires exactly **one** status check: `ci-gate`.
-
-| Workflow         | Trigger                                                                     | Purpose                                                                                              |
-| ---------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `ci.yml`         | Push to main / PR changing `images/**`, `tests/**`, `ci.yml`, `scripts/**`  | Detect affected images → policy → build/smoke/publish (least images) → `ci-gate` (single req check) |
-| `update.yml`     | Weekly (Mon 06:00 UTC); dispatch; `repository_dispatch: base-digest-published` | Runs dependency update scripts or base-digest propagation, opens ONE batch PR, enables native auto-merge |
-| `auto-merge.yml` | `pull_request_target: [labeled]` with label `automated`                     | Enables GitHub native auto-merge (mainly for Dependabot PRs)                                         |
-
-Helper scripts (`.github/scripts/`) keep the YAML thin and testable:
-
-- `plan-builds.sh` — single source of truth for "what to build". Domain rule: `base` is the only parent; every app builds `FROM` the committed `BASE_APP_IMAGE` digest. base/global change → build everything; app change → only those apps.
-- `pins-to-build-args.sh` — converts a `pins.env` into `--build-arg` pairs, with an optional `BASE_APP_IMAGE` override used by the base-graph validation path.
-- `propagate-base-digest.sh` — repo-level base graph propagation: resolves published `base:edge` and rewrites dependent app `BASE_APP_IMAGE` pins.
-
-Adding an image under `images/` with `build/pins.env` is all that's needed for CI integration. No workflow files need modification.
-
-**Build minimization & base graph.** `ci.yml`'s `detect` job runs `plan-builds.sh`:
-
-- **App change** → matrix builds only the changed apps from their committed base pins (`build → smoke → publish`).
-- **Base change** → the `validate-base-graph` job builds the candidate base, then builds + smoke-tests **every** app against it in one job (buildx `docker` driver, local `--load`, `BASE_APP_IMAGE` overridden to the local base). Apps are NOT published from a base change. On `main` it then publishes `base:edge` and fires `repository_dispatch: base-digest-published`.
-
-**Base-digest propagation (no second workflow).** The dispatch invokes `update.yml`'s explicit `base digest propagation` path. That job runs `.github/scripts/propagate-base-digest.sh`, which detects dependents pinning an old base digest, repins them, and opens one auto-merge PR. Merging it re-triggers `ci.yml`, which rebuilds/publishes the affected apps from their new committed pins.
-
-**Single required check.** Matrix job sets vary per event, so they can't be required individually. `ci-gate` always runs (`if: always()`), depends on all jobs, and fails unless the jobs that *should* have run for this event succeeded (skipped non-applicable jobs are fine). Configure branch protection to require only `ci-gate`.
-
-> **Workflow-trigger caveat:** PRs created by `peter-evans/create-pull-request` with the default `GITHUB_TOKEN` do **not** trigger `ci.yml`. `update.yml` therefore creates PRs with a GitHub App token so `ci-gate` runs and native auto-merge can gate on it.
-
 ## Code Style & Conventions
 
 ### Shell Scripts (Bash)

@@ -40,7 +40,7 @@ base_create_json = """
 | `DROP_SERVER_URL` | Usually  | URL of your Drop server                                             |
 | `BROWSER`         | No       | Browser used by Drop for auth/external links. Defaults to `firefox` |
 
-Common variables such as `PUID`, `PGID`, and `GOW_DEBUG` are documented in [common runtime](../../docs/common-runtime.md).
+Common variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
 
 ## Notes
 

@@ -13,4 +13,4 @@ else
 fi
 
 log_info "Starting Drop App"
-exec /usr/bin/drop-app
+exec /opt/gow/launch-gamescope.sh /usr/bin/drop-app

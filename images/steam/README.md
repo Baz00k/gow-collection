@@ -41,10 +41,10 @@ base_create_json = """
 """
 ```
 
-## Steam-Specific Features
+## Features
 
 - Steam installed from RPM Fusion.
-- Gamescope session for Wolf streaming.
+- Gamescope session for Wolf streaming
 - MangoHud performance overlay.
 - GameMode support.
 - Decky Loader for SteamOS-style plugins.
@@ -63,19 +63,13 @@ SteamOS mode is the console-like experience, but `Switch to desktop` does not wo
 
 ## Configuration
 
-| Variable                             | Default        | Description                                                   |
-| ------------------------------------ | -------------- | ------------------------------------------------------------- |
-| `GAMESCOPE_WIDTH`                    | `1920`         | Stream display width                                          |
-| `GAMESCOPE_HEIGHT`                   | `1080`         | Stream display height                                         |
-| `GAMESCOPE_GAME_WIDTH`               | same as width  | Game resolution advertised by gamescope                       |
-| `GAMESCOPE_GAME_HEIGHT`              | same as height | Game resolution advertised by gamescope                       |
-| `GAMESCOPE_REFRESH`                  | `60`           | Refresh rate in Hz                                            |
-| `GAMESCOPE_MODE`                     | `-b`           | Gamescope window mode (`-b` borderless, `-f` fullscreen)      |
-| `GAMESCOPE_FORCE_WINDOWS_FULLSCREEN` | `off`          | `on` adds gamescope's `--force-windows-fullscreen` workaround |
-| `STEAM_STARTUP_FLAGS`                | `-bigpicture`  | Flags passed to Steam                                         |
-| `GAMESCOPE_STEAM_MODE`               | `off`          | `on` for SteamOS/GamepadUI mode                               |
+| Variable                             | Default       | Description                                                   |
+| ------------------------------------ | ------------- | ------------------------------------------------------------- |
+| `GAMESCOPE_STEAM_MODE`               | `off`         | `on` for SteamOS/GamepadUI mode                               |
+| `GAMESCOPE_FORCE_WINDOWS_FULLSCREEN` | `off`         | `on` adds gamescope's `--force-windows-fullscreen` workaround |
+| `STEAM_STARTUP_FLAGS`                | `-bigpicture` | Flags passed to Steam                                         |
 
-Common variables such as `PUID`, `PGID`, and `GOW_DEBUG` are documented in [common runtime](../../docs/common-runtime.md).
+Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
 
 ## MangoHud
 

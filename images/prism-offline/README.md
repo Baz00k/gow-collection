@@ -55,7 +55,7 @@ Read [LEGAL.md](LEGAL.md) before using this image.
 
 There are no required image-specific environment variables.
 
-Common variables such as `PUID`, `PGID`, and `GOW_DEBUG` are documented in [common runtime](../../docs/common-runtime.md).
+Common variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
 
 ## Updates
 

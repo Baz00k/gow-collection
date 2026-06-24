@@ -35,7 +35,7 @@ dnf clean all
 rm -rf /var/cache/dnf
 _INSTALL_DROP_APP
 
-COPY --chmod=777 scripts/startup.sh /opt/gow/startup.sh
+COPY --chmod=755 overlay /
 
 RUN mkdir -p /tmp/.X11-unix
 ENV XDG_RUNTIME_DIR=/tmp/.X11-unix

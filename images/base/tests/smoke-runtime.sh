@@ -45,11 +45,14 @@ fail() {
 REQUIRED_EXEC=(
     /opt/gow/entrypoint.sh
     /opt/gow/logging.sh
+    /opt/gow/gamescope-lib.sh
+    /opt/gow/launch-gamescope.sh
     /opt/gow/apply-performance-tuning.sh
     /etc/cont-init.d/10-setup-user.sh
     /etc/cont-init.d/20-setup-devices.sh
     /etc/cont-init.d/30-nvidia.sh
     /usr/bin/bwrap
+    /usr/bin/gamescope
     /usr/bin/gosu
 )
 
@@ -78,6 +81,33 @@ fi
 # logging helpers are sourceable and define log_info.
 if ! docker exec "${CONTAINER_NAME}" bash -c 'source /opt/gow/logging.sh && type log_info >/dev/null'; then
     fail "logging.sh does not provide log_info"
+fi
+
+# Gamescope helpers are sourceable and provide the shared session contract.
+if ! docker exec "${CONTAINER_NAME}" bash -c 'source /opt/gow/gamescope-lib.sh && type gamescope_append_base_args >/dev/null'; then
+    fail "gamescope-lib.sh does not provide gamescope_append_base_args"
+fi
+
+if ! docker exec "${CONTAINER_NAME}" bash -c '
+    source /opt/gow/gamescope-lib.sh
+    GAMESCOPE_WIDTH=2560
+    GAMESCOPE_HEIGHT=1440
+    GAMESCOPE_REFRESH=120
+    args=()
+    gamescope_append_base_args args
+    output="$(printf "%s\n" "${args[@]}")"
+    grep -qFx -- "-W" <<< "${output}"
+    grep -qFx -- "2560" <<< "${output}"
+    grep -qFx -- "-H" <<< "${output}"
+    grep -qFx -- "1440" <<< "${output}"
+    grep -qFx -- "-r" <<< "${output}"
+    grep -qFx -- "120" <<< "${output}"
+'; then
+    fail "gamescope_append_base_args did not produce expected args"
+fi
+
+if ! docker exec "${CONTAINER_NAME}" bash -n /opt/gow/launch-gamescope.sh; then
+    fail "launch-gamescope.sh has a syntax error"
 fi
 
 # Runtime user creation actually works end-to-end (run entrypoint with a noop cmd).

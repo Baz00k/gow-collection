@@ -47,18 +47,29 @@ fi
 
 STUB_DIR="$(mktemp -d "${EVIDENCE_DIR}/startup-stub.XXXXXX")"
 STUB_PATH="${STUB_DIR}/drop-app"
+LAUNCH_STUB_PATH="${STUB_DIR}/launch-gamescope.sh"
 SENTINEL_PATH="${STUB_DIR}/invoked"
 RUN_LOG="${STUB_DIR}/docker-run.log"
 
 cat > "${STUB_PATH}" <<'EOF'
 #!/bin/bash
 set -euo pipefail
-echo "drop-app startup stub invoked" > "${STARTUP_SENTINEL:?}"
+echo "drop-app startup stub invoked" >> "${STARTUP_SENTINEL:?}"
 echo "argv: $*" >> "${STARTUP_SENTINEL}"
 echo "XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR:-unset}" >> "${STARTUP_SENTINEL}"
 echo "BROWSER: ${BROWSER:-unset}" >> "${STARTUP_SENTINEL}"
 EOF
 chmod +x "${STUB_PATH}"
+
+cat > "${LAUNCH_STUB_PATH}" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+echo "launch-gamescope startup stub invoked" > "${STARTUP_SENTINEL:?}"
+echo "argv: $*" >> "${STARTUP_SENTINEL}"
+echo "XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR:-unset}" >> "${STARTUP_SENTINEL}"
+exec "$@"
+EOF
+chmod +x "${LAUNCH_STUB_PATH}"
 
 log_info "Exercising inherited entrypoint and /opt/gow/startup.sh..."
 set +e
@@ -66,6 +77,7 @@ docker run \
     --name "${CONTAINER_NAME}" \
     -e PUID=0 \
     -e STARTUP_SENTINEL=/tmp/startup-smoke/invoked \
+    -v "${LAUNCH_STUB_PATH}:/opt/gow/launch-gamescope.sh:ro" \
     -v "${STUB_PATH}:/usr/bin/drop-app:ro" \
     -v "${STUB_DIR}:/tmp/startup-smoke" \
     "${IMAGE_NAME}" > "${RUN_LOG}" 2>&1
@@ -90,15 +102,28 @@ if [[ ${RUN_EXIT_CODE} -ne 0 ]]; then
 fi
 
 if [[ ! -f "${SENTINEL_PATH}" ]]; then
-    log_error "Startup script did not invoke /usr/bin/drop-app"
+    log_error "Startup script did not invoke launch-gamescope"
     echo "RESULT: FAILED (app command not invoked)" >> "${EVIDENCE_FILE}"
     exit 1
 fi
 
 log_info "Checking startup contract files..."
 docker run --rm --entrypoint "" "${IMAGE_NAME}" test -x /opt/gow/startup.sh
+docker run --rm --entrypoint "" "${IMAGE_NAME}" test -x /opt/gow/launch-gamescope.sh
 docker run --rm --entrypoint "" "${IMAGE_NAME}" test ! -e /opt/gow/startup-app.sh
 docker run --rm --entrypoint "" "${IMAGE_NAME}" test ! -e /opt/gow/launch-comp.sh
+
+if ! grep -q "launch-gamescope startup stub invoked" "${SENTINEL_PATH}"; then
+    log_error "Startup script did not route through launch-gamescope"
+    echo "RESULT: FAILED (gamescope helper not invoked)" >> "${EVIDENCE_FILE}"
+    exit 1
+fi
+
+if ! grep -q "argv: /usr/bin/drop-app" "${SENTINEL_PATH}"; then
+    log_error "Startup script did not pass /usr/bin/drop-app to launch-gamescope"
+    echo "RESULT: FAILED (gamescope helper argv)" >> "${EVIDENCE_FILE}"
+    exit 1
+fi
 
 if ! grep -q "XDG_RUNTIME_DIR: /tmp/.X11-unix" "${SENTINEL_PATH}"; then
     log_error "XDG_RUNTIME_DIR was not set for startup path"

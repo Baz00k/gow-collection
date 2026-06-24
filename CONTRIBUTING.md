@@ -106,11 +106,3 @@ Both scripts receive these environment variables:
 ## CI Workflows
 
 Global workflows are generic and auto-discover images. No per-image workflow files needed.
-
-| Workflow         | Purpose                                                                              |
-| ---------------- | ------------------------------------------------------------------------------------ |
-| `ci.yml`         | Detects affected images, builds the least required, smoke tests, publishes on `main` |
-| `update.yml`     | Runs dependency updates and base-digest propagation, opens one auto-merge PR          |
-| `auto-merge.yml` | Enables native auto-merge for `automated`-labeled PRs                                 |
-
-Branch protection requires one check: `ci-gate`. Adding an image under `images/` with `build/pins.env` is all that's required for CI integration.

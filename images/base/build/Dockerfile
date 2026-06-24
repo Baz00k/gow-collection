@@ -9,9 +9,6 @@
 #   - /etc/cont-init.d/* init-script runner (user, devices, NVIDIA)
 #   - shared logging + performance-tuning helpers
 #   - patched bubblewrap for container-friendly sandboxing
-#
-# App images set BASE_APP_IMAGE to a pinned digest of this image and only add
-# their own application packages + startup script on top.
 # -----------------------------------------------------------------------------
 ARG BASE_IMAGE
 ARG BASE_IMAGE_DIGEST
@@ -77,6 +74,7 @@ RUN dnf install -y \
     libcap \
     curl \
     fontconfig \
+    gamescope \
     glibc-langpack-en \
     mesa-dri-drivers \
     mesa-libEGL \
@@ -85,6 +83,7 @@ RUN dnf install -y \
     mesa-vulkan-drivers \
     pciutils \
     vulkan-loader \
+    xorg-x11-server-Xwayland \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 

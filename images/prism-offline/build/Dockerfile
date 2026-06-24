@@ -111,10 +111,8 @@ RUN set -eux; \
     # Create symlink so 'prismlauncher' is in PATH \
     ln -sf /opt/prismlauncher/squashfs-root/AppRun /usr/local/bin/prismlauncher
 
-# Copy the Wolf-compatible startup script that launches Prism Launcher
-# through the GoW compositor helper.
-
-COPY --chmod=755 scripts/startup.sh /opt/gow/startup.sh
+# Copy Prism-specific startup overlay.
+COPY --chmod=755 overlay /
 
 # XDG_RUNTIME_DIR is required for Wayland compositor integration
 # Wolf sets up /tmp/.X11-unix for X11 socket forwarding
