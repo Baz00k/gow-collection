@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Apply prism-offline dependency updates
-# Updates: Prism version and AppImage SHA256s
+# Updates: Prism version and AppImage SHA256
 
 set -euo pipefail
 
@@ -52,23 +52,16 @@ if [[ -n "$latest_prism" && "$current_prism" != "$latest_prism" ]]; then
     
     base_url="https://github.com/${PRISM_REPO}/releases/download/${latest_prism}"
     x86_64_url="${base_url}/PrismLauncher-Linux-x86_64.AppImage"
-    aarch64_url="${base_url}/PrismLauncher-Linux-aarch64.AppImage"
     
     echo "Downloading x86_64 AppImage..."
     x86_64_sha=$(fetch_appimage_sha256 "$x86_64_url" /tmp/PrismLauncher-x86_64.AppImage)
     echo "x86_64 SHA256: $x86_64_sha"
     
-    echo "Downloading aarch64 AppImage..."
-    aarch64_sha=$(fetch_appimage_sha256 "$aarch64_url" /tmp/PrismLauncher-aarch64.AppImage)
-    echo "aarch64 SHA256: $aarch64_sha"
-    
     inplace "s|^PRISM_LAUNCHER_VERSION=.*|PRISM_LAUNCHER_VERSION=${latest_prism}|" "$PINS_FILE"
     inplace "s|^PRISM_LAUNCHER_APPIMAGE_X86_64_URL=.*|PRISM_LAUNCHER_APPIMAGE_X86_64_URL=${x86_64_url}|" "$PINS_FILE"
     inplace "s|^PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256=.*|PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256=${x86_64_sha}|" "$PINS_FILE"
-    inplace "s|^PRISM_LAUNCHER_APPIMAGE_AARCH64_URL=.*|PRISM_LAUNCHER_APPIMAGE_AARCH64_URL=${aarch64_url}|" "$PINS_FILE"
-    inplace "s|^PRISM_LAUNCHER_APPIMAGE_AARCH64_SHA256=.*|PRISM_LAUNCHER_APPIMAGE_AARCH64_SHA256=${aarch64_sha}|" "$PINS_FILE"
     
-    rm -f /tmp/PrismLauncher-x86_64.AppImage /tmp/PrismLauncher-aarch64.AppImage
+    rm -f /tmp/PrismLauncher-x86_64.AppImage
     applied=true
     summary+="### Prism Launcher\n\nUpdated from v${current_prism} to v${latest_prism}.\n\n"
 fi

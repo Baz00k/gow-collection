@@ -23,45 +23,16 @@ RUN dnf install -y $REQUIRED_PACKAGES && \
 # These are app-owned pins instead of Fedora packages to avoid distro package drift.
 ARG TEMURIN_JRE_8_X86_64_URL
 ARG TEMURIN_JRE_8_X86_64_SHA256
-ARG TEMURIN_JRE_8_AARCH64_URL
-ARG TEMURIN_JRE_8_AARCH64_SHA256
 ARG TEMURIN_JRE_17_X86_64_URL
 ARG TEMURIN_JRE_17_X86_64_SHA256
-ARG TEMURIN_JRE_17_AARCH64_URL
-ARG TEMURIN_JRE_17_AARCH64_SHA256
 ARG TEMURIN_JRE_21_X86_64_URL
 ARG TEMURIN_JRE_21_X86_64_SHA256
-ARG TEMURIN_JRE_21_AARCH64_URL
-ARG TEMURIN_JRE_21_AARCH64_SHA256
-ARG TARGETARCH
 
 RUN set -eux; \
     mkdir -p /opt/java; \
-    case "${TARGETARCH}" in \
-        amd64) \
-            JRE_8_URL="${TEMURIN_JRE_8_X86_64_URL}"; \
-            JRE_8_SHA256="${TEMURIN_JRE_8_X86_64_SHA256}"; \
-            JRE_17_URL="${TEMURIN_JRE_17_X86_64_URL}"; \
-            JRE_17_SHA256="${TEMURIN_JRE_17_X86_64_SHA256}"; \
-            JRE_21_URL="${TEMURIN_JRE_21_X86_64_URL}"; \
-            JRE_21_SHA256="${TEMURIN_JRE_21_X86_64_SHA256}"; \
-            ;; \
-        arm64) \
-            JRE_8_URL="${TEMURIN_JRE_8_AARCH64_URL}"; \
-            JRE_8_SHA256="${TEMURIN_JRE_8_AARCH64_SHA256}"; \
-            JRE_17_URL="${TEMURIN_JRE_17_AARCH64_URL}"; \
-            JRE_17_SHA256="${TEMURIN_JRE_17_AARCH64_SHA256}"; \
-            JRE_21_URL="${TEMURIN_JRE_21_AARCH64_URL}"; \
-            JRE_21_SHA256="${TEMURIN_JRE_21_AARCH64_SHA256}"; \
-            ;; \
-        *) \
-            echo "Unsupported architecture: ${TARGETARCH}"; \
-            exit 1; \
-            ;; \
-    esac; \
     for version in 8 17 21; do \
-        eval "url=\${JRE_${version}_URL}"; \
-        eval "sha256=\${JRE_${version}_SHA256}"; \
+        eval "url=\${TEMURIN_JRE_${version}_X86_64_URL}"; \
+        eval "sha256=\${TEMURIN_JRE_${version}_X86_64_SHA256}"; \
         curl -fsSL "${url}" -o "/tmp/temurin-jre-${version}.tar.gz"; \
         echo "${sha256}  /tmp/temurin-jre-${version}.tar.gz" | sha256sum -c -; \
         mkdir -p "/opt/java/${version}"; \
@@ -80,28 +51,11 @@ RUN set -eux; \
 ARG PRISM_LAUNCHER_VERSION=10.0.5
 ARG PRISM_LAUNCHER_APPIMAGE_X86_64_URL
 ARG PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256
-ARG PRISM_LAUNCHER_APPIMAGE_AARCH64_URL
-ARG PRISM_LAUNCHER_APPIMAGE_AARCH64_SHA256
 
 RUN set -eux; \
-    # Select the correct AppImage URL and checksum based on architecture \
-    case "${TARGETARCH}" in \
-        amd64) \
-            APPIMAGE_URL="${PRISM_LAUNCHER_APPIMAGE_X86_64_URL}"; \
-            APPIMAGE_SHA256="${PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256}"; \
-            ;; \
-        arm64) \
-            APPIMAGE_URL="${PRISM_LAUNCHER_APPIMAGE_AARCH64_URL}"; \
-            APPIMAGE_SHA256="${PRISM_LAUNCHER_APPIMAGE_AARCH64_SHA256}"; \
-            ;; \
-        *) \
-            echo "Unsupported architecture: ${TARGETARCH}"; \
-            exit 1; \
-            ;; \
-    esac; \
     mkdir -p /opt/prismlauncher; \
-    curl -fsSL "${APPIMAGE_URL}" -o /opt/prismlauncher/PrismLauncher.AppImage; \
-    echo "${APPIMAGE_SHA256}  /opt/prismlauncher/PrismLauncher.AppImage" | sha256sum -c -; \
+    curl -fsSL "${PRISM_LAUNCHER_APPIMAGE_X86_64_URL}" -o /opt/prismlauncher/PrismLauncher.AppImage; \
+    echo "${PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256}  /opt/prismlauncher/PrismLauncher.AppImage" | sha256sum -c -; \
     chmod +x /opt/prismlauncher/PrismLauncher.AppImage; \
     cd /opt/prismlauncher; \
     ./PrismLauncher.AppImage --appimage-extract > /dev/null; \

@@ -7,28 +7,17 @@ FROM ${BASE_APP_IMAGE}
 ARG DROP_APP_VERSION
 ARG DROP_APP_RPM_X86_64_URL
 ARG DROP_APP_RPM_X86_64_SHA256
-ARG TARGETARCH
 
 # hadolint ignore=DL3041
 RUN <<_INSTALL_DROP_APP
 set -eux
-case "${TARGETARCH}" in
-    amd64)
-        DROP_APP_RPM_URL="${DROP_APP_RPM_X86_64_URL}"
-        DROP_APP_RPM_SHA256="${DROP_APP_RPM_X86_64_SHA256}"
-        ;;
-    *)
-        echo "Unsupported architecture: ${TARGETARCH}"
-        exit 1
-        ;;
-esac
 dnf install -y \
     firefox \
     libayatana-appindicator-gtk3 \
     webkit2gtk4.1 \
     xdg-utils
-curl -fsSL -o /tmp/drop-desktop-client.rpm "${DROP_APP_RPM_URL}"
-echo "${DROP_APP_RPM_SHA256}  /tmp/drop-desktop-client.rpm" | sha256sum -c -
+curl -fsSL -o /tmp/drop-desktop-client.rpm "${DROP_APP_RPM_X86_64_URL}"
+echo "${DROP_APP_RPM_X86_64_SHA256}  /tmp/drop-desktop-client.rpm" | sha256sum -c -
 dnf install -y /tmp/drop-desktop-client.rpm
 rm -f /tmp/drop-desktop-client.rpm
 dnf clean all
