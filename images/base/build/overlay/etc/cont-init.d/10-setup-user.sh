@@ -38,7 +38,6 @@ ln -sf "${UHOME}" /home/deck
 
 log_info "Ensuring XDG_RUNTIME_DIR exists at ${XDG_RUNTIME_DIR}"
 mkdir -p "${XDG_RUNTIME_DIR}"
-chmod 0700 "${XDG_RUNTIME_DIR}"
 
 log_info "Setting runtime ownership for ${UHOME} and ${XDG_RUNTIME_DIR}"
 chown -R "${PUID}:${PGID}" "${UHOME}" "${XDG_RUNTIME_DIR}"
