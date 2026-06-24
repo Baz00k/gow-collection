@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Return to Steam
+Comment=Switch back to the Steam gaming session
+Exec=/usr/local/bin/return-to-steam
+Icon=steam
+Terminal=false
+Categories=Game;System;

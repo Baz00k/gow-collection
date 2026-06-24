@@ -47,6 +47,20 @@ RUN dnf install -y \
     lsb-release \
     mesa-demos \
     vulkan-tools \
+    plasma-workspace \
+    plasma-workspace-wayland \
+    plasma-desktop \
+    plasma-discover \
+    plasma-discover-flatpak \
+    kwin \
+    kwin-wayland \
+    dolphin \
+    konsole \
+    kdialog \
+    xdg-desktop-portal \
+    xdg-desktop-portal-kde \
+    flatpak \
+    firefox \
     dejavu-fonts-all \
     google-noto-fonts-common \
     python3 \

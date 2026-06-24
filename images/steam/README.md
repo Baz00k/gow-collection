@@ -1,6 +1,6 @@
 # Steam
 
-Steam packaged for Games on Whales / Wolf with gamescope, MangoHud, GameMode, and Decky Loader.
+Steam packaged for Games on Whales / Wolf as a SteamOS-style session with gamescope, KDE Plasma desktop mode, Firefox, Flatpak, MangoHud, GameMode, and Decky Loader.
 
 ## Quick Start
 
@@ -13,10 +13,9 @@ start_virtual_compositor = true
 [profiles.apps.runner]
 type = "docker"
 name = "WolfSteam"
-image = "ghcr.io/Baz00k/gow-collection/steam:edge"
+image = "ghcr.io/baz00k/gow-collection/steam:edge"
 mounts = []
 env = [
-    "GAMESCOPE_STEAM_MODE=off",
     "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*"
 ]
 devices = []
@@ -44,30 +43,42 @@ base_create_json = """
 ## Features
 
 - Steam installed from RPM Fusion.
-- Gamescope session for Wolf streaming
+- SteamOS/GamepadUI session through gamescope by default.
+- KDE Plasma desktop mode through Steam's session switch.
+- Firefox browser in desktop mode.
+- Flatpak with Flathub configured for user-selected desktop apps.
 - MangoHud performance overlay.
 - GameMode support.
 - Decky Loader for SteamOS-style plugins.
 - SteamOS compatibility stubs for power/session actions inside the container.
 
-## Steam Modes
+## Sessions
 
-`GAMESCOPE_STEAM_MODE` controls the Steam UI mode:
+The container starts in the Steam gaming session. Steam's `Switch to Desktop` action switches to KDE Plasma. Use the `Return to Steam` desktop launcher in Plasma to switch back to Steam.
 
-| Value | Behavior                                                | Best for                                            |
-| ----- | ------------------------------------------------------- | --------------------------------------------------- |
-| `off` | Standard Big Picture mode                               | Library management and desktop-style Steam settings |
-| `on`  | SteamOS/GamepadUI mode with gamescope Steam integration | Controller-first couch gaming                       |
+The Steam session uses gamescope's Steam integration mode. The Plasma session runs as a nested KDE Wayland desktop on the Wolf compositor.
 
-SteamOS mode is the console-like experience, but `Switch to desktop` does not work in a container because there is no underlying desktop session.
+For diagnostics, set `STEAMOS_SESSION=plasma` to start directly in desktop mode.
+
+## Installing Apps
+
+Use KDE Discover or Flatpak in desktop mode to install the apps you want. The image does not bundle third-party launchers; Heroic, Lutris, Bottles, emulators, and similar apps are user choices.
+
+Example:
+
+```bash
+flatpak install --user flathub com.heroicgameslauncher.hgl
+```
+
+After installing another launcher or game, add it to Steam as a non-Steam game if you want it available from the gaming session.
 
 ## Configuration
 
 | Variable                             | Default       | Description                                                   |
 | ------------------------------------ | ------------- | ------------------------------------------------------------- |
-| `GAMESCOPE_STEAM_MODE`               | `off`         | `on` for SteamOS/GamepadUI mode                               |
+| `STEAMOS_SESSION`                    | `gamescope`   | Initial session: `gamescope` or `plasma`                      |
 | `GAMESCOPE_FORCE_WINDOWS_FULLSCREEN` | `off`         | `on` adds gamescope's `--force-windows-fullscreen` workaround |
-| `STEAM_STARTUP_FLAGS`                | `-bigpicture` | Flags passed to Steam                                         |
+| `STEAM_STARTUP_FLAGS`                | `-gamepadui`  | Flags passed to Steam                                         |
 
 Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
 
@@ -79,12 +90,13 @@ Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are docu
 | `Right Shift + F11` | Change position (corners/center) |
 | `Right Shift + F10` | Toggle preset verbosity          |
 
-In standard mode (`GAMESCOPE_STEAM_MODE=off`), MangoHud injects directly into games. In SteamOS mode, it runs as MangoApp through gamescope; FPS stats may freeze or show wrong values even when the game is running normally.
+MangoHud runs as MangoApp through gamescope. FPS stats may freeze or show wrong values even when the game is running normally.
 
 ## Known Limitations
 
-- In standard mode, Steam's desktop menu bar dropdowns may not open under gamescope. Use Big Picture settings where possible.
-- In SteamOS mode, `Switch to desktop` does not work because there is no desktop session behind Steam.
+- SteamOS update, BIOS update, and hardware power-management commands are compatibility stubs, not real host firmware or OS controls.
+- KDE Plasma runs nested inside Wolf's compositor. Some desktop compositor behavior may differ from a physical Steam Deck.
+- Flatpak app installs depend on the container permissions and namespace support provided by the Wolf runner configuration.
 - Steam uses file locks. Do not run two Steam containers against the same data directory.
 - Some games only use a few CPU threads unless launched through GameMode. Add `gamemoderun %command%` to the game's Steam launch options if needed.
 

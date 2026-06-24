@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE_NAME="${IMAGE_NAME:-ghcr.io/Baz00k/gow-collection/steam:test}"
+IMAGE_NAME="${IMAGE_NAME:-ghcr.io/baz00k/gow-collection/steam:test}"
 CONTAINER_NAME="${CONTAINER_NAME:-smoke-test-startup-steam}"
 EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../../test-results/steam}"
 EVIDENCE_FILE="${EVIDENCE_DIR}/startup.txt"
@@ -52,8 +52,15 @@ fi
 
 REQUIRED_EXEC=(
     /opt/gow/startup.sh
+    /opt/gow/steamos-session-supervisor.sh
+    /opt/gow/steamos-session-runner.sh
+    /opt/gow/steamos-plasma-session.sh
     /usr/bin/steam
+    /usr/bin/steamos-session-select
     /usr/bin/gamescope
+    /usr/bin/flatpak
+    /usr/bin/firefox
+    /usr/local/bin/return-to-steam
 )
 
 for f in "${REQUIRED_EXEC[@]}"; do
@@ -71,19 +78,29 @@ echo "/opt/gow/entrypoint.sh: ok" >> "${EVIDENCE_FILE}"
 STUB_DIR="$(mktemp -d "${EVIDENCE_DIR}/startup-stub.XXXXXX")"
 SENTINEL_PATH="${STUB_DIR}/invoked"
 RUN_LOG="${STUB_DIR}/docker-run.log"
+PLASMA_SENTINEL_PATH="${STUB_DIR}/plasma-invoked"
+PLASMA_RUN_LOG="${STUB_DIR}/docker-run-plasma.log"
 
 cat > "${STUB_DIR}/gamescope" <<'EOF'
 #!/bin/bash
 set -euo pipefail
 echo "gamescope stub invoked" > "${STARTUP_SENTINEL:?}"
 while [[ "$#" -gt 0 ]]; do
+    if [[ "$1" == "-R" ]]; then
+        socket="$2"
+        shift 2
+        continue
+    fi
     if [[ "$1" == "--" ]]; then
         shift
         exec "$@"
     fi
     shift
 done
-exit 1
+printf ':42 gamescope-0\n' > "${socket:?}"
+while true; do
+    sleep 1
+done
 EOF
 chmod +x "${STUB_DIR}/gamescope"
 
@@ -113,17 +130,41 @@ echo "argv: $*" >> "${STARTUP_SENTINEL}"
 EOF
 chmod +x "${STUB_DIR}/steam"
 
+cat > "${STUB_DIR}/flatpak" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+echo "flatpak stub invoked" >> "${STARTUP_SENTINEL:?}"
+EOF
+chmod +x "${STUB_DIR}/flatpak"
+
+cat > "${STUB_DIR}/startplasma-wayland" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+echo "startplasma-wayland stub invoked" >> "${STARTUP_SENTINEL:?}"
+EOF
+chmod +x "${STUB_DIR}/startplasma-wayland"
+
+cat > "${STUB_DIR}/firefox" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+echo "firefox stub invoked" >> "${STARTUP_SENTINEL:?}"
+EOF
+chmod +x "${STUB_DIR}/firefox"
+
 log_info "Exercising default Steam startup path..."
 set +e
 docker run \
     --rm \
     -e PUID=0 \
     -e STARTUP_SENTINEL=/tmp/startup-smoke/invoked \
+    -e STEAM_STARTUP_FLAGS=-gamepadui \
     -e PATH=/tmp/startup-smoke:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     -v "${STUB_DIR}/gamescope:/usr/bin/gamescope:ro" \
     -v "${STUB_DIR}/ibus-daemon:/usr/bin/ibus-daemon:ro" \
     -v "${STUB_DIR}/dbus-run-session:/usr/bin/dbus-run-session:ro" \
     -v "${STUB_DIR}/steam:/usr/bin/steam:ro" \
+    -v "${STUB_DIR}/flatpak:/usr/bin/flatpak:ro" \
+    -v "${STUB_DIR}/firefox:/usr/bin/firefox:ro" \
     -v "${STUB_DIR}:/tmp/startup-smoke" \
     "${IMAGE_NAME}" > "${RUN_LOG}" 2>&1
 RUN_EXIT_CODE=$?
@@ -149,9 +190,50 @@ for expected in \
     "ibus-daemon stub invoked" \
     "dbus-run-session stub invoked" \
     "steam stub invoked" \
-    "argv: -bigpicture"; do
+    "argv: -gamepadui"; do
     if ! grep -qF "${expected}" "${SENTINEL_PATH}"; then
         fail "missing startup evidence: ${expected}"
+    fi
+done
+
+log_info "Exercising Plasma startup path..."
+rm -f "${PLASMA_SENTINEL_PATH}"
+set +e
+docker run \
+    --rm \
+    -e PUID=0 \
+    -e STEAMOS_SESSION=plasma \
+    -e STARTUP_SENTINEL=/tmp/startup-smoke/plasma-invoked \
+    -e PATH=/tmp/startup-smoke:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    -v "${STUB_DIR}/dbus-run-session:/usr/bin/dbus-run-session:ro" \
+    -v "${STUB_DIR}/flatpak:/usr/bin/flatpak:ro" \
+    -v "${STUB_DIR}/startplasma-wayland:/usr/bin/startplasma-wayland:ro" \
+    -v "${STUB_DIR}:/tmp/startup-smoke" \
+    "${IMAGE_NAME}" > "${PLASMA_RUN_LOG}" 2>&1
+PLASMA_RUN_EXIT_CODE=$?
+set -e
+
+{
+    echo "=== plasma startup output ==="
+    cat "${PLASMA_RUN_LOG}"
+    echo "=== plasma startup stub output ==="
+    if [[ -f "${PLASMA_SENTINEL_PATH}" ]]; then
+        cat "${PLASMA_SENTINEL_PATH}"
+    else
+        echo "plasma stubs were not invoked"
+    fi
+} >> "${EVIDENCE_FILE}"
+
+if [[ ${PLASMA_RUN_EXIT_CODE} -ne 0 ]]; then
+    fail "plasma startup path failed"
+fi
+
+for expected in \
+    "flatpak stub invoked" \
+    "dbus-run-session stub invoked" \
+    "startplasma-wayland stub invoked"; do
+    if ! grep -qF "${expected}" "${PLASMA_SENTINEL_PATH}"; then
+        fail "missing plasma startup evidence: ${expected}"
     fi
 done
 

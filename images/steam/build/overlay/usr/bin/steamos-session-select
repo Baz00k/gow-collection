@@ -1,6 +1,30 @@
 #!/bin/bash
 set -euo pipefail
 
-# Shuts down Steam cleanly when session switch is requested
-# See: https://github.com/games-on-whales/gow/pull/187
-/usr/bin/steam -shutdown
+target="${1:-plasma}"
+fifo="${GOW_STEAMOS_SESSION_FIFO:-${XDG_RUNTIME_DIR:-/tmp/.X11-unix}/gow-steamos-session.cmd}"
+
+case "${target}" in
+    steam|gamescope|gamepad|gaming)
+        target="gamescope"
+        ;;
+    plasma|desktop|kde)
+        target="plasma"
+        ;;
+    *)
+        echo "Unknown SteamOS session: ${target}" >&2
+        exit 1
+        ;;
+esac
+
+if [[ -p "${fifo}" ]]; then
+    if ! timeout 2 bash -c 'printf "%s\n" "$1" > "$2"' bash "${target}" "${fifo}"; then
+        echo "WARN: Could not notify SteamOS session supervisor" >&2
+    fi
+else
+    echo "WARN: SteamOS session supervisor is not available" >&2
+fi
+
+if [[ "${target}" == "plasma" ]]; then
+    /usr/bin/steam -shutdown || true
+fi
