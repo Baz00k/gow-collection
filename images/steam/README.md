@@ -74,11 +74,11 @@ After installing another launcher or game, add it to Steam as a non-Steam game i
 
 ## Configuration
 
-| Variable                             | Default       | Description                                                   |
-| ------------------------------------ | ------------- | ------------------------------------------------------------- |
-| `STEAMOS_SESSION`                    | `gamescope`   | Initial session: `gamescope` or `plasma`                      |
-| `GAMESCOPE_FORCE_WINDOWS_FULLSCREEN` | `off`         | `on` adds gamescope's `--force-windows-fullscreen` workaround |
-| `STEAM_STARTUP_FLAGS`                | `-gamepadui`  | Flags passed to Steam                                         |
+| Variable                             | Default                                     | Description                                                   |
+| ------------------------------------ | ------------------------------------------- | ------------------------------------------------------------- |
+| `STEAMOS_SESSION`                    | `gamescope`                                 | Initial session: `gamescope` or `plasma`                      |
+| `GAMESCOPE_FORCE_WINDOWS_FULLSCREEN` | `off`                                       | `on` adds gamescope's `--force-windows-fullscreen` workaround |
+| `STEAM_STARTUP_FLAGS`                | `-gamepadui -steamos3 -steampal -steamdeck` | Flags passed to Steam                                         |
 
 Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
 

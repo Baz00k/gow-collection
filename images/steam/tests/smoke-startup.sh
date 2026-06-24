@@ -24,6 +24,7 @@ mkdir -p "${EVIDENCE_DIR}"
     echo ""
 } > "${EVIDENCE_FILE}"
 
+# shellcheck disable=SC2329 # Invoked via trap.
 cleanup() {
     docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
     if [[ -n "${STUB_DIR}" ]]; then
@@ -157,7 +158,7 @@ docker run \
     --rm \
     -e PUID=0 \
     -e STARTUP_SENTINEL=/tmp/startup-smoke/invoked \
-    -e STEAM_STARTUP_FLAGS=-gamepadui \
+    -e STEAM_STARTUP_FLAGS="-gamepadui -steamos3 -steampal -steamdeck" \
     -e PATH=/tmp/startup-smoke:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     -v "${STUB_DIR}/gamescope:/usr/bin/gamescope:ro" \
     -v "${STUB_DIR}/ibus-daemon:/usr/bin/ibus-daemon:ro" \
@@ -190,7 +191,7 @@ for expected in \
     "ibus-daemon stub invoked" \
     "dbus-run-session stub invoked" \
     "steam stub invoked" \
-    "argv: -gamepadui"; do
+    "argv: -gamepadui -steamos3 -steampal -steamdeck"; do
     if ! grep -qF "${expected}" "${SENTINEL_PATH}"; then
         fail "missing startup evidence: ${expected}"
     fi

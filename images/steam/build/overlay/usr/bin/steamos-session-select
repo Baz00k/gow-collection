@@ -1,8 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
+# shellcheck source=/dev/null
+source /opt/gow/logging.sh
+
 target="${1:-plasma}"
 fifo="${GOW_STEAMOS_SESSION_FIFO:-${XDG_RUNTIME_DIR:-/tmp/.X11-unix}/gow-steamos-session.cmd}"
+
+log_debug "[steamos-session-select] Invoked: argv='$*' user='$(id -un)' uid='$(id -u)'"
+log_debug "[steamos-session-select] XDG_RUNTIME_DIR='${XDG_RUNTIME_DIR:-}' fifo='${fifo}'"
 
 case "${target}" in
     steam|gamescope|gamepad|gaming)
@@ -12,19 +18,25 @@ case "${target}" in
         target="plasma"
         ;;
     *)
-        echo "Unknown SteamOS session: ${target}" >&2
+        log_error "[steamos-session-select] Unknown SteamOS session: ${target}"
         exit 1
         ;;
 esac
 
+log_info "[steamos-session-select] Normalized target: ${target}"
+
 if [[ -p "${fifo}" ]]; then
+    # shellcheck disable=SC2016 # Inner bash expands $1/$2 after timeout starts.
     if ! timeout 2 bash -c 'printf "%s\n" "$1" > "$2"' bash "${target}" "${fifo}"; then
-        echo "WARN: Could not notify SteamOS session supervisor" >&2
+        log_warn "[steamos-session-select] Could not notify SteamOS session supervisor"
+    else
+        log_info "[steamos-session-select] Notified SteamOS session supervisor"
     fi
 else
-    echo "WARN: SteamOS session supervisor is not available" >&2
+    log_warn "[steamos-session-select] SteamOS session supervisor is not available"
 fi
 
 if [[ "${target}" == "plasma" ]]; then
+    log_info "[steamos-session-select] Requesting Steam shutdown for desktop switch"
     /usr/bin/steam -shutdown || true
 fi

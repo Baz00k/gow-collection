@@ -1,11 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
+# shellcheck source=/dev/null
 source /opt/gow/logging.sh
+# shellcheck source=/dev/null
 source /opt/gow/gamescope-lib.sh
 
 SESSION="${1:-gamescope}"
-STEAM_STARTUP_FLAGS="${STEAM_STARTUP_FLAGS:--gamepadui}"
+if [[ -z "${STEAM_STARTUP_FLAGS:-}" ]]; then
+    log_error "STEAM_STARTUP_FLAGS is not set; Steam session init did not run"
+    exit 1
+fi
 read -r -a STEAM_ARGS <<< "${STEAM_STARTUP_FLAGS}"
 
 start_ibus() {
@@ -44,7 +49,7 @@ start_gamescope_compositor() {
         log_warn "Could not claim global gamescope stats session"
     fi
 
-    /usr/bin/gamescope "${gamescope_args[@]}" -e --mangoapp -R "${socket}" -T "${stats}" &
+    /usr/bin/gamescope "${gamescope_args[@]}" -e --steam --mangoapp -R "${socket}" -T "${stats}" &
 
     if read -r -t 5 DISPLAY GAMESCOPE_WAYLAND_DISPLAY <> "${socket}"; then
         export DISPLAY GAMESCOPE_WAYLAND_DISPLAY

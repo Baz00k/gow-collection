@@ -1,12 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
+# shellcheck source=/dev/null
 source /opt/gow/logging.sh
 
-STEAM_STARTUP_FLAGS="${STEAM_STARTUP_FLAGS:--gamepadui}"
+STEAM_STARTUP_FLAGS="${STEAM_STARTUP_FLAGS:--gamepadui -steamos3 -steampal -steamdeck}"
 
 export STEAM_STARTUP_FLAGS
 export SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS=0
+export HOMETEST_DESKTOP=1
+export HOMETEST_DESKTOP_SESSION=plasma
 export SRT_URLOPEN_PREFER_STEAM=1
 export QT_IM_MODULE=steam
 export GTK_IM_MODULE=Steam
@@ -42,3 +45,5 @@ chown "${PUID}:${PGID}" "${RADV_FORCE_VRS_CONFIG_FILE}" 2>/dev/null || true
 export RADV_FORCE_VRS_CONFIG_FILE
 
 log_info "SteamOS gamescope integration mode enabled"
+log_info "Steam startup flags: ${STEAM_STARTUP_FLAGS}"
+log_info "SteamOS desktop session: ${HOMETEST_DESKTOP_SESSION}"
