@@ -144,6 +144,14 @@ set -euo pipefail
 echo "startplasma-wayland stub invoked" >> "${STARTUP_SENTINEL:?}"
 grep -q '^systemdBoot=false$' /etc/xdg/startkderc
 echo "startkderc systemdBoot=false" >> "${STARTUP_SENTINEL:?}"
+grep -q '^X-systemd-skip=false$' /etc/xdg/autostart/org.kde.plasmashell.desktop
+echo "plasmashell autostart systemd skip disabled" >> "${STARTUP_SENTINEL:?}"
+grep -q '^Autolock=false$' /etc/xdg/kscreenlockerrc
+grep -q '^LockOnResume=false$' /etc/xdg/kscreenlockerrc
+echo "kscreenlocker disabled" >> "${STARTUP_SENTINEL:?}"
+test -x "${HOME}/Desktop/return-to-steam.desktop"
+grep -q '^Exec=/usr/local/bin/return-to-steam$' "${HOME}/Desktop/return-to-steam.desktop"
+echo "return-to-steam desktop shortcut installed" >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/startplasma-wayland"
 
@@ -235,7 +243,10 @@ for expected in \
     "flatpak stub invoked" \
     "dbus-run-session stub invoked" \
     "startplasma-wayland stub invoked" \
-    "startkderc systemdBoot=false"; do
+    "startkderc systemdBoot=false" \
+    "plasmashell autostart systemd skip disabled" \
+    "kscreenlocker disabled" \
+    "return-to-steam desktop shortcut installed"; do
     if ! grep -qF "${expected}" "${PLASMA_SENTINEL_PATH}"; then
         fail "missing plasma startup evidence: ${expected}"
     fi
