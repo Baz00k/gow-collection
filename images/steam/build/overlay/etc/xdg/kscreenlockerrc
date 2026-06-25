@@ -1,0 +1,4 @@
+# Disable KDE locking; game-streaming sessions cannot unlock a passwordless container user.
+[Daemon]
+Autolock=false
+LockOnResume=false
