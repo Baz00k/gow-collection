@@ -285,7 +285,7 @@ docker run \
     --rm \
     -e PUID=0 \
     -e STEAMOS_SESSION=plasma \
-    -e XDG_RUNTIME_DIR=/tmp/startup-smoke/runtime \
+    -e XDG_RUNTIME_DIR=/tmp/plasma-runtime \
     -e WAYLAND_DISPLAY=wayland-3 \
     -e STARTUP_SENTINEL=/tmp/startup-smoke/plasma-invoked \
     -e PATH=/tmp/startup-smoke:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
