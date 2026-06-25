@@ -89,6 +89,10 @@ RUN fc-cache -f -v
 # -----------------------------------------------------------------------------
 COPY --chmod=755 overlay /
 
+RUN mkdir -p /usr/games && \
+    ln -sf /usr/bin/steam /usr/games/steam && \
+    update-desktop-database /usr/share/applications
+
 # -----------------------------------------------------------------------------
 # Environment and Labels
 # -----------------------------------------------------------------------------
