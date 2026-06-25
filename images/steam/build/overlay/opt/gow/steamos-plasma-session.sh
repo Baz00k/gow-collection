@@ -18,6 +18,10 @@ mkdir -p \
     "${HOME}/.local/share/flatpak" \
     "${HOME}/.config"
 
+install -m 755 \
+    /usr/share/applications/return-to-steam.desktop \
+    "${HOME}/Desktop/return-to-steam.desktop"
+
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || \
     log_warn "Could not configure user Flathub remote"
 
