@@ -5,7 +5,6 @@ set -euo pipefail
 source /opt/gow/logging.sh
 
 export HOME="${HOME:-$(getent passwd "$(whoami)" | cut -d: -f6)}"
-export KDE_FORCE_SYSTEMD_BOOT=0
 export XDG_CURRENT_DESKTOP=KDE
 export XDG_SESSION_DESKTOP=KDE
 export XDG_SESSION_TYPE=wayland

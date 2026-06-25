@@ -142,7 +142,8 @@ cat > "${STUB_DIR}/startplasma-wayland" <<'EOF'
 #!/bin/bash
 set -euo pipefail
 echo "startplasma-wayland stub invoked" >> "${STARTUP_SENTINEL:?}"
-echo "KDE_FORCE_SYSTEMD_BOOT=${KDE_FORCE_SYSTEMD_BOOT:-}" >> "${STARTUP_SENTINEL:?}"
+grep -q '^systemdBoot=false$' /etc/xdg/startkderc
+echo "startkderc systemdBoot=false" >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/startplasma-wayland"
 
@@ -234,7 +235,7 @@ for expected in \
     "flatpak stub invoked" \
     "dbus-run-session stub invoked" \
     "startplasma-wayland stub invoked" \
-    "KDE_FORCE_SYSTEMD_BOOT=0"; do
+    "startkderc systemdBoot=false"; do
     if ! grep -qF "${expected}" "${PLASMA_SENTINEL_PATH}"; then
         fail "missing plasma startup evidence: ${expected}"
     fi
