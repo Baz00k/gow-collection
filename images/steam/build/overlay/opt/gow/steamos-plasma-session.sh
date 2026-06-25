@@ -36,6 +36,62 @@ if command -v startplasma-wayland >/dev/null 2>&1; then
 
         source /opt/gow/logging.sh
 
+        declare -A existing_wayland_displays=()
+
+        wait_for_kwin_wayland_display() {
+            local display_socket display_name
+
+            for _ in {1..50}; do
+                for display_socket in "${XDG_RUNTIME_DIR}"/wayland-*; do
+                    [[ -S "${display_socket}" ]] || continue
+                    display_name="${display_socket##*/}"
+                    [[ -z "${existing_wayland_displays[${display_name}]:-}" ]] || continue
+                    export WAYLAND_DISPLAY="${display_name}"
+                    return 0
+                done
+
+                sleep 0.1
+            done
+
+            log_warn "KWin Wayland display did not become available"
+        }
+
+        wait_for_xwayland_display() {
+            local display_socket display_path
+
+            for _ in {1..50}; do
+                for display_socket in /tmp/.X11-unix/X*; do
+                    [[ -S "${display_socket}" ]] || continue
+                    display_path="${display_socket##*/X}"
+                    export DISPLAY=":${display_path}"
+                    return 0
+                done
+
+                sleep 0.1
+            done
+
+            log_warn "KWin Xwayland display did not become available"
+        }
+
+        update_session_environment() {
+            if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+                dbus-update-activation-environment \
+                    DISPLAY \
+                    WAYLAND_DISPLAY \
+                    XDG_CURRENT_DESKTOP \
+                    XDG_SESSION_DESKTOP \
+                    XDG_SESSION_TYPE \
+                    KDE_FULL_SESSION \
+                    KDE_SESSION_VERSION \
+                    XDG_DATA_DIRS || log_warn "dbus-update-activation-environment failed"
+            fi
+        }
+
+        for display_socket in "${XDG_RUNTIME_DIR}"/wayland-*; do
+            [[ -S "${display_socket}" ]] || continue
+            existing_wayland_displays["${display_socket##*/}"]=1
+        done
+
         startplasma-wayland &
         plasma_pid=$!
         shell_pid=""
@@ -50,7 +106,9 @@ if command -v startplasma-wayland >/dev/null 2>&1; then
         }
         trap cleanup EXIT INT TERM
 
-        sleep 2
+        wait_for_kwin_wayland_display
+        wait_for_xwayland_display
+        update_session_environment
 
         if ! pgrep -u "$(id -u)" -x plasmashell >/dev/null 2>&1; then
             log_info "Starting Plasma shell"

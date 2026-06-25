@@ -116,12 +116,39 @@ cat > "${STUB_DIR}/dbus-run-session" <<'EOF'
 #!/bin/bash
 set -euo pipefail
 echo "dbus-run-session stub invoked" >> "${STARTUP_SENTINEL:?}"
+if [[ -n "${XDG_RUNTIME_DIR:-}" && -n "${WAYLAND_DISPLAY:-}" ]]; then
+    mkdir -p "${XDG_RUNTIME_DIR}"
+    rm -f "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}"
+    /usr/bin/python3 - <<'PY' &
+import os
+import socket
+import time
+
+path = os.path.join(os.environ['XDG_RUNTIME_DIR'], os.environ['WAYLAND_DISPLAY'])
+sock = socket.socket(socket.AF_UNIX)
+sock.bind(path)
+sock.listen(1)
+time.sleep(20)
+PY
+    for _ in {1..50}; do
+        [[ -S "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}" ]] && break
+        sleep 0.1
+    done
+fi
 if [[ "${1:-}" == "--" ]]; then
     shift
 fi
 exec "$@"
 EOF
 chmod +x "${STUB_DIR}/dbus-run-session"
+
+cat > "${STUB_DIR}/dbus-update-activation-environment" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+echo "dbus-update-activation-environment stub invoked" >> "${STARTUP_SENTINEL:?}"
+echo "dbus env argv: $*" >> "${STARTUP_SENTINEL:?}"
+EOF
+chmod +x "${STUB_DIR}/dbus-update-activation-environment"
 
 cat > "${STUB_DIR}/steam" <<'EOF'
 #!/bin/bash
@@ -142,6 +169,29 @@ cat > "${STUB_DIR}/startplasma-wayland" <<'EOF'
 #!/bin/bash
 set -euo pipefail
 echo "startplasma-wayland stub invoked" >> "${STARTUP_SENTINEL:?}"
+mkdir -p "${XDG_RUNTIME_DIR:?}"
+rm -f "${XDG_RUNTIME_DIR}/wayland-6"
+/usr/bin/python3 - <<'PY' &
+import os
+import socket
+import time
+
+path = os.path.join(os.environ['XDG_RUNTIME_DIR'], 'wayland-6')
+sock = socket.socket(socket.AF_UNIX)
+sock.bind(path)
+sock.listen(1)
+time.sleep(8)
+PY
+mkdir -p /tmp/.X11-unix
+/usr/bin/python3 - <<'PY' &
+import socket
+import time
+
+sock = socket.socket(socket.AF_UNIX)
+sock.bind('/tmp/.X11-unix/X42')
+sock.listen(1)
+time.sleep(8)
+PY
 grep -q '^systemdBoot=false$' /etc/xdg/startkderc
 echo "startkderc systemdBoot=false" >> "${STARTUP_SENTINEL:?}"
 grep -q '^KDE_SESSION_VERSION=6$' <(env)
@@ -171,6 +221,8 @@ cat > "${STUB_DIR}/plasmashell" <<'EOF'
 set -euo pipefail
 echo "plasmashell stub invoked" >> "${STARTUP_SENTINEL:?}"
 echo "argv: $*" >> "${STARTUP_SENTINEL:?}"
+echo "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" >> "${STARTUP_SENTINEL:?}"
+echo "DISPLAY=${DISPLAY:-}" >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/plasmashell"
 
@@ -233,9 +285,12 @@ docker run \
     --rm \
     -e PUID=0 \
     -e STEAMOS_SESSION=plasma \
+    -e XDG_RUNTIME_DIR=/tmp/startup-smoke/runtime \
+    -e WAYLAND_DISPLAY=wayland-3 \
     -e STARTUP_SENTINEL=/tmp/startup-smoke/plasma-invoked \
     -e PATH=/tmp/startup-smoke:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     -v "${STUB_DIR}/dbus-run-session:/usr/bin/dbus-run-session:ro" \
+    -v "${STUB_DIR}/dbus-update-activation-environment:/usr/bin/dbus-update-activation-environment:ro" \
     -v "${STUB_DIR}/flatpak:/usr/bin/flatpak:ro" \
     -v "${STUB_DIR}/startplasma-wayland:/usr/bin/startplasma-wayland:ro" \
     -v "${STUB_DIR}/plasmashell:/usr/bin/plasmashell:ro" \
@@ -262,6 +317,8 @@ fi
 for expected in \
     "flatpak stub invoked" \
     "dbus-run-session stub invoked" \
+    "dbus-update-activation-environment stub invoked" \
+    "dbus env argv: DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE KDE_FULL_SESSION KDE_SESSION_VERSION XDG_DATA_DIRS" \
     "startplasma-wayland stub invoked" \
     "startkderc systemdBoot=false" \
     "kde session version exported" \
@@ -271,7 +328,9 @@ for expected in \
     "konsole shell profile configured" \
     "return-to-steam desktop shortcut installed" \
     "plasmashell stub invoked" \
-    "argv: --replace"; do
+    "argv: --replace" \
+    "WAYLAND_DISPLAY=wayland-6" \
+    "DISPLAY=:42"; do
     if ! grep -qF "${expected}" "${PLASMA_SENTINEL_PATH}"; then
         fail "missing plasma startup evidence: ${expected}"
     fi
