@@ -13,6 +13,7 @@ export KDE_SESSION_VERSION=6
 export QT_QPA_PLATFORM=wayland
 export MOZ_ENABLE_WAYLAND=1
 export XDG_DATA_DIRS="${HOME}/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+unset KWIN_WAYLAND_NO_XWAYLAND
 
 mkdir -p \
     "${HOME}/Desktop" \
@@ -59,18 +60,23 @@ if command -v startplasma-wayland >/dev/null 2>&1; then
         wait_for_xwayland_display() {
             local display_socket display_path
 
-            for _ in {1..50}; do
+            for _ in {1..300}; do
                 for display_socket in /tmp/.X11-unix/X*; do
                     [[ -S "${display_socket}" ]] || continue
                     display_path="${display_socket##*/X}"
                     export DISPLAY=":${display_path}"
+                    log_info "Detected KWin Xwayland display: DISPLAY=${DISPLAY}"
                     return 0
                 done
 
                 sleep 0.1
             done
 
-            log_warn "KWin Xwayland display did not become available"
+            log_warn "KWin Xwayland display did not become available; X11 apps including Steam will fail"
+            pgrep -a kwin_wayland || true
+            pgrep -a Xwayland || true
+            ls -la /tmp/.X11-unix || true
+            command -v Xwayland >/dev/null 2>&1 && Xwayland -version || true
         }
 
         update_session_environment() {
@@ -78,12 +84,18 @@ if command -v startplasma-wayland >/dev/null 2>&1; then
                 dbus-update-activation-environment \
                     DISPLAY \
                     WAYLAND_DISPLAY \
+                    XDG_RUNTIME_DIR \
+                    DBUS_SESSION_BUS_ADDRESS \
+                    HOME \
+                    PATH \
                     XDG_CURRENT_DESKTOP \
                     XDG_SESSION_DESKTOP \
                     XDG_SESSION_TYPE \
                     KDE_FULL_SESSION \
                     KDE_SESSION_VERSION \
-                    XDG_DATA_DIRS || log_warn "dbus-update-activation-environment failed"
+                    XDG_DATA_DIRS \
+                    QT_QPA_PLATFORM \
+                    MOZ_ENABLE_WAYLAND || log_warn "dbus-update-activation-environment failed"
             fi
         }
 

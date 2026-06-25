@@ -63,9 +63,11 @@ FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}
 #   procps-ng     — pgrep / sysctl (performance tuning, diagnostics)
 #   findutils     — find (diagnostics)
 #   libcap        — runtime cap for the patched bwrap
+#   bubblewrap    — RPM ownership/dependency for patched /usr/bin/bwrap
 # hadolint ignore=DL3041
 RUN dnf install -y \
     bash \
+    bubblewrap \
     coreutils \
     shadow-utils \
     util-linux \

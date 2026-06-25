@@ -76,6 +76,15 @@ if ! docker exec "${CONTAINER_NAME}" test -x /opt/gow/entrypoint.sh; then
 fi
 echo "/opt/gow/entrypoint.sh: ok" >> "${EVIDENCE_FILE}"
 
+if ! docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" bash -lc '
+    test "${XDG_RUNTIME_DIR}" = /tmp/.X11-unix
+    test -d "${XDG_RUNTIME_DIR}"
+    test "$(stat -c "%a %U %G" "${XDG_RUNTIME_DIR}")" = "700 retro retro"
+'; then
+    fail "Steam runtime directory contract failed"
+fi
+echo "runtime dirs: ok" >> "${EVIDENCE_FILE}"
+
 STUB_DIR="$(mktemp -d "${EVIDENCE_DIR}/startup-stub.XXXXXX")"
 SENTINEL_PATH="${STUB_DIR}/invoked"
 RUN_LOG="${STUB_DIR}/docker-run.log"
@@ -318,7 +327,7 @@ for expected in \
     "flatpak stub invoked" \
     "dbus-run-session stub invoked" \
     "dbus-update-activation-environment stub invoked" \
-    "dbus env argv: DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE KDE_FULL_SESSION KDE_SESSION_VERSION XDG_DATA_DIRS" \
+    "dbus env argv: DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS HOME PATH XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE KDE_FULL_SESSION KDE_SESSION_VERSION XDG_DATA_DIRS QT_QPA_PLATFORM MOZ_ENABLE_WAYLAND" \
     "startplasma-wayland stub invoked" \
     "startkderc systemdBoot=false" \
     "kde session version exported" \
