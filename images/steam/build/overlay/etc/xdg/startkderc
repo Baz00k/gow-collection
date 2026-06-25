@@ -1,2 +1,3 @@
+# Use Plasma's non-systemd startup path; this container does not run user systemd.
 [General]
 systemdBoot=false
