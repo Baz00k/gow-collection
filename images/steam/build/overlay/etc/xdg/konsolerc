@@ -1,0 +1,9 @@
+[Desktop Entry]
+DefaultProfile=Shell.profile
+
+[MainWindow]
+MenuBar=Disabled
+
+[FileLocation]
+scrollbackUseCacheLocation=true
+scrollbackUseSystemLocation=false
