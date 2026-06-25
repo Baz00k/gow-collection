@@ -1,10 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
+# shellcheck source=/dev/null
 source /opt/gow/logging.sh
 
 if [ "${PUID}" = "0" ]; then
     log_warn "PUID=0, running as root (no runtime user creation)"
+    # shellcheck disable=SC2317 # Script may be sourced by the init runner.
     return 0 2>/dev/null || exit 0
 fi
 
@@ -37,7 +39,8 @@ log_info "Creating /home/deck symlink -> ${UHOME}"
 ln -sf "${UHOME}" /home/deck
 
 log_info "Ensuring XDG_RUNTIME_DIR exists at ${XDG_RUNTIME_DIR}"
-mkdir -p "${XDG_RUNTIME_DIR}"
+install -d -m 700 -o "${PUID}" -g "${PGID}" "${XDG_RUNTIME_DIR}"
 
 log_info "Setting runtime ownership for ${UHOME} and ${XDG_RUNTIME_DIR}"
 chown -R "${PUID}:${PGID}" "${UHOME}" "${XDG_RUNTIME_DIR}"
+chmod 700 "${XDG_RUNTIME_DIR}"
