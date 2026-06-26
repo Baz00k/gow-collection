@@ -22,6 +22,8 @@ The common Games on Whales runtime contract:
 - `/usr/bin/bwrap` — bubblewrap with setuid permissions so any downstream image
   that installs Flatpak can create sandboxes as the runtime user inside Wolf's
   container profile.
+- FUSE 2/3 userspace — support for AppImages and other user-space filesystem
+  tools when the container is allowed to access `/dev/fuse`.
 - `/usr/bin/gosu` — privilege-dropping tool.
 
 App images add their own packages, a `startup.sh`, and any app-specific

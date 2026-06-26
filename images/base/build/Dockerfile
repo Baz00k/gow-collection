@@ -59,6 +59,11 @@ dnf install -y \
 dnf install -y \
     bubblewrap
 
+# FUSE 2 is needed by many AppImage runtimes; FUSE 3 covers newer tools.
+dnf install -y \
+    fuse \
+    fuse3
+
 dnf clean all
 rm -rf /var/cache/dnf
 _INSTALL_PACKAGES

@@ -53,6 +53,8 @@ REQUIRED_EXEC=(
     /etc/cont-init.d/20-setup-devices.sh
     /etc/cont-init.d/30-nvidia.sh
     /usr/bin/bwrap
+    /usr/bin/fusermount
+    /usr/bin/fusermount3
     /usr/bin/gamescope
     /usr/bin/gosu
 )
