@@ -19,7 +19,9 @@ The common Games on Whales runtime contract:
 - `/etc/cont-init.d/20-setup-devices.sh` — device group access for `/dev/dri`,
   `/dev/nvidia*`, input devices, etc.
 - `/etc/cont-init.d/30-nvidia.sh` — NVIDIA driver volume / toolkit integration.
-- `/usr/bin/bwrap` — bubblewrap patched for container-friendly capability handling.
+- `/usr/bin/bwrap` — bubblewrap with setuid permissions so any downstream image
+  that installs Flatpak can create sandboxes as the runtime user inside Wolf's
+  container profile.
 - `/usr/bin/gosu` — privilege-dropping tool.
 
 App images add their own packages, a `startup.sh`, and any app-specific
@@ -44,7 +46,7 @@ Downstream images do **not** have this problem — they pin this base by digest 
 ## Update Flow
 
 1. `update/check.sh` + `apply.sh` (run by `update.yml`) detect and apply a new
-   Fedora digest or bubblewrap release here.
+   Fedora digest here.
 2. When this image is rebuilt and published on `main`, `ci.yml` fires
    `repository_dispatch: base-digest-published`, which runs `update.yml`'s
    repo-level propagation path. `.github/scripts/propagate-base-digest.sh` then

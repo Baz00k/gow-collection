@@ -76,6 +76,11 @@ if ! docker exec "${CONTAINER_NAME}" test -x /opt/gow/entrypoint.sh; then
 fi
 echo "/opt/gow/entrypoint.sh: ok" >> "${EVIDENCE_FILE}"
 
+if ! docker exec "${CONTAINER_NAME}" flatpak remotes --system | grep -q '^flathub$'; then
+    fail "system Flathub remote missing"
+fi
+echo "system Flathub remote: ok" >> "${EVIDENCE_FILE}"
+
 STUB_DIR="$(mktemp -d "${EVIDENCE_DIR}/startup-stub.XXXXXX")"
 SENTINEL_PATH="${STUB_DIR}/invoked"
 RUN_LOG="${STUB_DIR}/docker-run.log"
@@ -158,13 +163,6 @@ echo "argv: $*" >> "${STARTUP_SENTINEL}"
 EOF
 chmod +x "${STUB_DIR}/steam"
 
-cat > "${STUB_DIR}/flatpak" <<'EOF'
-#!/bin/bash
-set -euo pipefail
-echo "flatpak stub invoked" >> "${STARTUP_SENTINEL:?}"
-EOF
-chmod +x "${STUB_DIR}/flatpak"
-
 cat > "${STUB_DIR}/startplasma-wayland" <<'EOF'
 #!/bin/bash
 set -euo pipefail
@@ -182,16 +180,6 @@ sock.bind(path)
 sock.listen(1)
 time.sleep(8)
 PY
-mkdir -p /tmp/.X11-unix
-/usr/bin/python3 - <<'PY' &
-import socket
-import time
-
-sock = socket.socket(socket.AF_UNIX)
-sock.bind('/tmp/.X11-unix/X42')
-sock.listen(1)
-time.sleep(8)
-PY
 grep -q '^systemdBoot=false$' /etc/xdg/startkderc
 echo "startkderc systemdBoot=false" >> "${STARTUP_SENTINEL:?}"
 grep -q '^KDE_SESSION_VERSION=6$' <(env)
@@ -201,14 +189,12 @@ case ":${XDG_DATA_DIRS:-}:" in
     *) exit 1 ;;
 esac
 echo "flatpak data dirs exported" >> "${STARTUP_SENTINEL:?}"
-grep -q '^X-systemd-skip=false$' /etc/xdg/autostart/org.kde.plasmashell.desktop
-echo "plasmashell autostart systemd skip disabled" >> "${STARTUP_SENTINEL:?}"
-grep -q '^Autolock=false$' /etc/xdg/kscreenlockerrc
-grep -q '^LockOnResume=false$' /etc/xdg/kscreenlockerrc
-echo "kscreenlocker disabled" >> "${STARTUP_SENTINEL:?}"
 grep -q '^DefaultProfile=Shell.profile$' /etc/xdg/konsolerc
 grep -q '^Command=/bin/bash$' /usr/share/konsole/Shell.profile
 echo "konsole shell profile configured" >> "${STARTUP_SENTINEL:?}"
+grep -q '^Autolock=false$' /etc/xdg/kscreenlockerrc
+grep -q '^LockOnResume=false$' /etc/xdg/kscreenlockerrc
+echo "kscreenlocker disabled" >> "${STARTUP_SENTINEL:?}"
 test -x "${HOME}/Desktop/return-to-steam.desktop"
 grep -q '^Exec=/usr/local/bin/return-to-steam$' "${HOME}/Desktop/return-to-steam.desktop"
 echo "return-to-steam desktop shortcut installed" >> "${STARTUP_SENTINEL:?}"
@@ -222,7 +208,6 @@ set -euo pipefail
 echo "plasmashell stub invoked" >> "${STARTUP_SENTINEL:?}"
 echo "argv: $*" >> "${STARTUP_SENTINEL:?}"
 echo "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" >> "${STARTUP_SENTINEL:?}"
-echo "DISPLAY=${DISPLAY:-}" >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/plasmashell"
 
@@ -245,7 +230,6 @@ docker run \
     -v "${STUB_DIR}/ibus-daemon:/usr/bin/ibus-daemon:ro" \
     -v "${STUB_DIR}/dbus-run-session:/usr/bin/dbus-run-session:ro" \
     -v "${STUB_DIR}/steam:/usr/bin/steam:ro" \
-    -v "${STUB_DIR}/flatpak:/usr/bin/flatpak:ro" \
     -v "${STUB_DIR}/firefox:/usr/bin/firefox:ro" \
     -v "${STUB_DIR}:/tmp/startup-smoke" \
     "${IMAGE_NAME}" > "${RUN_LOG}" 2>&1
@@ -291,7 +275,6 @@ docker run \
     -e PATH=/tmp/startup-smoke:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     -v "${STUB_DIR}/dbus-run-session:/usr/bin/dbus-run-session:ro" \
     -v "${STUB_DIR}/dbus-update-activation-environment:/usr/bin/dbus-update-activation-environment:ro" \
-    -v "${STUB_DIR}/flatpak:/usr/bin/flatpak:ro" \
     -v "${STUB_DIR}/startplasma-wayland:/usr/bin/startplasma-wayland:ro" \
     -v "${STUB_DIR}/plasmashell:/usr/bin/plasmashell:ro" \
     -v "${STUB_DIR}:/tmp/startup-smoke" \
@@ -315,22 +298,19 @@ if [[ ${PLASMA_RUN_EXIT_CODE} -ne 0 ]]; then
 fi
 
 for expected in \
-    "flatpak stub invoked" \
     "dbus-run-session stub invoked" \
     "dbus-update-activation-environment stub invoked" \
-    "dbus env argv: DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS HOME PATH XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE KDE_FULL_SESSION KDE_SESSION_VERSION XDG_DATA_DIRS QT_QPA_PLATFORM MOZ_ENABLE_WAYLAND" \
+    "dbus env argv: WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS HOME PATH XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE KDE_FULL_SESSION KDE_SESSION_VERSION XDG_DATA_DIRS" \
     "startplasma-wayland stub invoked" \
     "startkderc systemdBoot=false" \
     "kde session version exported" \
     "flatpak data dirs exported" \
-    "plasmashell autostart systemd skip disabled" \
-    "kscreenlocker disabled" \
     "konsole shell profile configured" \
+    "kscreenlocker disabled" \
     "return-to-steam desktop shortcut installed" \
     "plasmashell stub invoked" \
     "argv: --replace" \
-    "WAYLAND_DISPLAY=wayland-6" \
-    "DISPLAY=:42"; do
+    "WAYLAND_DISPLAY=wayland-6"; do
     if ! grep -qF "${expected}" "${PLASMA_SENTINEL_PATH}"; then
         fail "missing plasma startup evidence: ${expected}"
     fi

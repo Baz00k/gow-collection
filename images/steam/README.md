@@ -27,13 +27,15 @@ base_create_json = """
     "ShmSize": 8589934592,
     "CapAdd": ["SYS_ADMIN", "SYS_NICE", "SYS_PTRACE", "NET_RAW", "MKNOD", "NET_ADMIN"],
     "SecurityOpt": ["seccomp=unconfined", "apparmor=unconfined"],
+    "MaskedPaths": [],
+    "ReadonlyPaths": [],
     "Ulimits": [
       {"Name":"nofile", "Hard":10240, "Soft":10240},
       {"Name":"memlock", "Hard":-1, "Soft":-1},
       {"Name":"rtprio", "Hard":99, "Soft":99}
     ],
     "Privileged": false,
-    "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+    "DeviceCgroupRules": ["c 13:* rwm", "c 244:* rwm"]
   }
 }
 \

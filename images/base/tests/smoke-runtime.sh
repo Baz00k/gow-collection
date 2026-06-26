@@ -79,14 +79,8 @@ if ! docker exec "${CONTAINER_NAME}" grep -qF 'XDG_RUNTIME_DIR:-/tmp/.X11-unix' 
     fail "XDG_RUNTIME_DIR fallback missing"
 fi
 
-if ! docker exec "${CONTAINER_NAME}" bash -c '
-    caps="$(getcap /usr/bin/bwrap)"
-    for cap in cap_setgid cap_setuid cap_net_admin cap_sys_chroot cap_sys_ptrace cap_sys_admin; do
-        [[ "${caps}" == *"${cap}"* ]] || exit 1
-    done
-    [[ "${caps}" == *"=ep"* ]]
-'; then
-    fail "patched bwrap file capabilities missing"
+if ! docker exec "${CONTAINER_NAME}" test -u /usr/bin/bwrap; then
+    fail "bwrap setuid bit missing"
 fi
 
 # logging helpers are sourceable and define log_info.

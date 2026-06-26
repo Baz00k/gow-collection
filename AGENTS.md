@@ -18,7 +18,7 @@ docs/                    # common-runtime.md, troubleshooting.md
 
 ## Base image
 
-`images/base/` is a Fedora-based image providing the shared runtime contract (runtime user + `gosu` handoff, `/etc/cont-init.d/*` runner, NVIDIA/device init, patched bubblewrap). It owns the `ENTRYPOINT` (`/opt/gow/entrypoint.sh`). App images `FROM ${BASE_APP_IMAGE}` and only add packages + an overlay `startup.sh`.
+`images/base/` is a Fedora-based image providing the shared runtime contract (runtime user + `gosu` handoff, `/etc/cont-init.d/*` runner, NVIDIA/device init, setuid bubblewrap for Flatpak sandboxing). It owns the `ENTRYPOINT` (`/opt/gow/entrypoint.sh`). App images `FROM ${BASE_APP_IMAGE}` and only add packages + an overlay `startup.sh`.
 
 Pinning:
 - Base pins upstream Fedora by rolling tag **and** digest (`BASE_IMAGE` + `BASE_IMAGE_DIGEST`) because the Fedora registry garbage-collects old digests.

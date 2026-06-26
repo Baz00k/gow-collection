@@ -10,14 +10,8 @@ export XDG_SESSION_DESKTOP=KDE
 export XDG_SESSION_TYPE=wayland
 export KDE_FULL_SESSION=true
 export KDE_SESSION_VERSION=6
-export QT_QPA_PLATFORM=wayland
-export MOZ_ENABLE_WAYLAND=1
 export XDG_DATA_DIRS="${HOME}/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 unset KWIN_WAYLAND_NO_XWAYLAND
-
-# KWin enables Xwayland by publishing X11 sockets and launching Xwayland on the
-# first client connection. Seed DISPLAY so X11 apps know which socket to use.
-export DISPLAY="${DISPLAY:-:0}"
 
 mkdir -p \
     "${HOME}/Desktop" \
@@ -28,9 +22,6 @@ mkdir -p \
 install -m 755 \
     /usr/share/applications/return-to-steam.desktop \
     "${HOME}/Desktop/return-to-steam.desktop"
-
-flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || \
-    log_warn "Could not configure user Flathub remote"
 
 if command -v startplasma-wayland >/dev/null 2>&1; then
     log_info "Starting Plasma Wayland session"
@@ -61,31 +52,9 @@ if command -v startplasma-wayland >/dev/null 2>&1; then
             log_warn "KWin Wayland display did not become available"
         }
 
-        update_xwayland_display_from_socket() {
-            local display_socket display_path
-
-            for _ in {1..50}; do
-                for display_socket in /tmp/.X11-unix/X*; do
-                    [[ -S "${display_socket}" ]] || continue
-                    display_path="${display_socket##*/X}"
-                    export DISPLAY=":${display_path}"
-                    log_info "Detected KWin Xwayland display: DISPLAY=${DISPLAY}"
-                    return 0
-                done
-
-                sleep 0.1
-            done
-
-            log_warn "KWin Xwayland socket did not become visible; keeping DISPLAY=${DISPLAY:-} for socket-activated Xwayland"
-            pgrep -a kwin_wayland || true
-            pgrep -a Xwayland || true
-            ls -la /tmp/.X11-unix || true
-        }
-
         update_session_environment() {
             if command -v dbus-update-activation-environment >/dev/null 2>&1; then
                 dbus-update-activation-environment \
-                    DISPLAY \
                     WAYLAND_DISPLAY \
                     XDG_RUNTIME_DIR \
                     DBUS_SESSION_BUS_ADDRESS \
@@ -96,9 +65,7 @@ if command -v startplasma-wayland >/dev/null 2>&1; then
                     XDG_SESSION_TYPE \
                     KDE_FULL_SESSION \
                     KDE_SESSION_VERSION \
-                    XDG_DATA_DIRS \
-                    QT_QPA_PLATFORM \
-                    MOZ_ENABLE_WAYLAND || log_warn "dbus-update-activation-environment failed"
+                    XDG_DATA_DIRS || log_warn "dbus-update-activation-environment failed"
             fi
         }
 
@@ -122,7 +89,6 @@ if command -v startplasma-wayland >/dev/null 2>&1; then
         trap cleanup EXIT INT TERM
 
         wait_for_kwin_wayland_display
-        update_xwayland_display_from_socket
         update_session_environment
 
         if ! pgrep -u "$(id -u)" -x plasmashell >/dev/null 2>&1; then

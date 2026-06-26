@@ -8,49 +8,11 @@
 #   - runtime user creation + gosu privilege-drop handoff (entrypoint.sh)
 #   - /etc/cont-init.d/* init-script runner (user, devices, NVIDIA)
 #   - shared logging + performance-tuning helpers
-#   - patched bubblewrap for container-friendly sandboxing
+#   - bubblewrap with setuid permissions for Flatpak sandboxing
 # -----------------------------------------------------------------------------
 ARG BASE_IMAGE
 ARG BASE_IMAGE_DIGEST
 
-# -----------------------------------------------------------------------------
-# Stage 1: Build patched bubblewrap
-# -----------------------------------------------------------------------------
-# Bubblewrap needs patching to work in containers with explicit CAP_SYS_ADMIN.
-# The ignore_capabilities.patch removes capability validation that breaks
-# when capabilities are explicitly granted (common in container runtimes).
-# hadolint ignore=DL3006
-FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST} AS bwrap-builder
-
-ARG BUBBLEWRAP_VERSION
-ARG BUBBLEWRAP_COMMIT
-
-WORKDIR /root
-
-# hadolint ignore=DL3008,DL3041
-RUN dnf install -y \
-    git \
-    meson \
-    gcc \
-    pkgconf-pkg-config \
-    patch \
-    libcap-devel \
-    && dnf clean all \
-    && rm -rf /var/cache/dnf
-
-COPY ignore_capabilities.patch /root/
-
-RUN git clone --depth=1 https://github.com/containers/bubblewrap.git -b ${BUBBLEWRAP_VERSION} && \
-    cd bubblewrap && \
-    test "$(git rev-parse HEAD)" = "${BUBBLEWRAP_COMMIT}" || \
-        { echo "ERROR: bubblewrap commit mismatch! Expected ${BUBBLEWRAP_COMMIT}, got $(git rev-parse HEAD)"; exit 1; } && \
-    patch -p1 < ../ignore_capabilities.patch && \
-    meson setup -Dsupport_setuid=true _builddir && \
-    meson compile -C _builddir
-
-# -----------------------------------------------------------------------------
-# Stage 2: Base runtime
-# -----------------------------------------------------------------------------
 # hadolint ignore=DL3006
 FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}
 
@@ -62,8 +24,7 @@ FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}
 #   util-linux    — getent and friends
 #   procps-ng     — pgrep / sysctl (performance tuning, diagnostics)
 #   findutils     — find (diagnostics)
-#   libcap        — runtime cap for the patched bwrap
-#   bubblewrap    — RPM ownership/dependency for patched /usr/bin/bwrap
+#   bubblewrap    — Flatpak sandbox helper
 # hadolint ignore=DL3041
 RUN dnf install -y \
     bash \
@@ -73,7 +34,6 @@ RUN dnf install -y \
     util-linux \
     procps-ng \
     findutils \
-    libcap \
     curl \
     fontconfig \
     gamescope \
@@ -111,11 +71,17 @@ RUN printf '%s\n' '/usr/nvidia/lib' '/usr/nvidia/lib32' > /etc/ld.so.conf.d/nvid
 RUN ln -sf /home/retro /home/deck
 
 # -----------------------------------------------------------------------------
-# Shared overlay (entrypoint, logging, cont-init scripts) and patched bwrap
+# Shared overlay (entrypoint, logging, cont-init scripts)
 # -----------------------------------------------------------------------------
 COPY --chmod=755 overlay /
-COPY --from=bwrap-builder --chmod=755 /root/bubblewrap/_builddir/bwrap /usr/bin/bwrap
-RUN setcap cap_sys_admin,cap_sys_chroot,cap_net_admin,cap_setuid,cap_setgid,cap_sys_ptrace+ep /usr/bin/bwrap
+
+# This is a base-image contract for every downstream app: Flatpak uses bwrap to
+# create mount/user namespaces for its sandbox, and Fedora's default non-setuid
+# install is not enough inside Wolf's Docker container profile. Keep the RPM
+# binary and enable bubblewrap's supported setuid mode so runtime users can create
+# sandboxes without a local patch. A patch is only needed for the unsupported
+# file-capability/non-setuid mode, which this image intentionally does not use.
+RUN chmod u+s /usr/bin/bwrap
 
 # -----------------------------------------------------------------------------
 # Environment and Labels

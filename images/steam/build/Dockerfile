@@ -82,6 +82,10 @@ RUN mkdir -p /opt/decky && \
 # -----------------------------------------------------------------------------
 RUN touch /etc/NetworkManager/conf.d/10-globally-managed-devices.conf
 
+RUN flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo \
+    && flatpak remote-modify --enable flathub \
+    && { flatpak --system update --appstream --noninteractive || true; }
+
 RUN fc-cache -f -v
 
 # -----------------------------------------------------------------------------
