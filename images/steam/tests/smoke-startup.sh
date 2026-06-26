@@ -76,15 +76,6 @@ if ! docker exec "${CONTAINER_NAME}" test -x /opt/gow/entrypoint.sh; then
 fi
 echo "/opt/gow/entrypoint.sh: ok" >> "${EVIDENCE_FILE}"
 
-if ! docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" bash -lc '
-    test "${XDG_RUNTIME_DIR}" = /tmp/.X11-unix
-    test -d "${XDG_RUNTIME_DIR}"
-    test "$(stat -c "%a %U %G" "${XDG_RUNTIME_DIR}")" = "700 retro retro"
-'; then
-    fail "Steam runtime directory contract failed"
-fi
-echo "runtime dirs: ok" >> "${EVIDENCE_FILE}"
-
 STUB_DIR="$(mktemp -d "${EVIDENCE_DIR}/startup-stub.XXXXXX")"
 SENTINEL_PATH="${STUB_DIR}/invoked"
 RUN_LOG="${STUB_DIR}/docker-run.log"

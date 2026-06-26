@@ -15,6 +15,10 @@ export MOZ_ENABLE_WAYLAND=1
 export XDG_DATA_DIRS="${HOME}/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 unset KWIN_WAYLAND_NO_XWAYLAND
 
+# KWin enables Xwayland by publishing X11 sockets and launching Xwayland on the
+# first client connection. Seed DISPLAY so X11 apps know which socket to use.
+export DISPLAY="${DISPLAY:-:0}"
+
 mkdir -p \
     "${HOME}/Desktop" \
     "${HOME}/.local/share/applications" \
@@ -57,10 +61,10 @@ if command -v startplasma-wayland >/dev/null 2>&1; then
             log_warn "KWin Wayland display did not become available"
         }
 
-        wait_for_xwayland_display() {
+        update_xwayland_display_from_socket() {
             local display_socket display_path
 
-            for _ in {1..300}; do
+            for _ in {1..50}; do
                 for display_socket in /tmp/.X11-unix/X*; do
                     [[ -S "${display_socket}" ]] || continue
                     display_path="${display_socket##*/X}"
@@ -72,11 +76,10 @@ if command -v startplasma-wayland >/dev/null 2>&1; then
                 sleep 0.1
             done
 
-            log_warn "KWin Xwayland display did not become available; X11 apps including Steam will fail"
+            log_warn "KWin Xwayland socket did not become visible; keeping DISPLAY=${DISPLAY:-} for socket-activated Xwayland"
             pgrep -a kwin_wayland || true
             pgrep -a Xwayland || true
             ls -la /tmp/.X11-unix || true
-            command -v Xwayland >/dev/null 2>&1 && Xwayland -version || true
         }
 
         update_session_environment() {
@@ -119,7 +122,7 @@ if command -v startplasma-wayland >/dev/null 2>&1; then
         trap cleanup EXIT INT TERM
 
         wait_for_kwin_wayland_display
-        wait_for_xwayland_display
+        update_xwayland_display_from_socket
         update_session_environment
 
         if ! pgrep -u "$(id -u)" -x plasmashell >/dev/null 2>&1; then
