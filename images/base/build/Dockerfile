@@ -44,10 +44,11 @@ dnf install -y \
 # Mesa/Vulkan runtime drivers and loaders required for accelerated rendering
 dnf install -y \
     mesa-dri-drivers \
+    mesa-vulkan-drivers \
+    mesa-va-drivers \
     mesa-libEGL \
     mesa-libGL \
     mesa-libgbm \
-    mesa-vulkan-drivers \
     vulkan-loader
 
 # Hardware discovery
