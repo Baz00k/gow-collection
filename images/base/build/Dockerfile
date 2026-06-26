@@ -8,7 +8,7 @@
 #   - runtime user creation + gosu privilege-drop handoff (entrypoint.sh)
 #   - /etc/cont-init.d/* init-script runner (user, devices, NVIDIA)
 #   - shared logging + performance-tuning helpers
-#   - bubblewrap with setuid permissions for Flatpak sandboxing
+#   - non-setuid bubblewrap for Flatpak sandboxing with flatpak-spawn PID sharing
 # -----------------------------------------------------------------------------
 ARG BASE_IMAGE
 ARG BASE_IMAGE_DIGEST
@@ -55,7 +55,8 @@ dnf install -y \
 dnf install -y \
     pciutils
 
-# Flatpak sandbox helper; setuid mode is enabled later in this Dockerfile
+# Flatpak sandbox helper. It must remain non-setuid so flatpak-spawn
+# --share-pids works for Proton/UMU launchers inside Flatpak apps.
 dnf install -y \
     bubblewrap
 
@@ -94,13 +95,13 @@ RUN ln -sf /home/retro /home/deck
 # -----------------------------------------------------------------------------
 COPY --chmod=755 overlay /
 
-# This is a base-image contract for every downstream app: Flatpak uses bwrap to
-# create mount/user namespaces for its sandbox, and Fedora's default non-setuid
-# install is not enough inside Wolf's Docker container profile. Keep the RPM
-# binary and enable bubblewrap's supported setuid mode so runtime users can create
-# sandboxes without a local patch. A patch is only needed for the unsupported
-# file-capability/non-setuid mode, which this image intentionally does not use.
-RUN chmod u+s /usr/bin/bwrap
+# This is a base-image contract for every downstream app: Flatpak must run bwrap
+# in unprivileged/non-setuid mode so flatpak-spawn --share-pids and --expose-pids
+# work. Proton/UMU launchers use that path from Flatpak apps such as Heroic. If a
+# runtime blocks unprivileged user namespaces, fix the Wolf/Docker runner profile;
+# do not switch bwrap to setuid, because setuid bwrap starts Flatpaks but breaks
+# those PID-sharing portal features.
+RUN chmod 0755 /usr/bin/bwrap
 
 # -----------------------------------------------------------------------------
 # Environment and Labels

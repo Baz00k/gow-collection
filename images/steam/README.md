@@ -74,6 +74,15 @@ flatpak install --user flathub com.heroicgameslauncher.hgl
 
 After installing another launcher or game, add it to Steam as a non-Steam game if you want it available from the gaming session.
 
+Flatpak requires the runner profile above to allow unprivileged user namespaces.
+That keeps `/usr/bin/bwrap` non-setuid, which is required by `flatpak-spawn --share-pids` for Proton/UMU launchers such as Heroic. To verify the runtime profile from a terminal in the container:
+
+```bash
+stat -c '%A %U:%G %a' /usr/bin/bwrap
+unshare -Ur true
+bwrap --ro-bind / / --proc /proc --dev /dev /usr/bin/true
+```
+
 ## Configuration
 
 | Variable                             | Default                                     | Description                                                   |

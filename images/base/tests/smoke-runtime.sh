@@ -81,8 +81,18 @@ if ! docker exec "${CONTAINER_NAME}" grep -qF 'XDG_RUNTIME_DIR:-/tmp/.X11-unix' 
     fail "XDG_RUNTIME_DIR fallback missing"
 fi
 
-if ! docker exec "${CONTAINER_NAME}" test -u /usr/bin/bwrap; then
-    fail "bwrap setuid bit missing"
+if docker exec "${CONTAINER_NAME}" test -u /usr/bin/bwrap; then
+    fail "bwrap must not be setuid; Flatpak PID sharing requires unprivileged bwrap"
+fi
+
+if ! docker run --rm -e PUID=1000 -e PGID=1000 --security-opt seccomp=unconfined "${IMAGE_NAME}" \
+    unshare -Ur true >/dev/null; then
+    fail "runtime user cannot create unprivileged user namespaces"
+fi
+
+if ! docker run --rm -e PUID=1000 -e PGID=1000 --security-opt seccomp=unconfined "${IMAGE_NAME}" \
+    bwrap --ro-bind / / --proc /proc --dev /dev /usr/bin/true >/dev/null; then
+    fail "runtime user cannot run non-setuid bwrap"
 fi
 
 # logging helpers are sourceable and define log_info.

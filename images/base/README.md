@@ -19,9 +19,9 @@ The common Games on Whales runtime contract:
 - `/etc/cont-init.d/20-setup-devices.sh` — device group access for `/dev/dri`,
   `/dev/nvidia*`, input devices, etc.
 - `/etc/cont-init.d/30-nvidia.sh` — NVIDIA driver volume / toolkit integration.
-- `/usr/bin/bwrap` — bubblewrap with setuid permissions so any downstream image
-  that installs Flatpak can create sandboxes as the runtime user inside Wolf's
-  container profile.
+- `/usr/bin/bwrap` — non-setuid bubblewrap for Flatpak sandboxing. Wolf's runner
+  profile must allow unprivileged user namespaces; Flatpak PID-sharing features
+  used by Proton/UMU launchers do not work with setuid bwrap.
 - FUSE 2/3 userspace — support for AppImages and other user-space filesystem
   tools when the container is allowed to access `/dev/fuse`.
 - `/usr/bin/gosu` — privilege-dropping tool.
