@@ -31,7 +31,8 @@ dnf install -y \
     findutils \
     procps-ng \
     shadow-utils \
-    util-linux
+    util-linux \
+    neovim
 
 # Graphics and compositor stack shared by downstream app images
 dnf install -y \
