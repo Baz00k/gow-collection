@@ -22,6 +22,7 @@ mkdir -p "${EVIDENCE_DIR}"
     echo ""
 } > "${EVIDENCE_FILE}"
 
+# shellcheck disable=SC2329 # Invoked via trap.
 cleanup() { docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true; }
 trap cleanup EXIT
 
@@ -76,6 +77,16 @@ echo "Entrypoint UNAME default: ${RUNTIME_USER}" >> "${EVIDENCE_FILE}"
 # XDG fallback present.
 if ! docker exec "${CONTAINER_NAME}" grep -qF 'XDG_RUNTIME_DIR:-/tmp/.X11-unix' /opt/gow/entrypoint.sh; then
     fail "XDG_RUNTIME_DIR fallback missing"
+fi
+
+if ! docker exec "${CONTAINER_NAME}" bash -c '
+    caps="$(getcap /usr/bin/bwrap)"
+    for cap in cap_setgid cap_setuid cap_net_admin cap_sys_chroot cap_sys_ptrace cap_sys_admin; do
+        [[ "${caps}" == *"${cap}"* ]] || exit 1
+    done
+    [[ "${caps}" == *"=ep"* ]]
+'; then
+    fail "patched bwrap file capabilities missing"
 fi
 
 # logging helpers are sourceable and define log_info.

@@ -45,7 +45,7 @@ RUN git clone --depth=1 https://github.com/containers/bubblewrap.git -b ${BUBBLE
     test "$(git rev-parse HEAD)" = "${BUBBLEWRAP_COMMIT}" || \
         { echo "ERROR: bubblewrap commit mismatch! Expected ${BUBBLEWRAP_COMMIT}, got $(git rev-parse HEAD)"; exit 1; } && \
     patch -p1 < ../ignore_capabilities.patch && \
-    meson _builddir && \
+    meson setup -Dsupport_setuid=true _builddir && \
     meson compile -C _builddir
 
 # -----------------------------------------------------------------------------
@@ -115,6 +115,7 @@ RUN ln -sf /home/retro /home/deck
 # -----------------------------------------------------------------------------
 COPY --chmod=755 overlay /
 COPY --from=bwrap-builder --chmod=755 /root/bubblewrap/_builddir/bwrap /usr/bin/bwrap
+RUN setcap cap_sys_admin,cap_sys_chroot,cap_net_admin,cap_setuid,cap_setgid,cap_sys_ptrace+ep /usr/bin/bwrap
 
 # -----------------------------------------------------------------------------
 # Environment and Labels
