@@ -4,17 +4,23 @@ ARG BASE_APP_IMAGE
 # hadolint ignore=DL3006
 FROM ${BASE_APP_IMAGE}
 
-ARG REQUIRED_PACKAGES=" \
-    ca-certificates \
-    curl \
-    bsdtar \
-    gzip \
-    "
-
 # hadolint ignore=DL3041
-RUN dnf install -y $REQUIRED_PACKAGES && \
-    dnf clean all && \
-    rm -rf /var/cache/dnf
+RUN <<_INSTALL_PACKAGES
+set -eux
+
+# TLS and download tooling used to fetch pinned JRE and AppImage artifacts
+dnf install -y \
+    ca-certificates \
+    curl
+
+# Archive tooling required to unpack Temurin JRE tarballs
+dnf install -y \
+    bsdtar \
+    gzip
+
+dnf clean all
+rm -rf /var/cache/dnf
+_INSTALL_PACKAGES
 
 # Bundled Temurin JREs required for different Minecraft versions:
 # - Java 21: Minecraft 1.21+

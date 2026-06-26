@@ -19,35 +19,47 @@ FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}
 # -----------------------------------------------------------------------------
 # Shared runtime packages
 # -----------------------------------------------------------------------------
-# These are the packages the shared cont-init/entrypoint scripts rely on:
-#   shadow-utils  — useradd/groupadd/usermod
-#   util-linux    — getent and friends
-#   procps-ng     — pgrep / sysctl (performance tuning, diagnostics)
-#   findutils     — find (diagnostics)
-#   bubblewrap    — Flatpak sandbox helper
 # hadolint ignore=DL3041
-RUN dnf install -y \
+RUN <<_INSTALL_PACKAGES
+set -eux
+
+# Core shell utils
+dnf install -y \
     bash \
-    bubblewrap \
     coreutils \
-    shadow-utils \
-    util-linux \
-    procps-ng \
-    findutils \
     curl \
+    findutils \
+    procps-ng \
+    shadow-utils \
+    util-linux
+
+# Graphics and compositor stack shared by downstream app images
+dnf install -y \
     fontconfig \
     gamescope \
     glibc-langpack-en \
+    xorg-x11-server-Xwayland
+
+# Mesa/Vulkan runtime drivers and loaders required for accelerated rendering
+dnf install -y \
     mesa-dri-drivers \
     mesa-libEGL \
     mesa-libGL \
     mesa-libgbm \
     mesa-vulkan-drivers \
-    pciutils \
-    vulkan-loader \
-    xorg-x11-server-Xwayland \
-    && dnf clean all \
-    && rm -rf /var/cache/dnf
+    vulkan-loader
+
+# Hardware discovery
+dnf install -y \
+    pciutils
+
+# Flatpak sandbox helper; setuid mode is enabled later in this Dockerfile
+dnf install -y \
+    bubblewrap
+
+dnf clean all
+rm -rf /var/cache/dnf
+_INSTALL_PACKAGES
 
 # -----------------------------------------------------------------------------
 # gosu — privilege dropping tool

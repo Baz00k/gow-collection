@@ -31,42 +31,69 @@ RUN curl -fsSL -o /tmp/rpmfusion-free-release.rpm "${RPMFUSION_FREE_URL}" && \
 # Package Installation
 # -----------------------------------------------------------------------------
 # hadolint ignore=DL3041
-RUN dnf install -y \
+RUN <<_INSTALL_PACKAGES
+set -eux
+
+# Steam client and gaming overlays/performance helpers
+dnf install -y \
     steam \
-    mangohud \
     gamemode \
-    dbus-daemon \
-    NetworkManager \
+    mangohud
+
+# Desktop services Steam and KDE expect to be available at runtime
+dnf install -y \
     bluez \
+    dbus-daemon \
     ibus \
-    xz \
-    zenity \
+    NetworkManager
+
+# General desktop integration helpers used by Steam, Flatpak, and launchers
+dnf install -y \
     file \
+    lsb-release \
     xdg-user-dirs \
     xdg-utils \
-    lsb-release \
+    xz \
+    zenity
+
+# Graphics diagnostics used for smoke tests and troubleshooting
+dnf install -y \
     mesa-demos \
-    vulkan-tools \
-    plasma-workspace \
-    plasma-workspace-wayland \
+    vulkan-tools
+
+# KDE Plasma desktop session used when Steam exits to desktop mode
+dnf install -y \
+    dolphin \
+    kdialog \
+    konsole \
+    kwin \
+    kwin-wayland \
     plasma-desktop \
     plasma-discover \
     plasma-discover-flatpak \
-    kwin \
-    kwin-wayland \
-    dolphin \
-    konsole \
-    kdialog \
-    xdg-desktop-portal \
-    xdg-desktop-portal-kde \
+    plasma-workspace \
+    plasma-workspace-wayland \
+    firefox
+
+# Portal and Flatpak support for desktop apps and Flathub integration
+dnf install -y \
     flatpak \
-    firefox \
+    xdg-desktop-portal \
+    xdg-desktop-portal-kde
+
+# Fonts
+dnf install -y \
     dejavu-fonts-all \
-    google-noto-fonts-common \
-    python3 \
+    google-noto-fonts-common
+
+# Scripting utilities used by Steam-specific init and helper scripts
+dnf install -y \
     jq \
-    && dnf clean all \
-    && rm -rf /var/cache/dnf
+    python3
+
+dnf clean all
+rm -rf /var/cache/dnf
+_INSTALL_PACKAGES
 
 # -----------------------------------------------------------------------------
 # Decky Loader

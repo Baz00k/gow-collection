@@ -11,14 +11,23 @@ ARG DROP_APP_RPM_X86_64_SHA256
 # hadolint ignore=DL3041
 RUN <<_INSTALL_DROP_APP
 set -eux
+
+# Browser fallback and URL opener support for external auth/help flows
 dnf install -y \
     firefox \
-    libayatana-appindicator-gtk3 \
-    webkit2gtk4.1 \
     xdg-utils
+
+# GTK tray indicator and embedded WebKit runtime required by the Drop desktop RPM
+dnf install -y \
+    libayatana-appindicator-gtk3 \
+    webkit2gtk4.1
+
 curl -fsSL -o /tmp/drop-desktop-client.rpm "${DROP_APP_RPM_X86_64_URL}"
 echo "${DROP_APP_RPM_X86_64_SHA256}  /tmp/drop-desktop-client.rpm" | sha256sum -c -
+
+# Pinned upstream Drop desktop client RPM
 dnf install -y /tmp/drop-desktop-client.rpm
+
 rm -f /tmp/drop-desktop-client.rpm
 dnf clean all
 rm -rf /var/cache/dnf
