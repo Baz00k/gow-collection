@@ -51,6 +51,7 @@ dnf install -y \
 dnf install -y \
     file \
     lsb-release \
+    xwininfo \
     xdg-user-dirs \
     xdg-utils \
     xz \

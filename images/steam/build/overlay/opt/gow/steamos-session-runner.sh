@@ -17,6 +17,22 @@ start_ibus() {
     /usr/bin/ibus-daemon -d -r --panel=disable --emoji-extension=disable || true
 }
 
+start_window_tagger() {
+    case "${STEAM_WINDOW_TAGGER:-on}" in
+        1|true|yes|on)
+            ;;
+        0|false|no|off)
+            log_info "Steam game window tagger disabled by STEAM_WINDOW_TAGGER=${STEAM_WINDOW_TAGGER}"
+            return 0
+            ;;
+        *)
+            log_warn "STEAM_WINDOW_TAGGER: unknown value '${STEAM_WINDOW_TAGGER}', defaulting to on"
+            ;;
+    esac
+
+    /opt/gow/steam-game-window-tagger.sh &
+}
+
 append_steam_gamescope_args() {
     local -n args_ref="$1"
 
@@ -65,6 +81,7 @@ case "${SESSION}" in
     gamescope)
         start_gamescope_compositor
         start_ibus
+        start_window_tagger
         unset WAYLAND_DISPLAY
         exec dbus-run-session -- /usr/bin/steam "${STEAM_ARGS[@]}"
         ;;

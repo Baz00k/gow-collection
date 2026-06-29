@@ -89,9 +89,12 @@ bwrap --ro-bind / / --proc /proc --dev /dev /usr/bin/true
 | ------------------------------------ | ------------------------------------------- | ------------------------------------------------------------- |
 | `STEAMOS_SESSION`                    | `gamescope`                                 | Initial session: `gamescope` or `plasma`                      |
 | `GAMESCOPE_FORCE_WINDOWS_FULLSCREEN` | `off`                                       | `on` adds gamescope's `--force-windows-fullscreen` workaround |
+| `STEAM_WINDOW_TAGGER`                | `on`                                        | `off` disables tagging broken non-Steam game windows in gaming mode |
 | `STEAM_STARTUP_FLAGS`                | `-gamepadui -steamos3 -steampal -steamdeck` | Flags passed to Steam                                         |
 
 Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
+
+`STEAM_WINDOW_TAGGER=on` starts a small gaming-mode-only helper that works around non-Steam launchers whose game windows keep `steam_app_0` instead of the active Steam AppId. Without that AppId, gamescope's Steam mode can leave the game behind Steam's loading screen. Set `STEAM_WINDOW_TAGGER=off` if the workaround causes problems or you want the unmodified Steam/gamescope behavior.
 
 ## MangoHud
 
