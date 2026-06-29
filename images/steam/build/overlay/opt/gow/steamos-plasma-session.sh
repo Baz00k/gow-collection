@@ -52,10 +52,71 @@ if command -v startplasma-wayland >/dev/null 2>&1; then
             log_warn "KWin Wayland display did not become available"
         }
 
+        # KWin manages its own Xwayland and generates a per-session X authority
+        # file, but it does not export DISPLAY/XAUTHORITY into the session bus.
+        # Discover both from the kwin_wayland command line so X11 clients such as
+        # Steam and Flatpak apps can connect and authenticate against Xwayland.
+        wait_for_kwin_x11_display() {
+            local kwin_pid index arg next_is_display next_is_xauthority
+            local display display_number display_socket xauthority
+            local -a kwin_args
+
+            for _ in {1..50}; do
+                for kwin_pid in $(pgrep -x kwin_wayland); do
+                    # Translate the NUL-delimited cmdline into array elements.
+                    mapfile -t kwin_args < <(tr "\0" "\n" < "/proc/${kwin_pid}/cmdline")
+
+                    next_is_display=""
+                    next_is_xauthority=""
+                    display=""
+                    xauthority=""
+
+                    for index in "${!kwin_args[@]}"; do
+                        arg="${kwin_args[${index}]}"
+                        if [[ -n "${next_is_display}" ]]; then
+                            display="${arg}"
+                            next_is_display=""
+                            continue
+                        fi
+                        if [[ -n "${next_is_xauthority}" ]]; then
+                            xauthority="${arg}"
+                            next_is_xauthority=""
+                            continue
+                        fi
+                        case "${arg}" in
+                            --xwayland-display) next_is_display=1 ;;
+                            --xwayland-xauthority) next_is_xauthority=1 ;;
+                        esac
+                    done
+
+                    [[ "${display}" =~ ^:[0-9]+$ ]] || continue
+                    display_number="${display#:}"
+                    display_socket="/tmp/.X11-unix/X${display_number}"
+                    [[ -S "${display_socket}" ]] || continue
+                    if [[ -n "${xauthority}" && ! -s "${xauthority}" ]]; then
+                        continue
+                    fi
+
+                    export DISPLAY="${display}"
+                    if [[ -n "${xauthority}" ]]; then
+                        export XAUTHORITY="${xauthority}"
+                    fi
+                    return 0
+                done
+
+                sleep 0.1
+            done
+
+            log_warn "KWin Xwayland display did not become available"
+            return 1
+        }
+
         update_session_environment() {
             if command -v dbus-update-activation-environment >/dev/null 2>&1; then
                 dbus-update-activation-environment \
                     WAYLAND_DISPLAY \
+                    DISPLAY \
+                    XAUTHORITY \
                     XDG_RUNTIME_DIR \
                     DBUS_SESSION_BUS_ADDRESS \
                     HOME \
@@ -89,6 +150,7 @@ if command -v startplasma-wayland >/dev/null 2>&1; then
         trap cleanup EXIT INT TERM
 
         wait_for_kwin_wayland_display
+        wait_for_kwin_x11_display || true
         update_session_environment
 
         if ! pgrep -u "$(id -u)" -x plasmashell >/dev/null 2>&1; then

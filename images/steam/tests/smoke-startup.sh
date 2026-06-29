@@ -193,6 +193,29 @@ sock.bind(path)
 sock.listen(1)
 time.sleep(8)
 PY
+mkdir -p /tmp/.X11-unix
+rm -f /tmp/.X11-unix/X7
+/usr/bin/python3 - <<'PY' &
+import socket
+import time
+
+path = '/tmp/.X11-unix/X7'
+sock = socket.socket(socket.AF_UNIX)
+sock.bind(path)
+sock.listen(1)
+time.sleep(8)
+PY
+printf 'test-cookie\n' > /tmp/startup-smoke/xauth_test
+# Spawn a fake kwin_wayland whose exec name matches `pgrep -x kwin_wayland` and
+# whose cmdline carries the X11 discovery args the session script parses.
+kwin_bin="/tmp/startup-smoke/kwin_wayland"
+cp /bin/bash "${kwin_bin}"
+"${kwin_bin}" /tmp/startup-smoke/kwin_wayland-payload.sh \
+    --wayland-fd 7 \
+    --socket wayland-0 \
+    --xwayland-display :7 \
+    --xwayland-xauthority /tmp/startup-smoke/xauth_test \
+    --xwayland &
 grep -q '^systemdBoot=false$' /etc/xdg/startkderc
 echo "startkderc systemdBoot=false" >> "${STARTUP_SENTINEL:?}"
 grep -q '^KDE_SESSION_VERSION=6$' <(env)
@@ -215,12 +238,27 @@ sleep 8
 EOF
 chmod +x "${STUB_DIR}/startplasma-wayland"
 
+# Payload run by the fake kwin_wayland process. The session script discovers
+# DISPLAY and XAUTHORITY by parsing /proc/<pid>/cmdline of a process whose exec
+# name is exactly "kwin_wayland". To make `pgrep -x kwin_wayland` match (it
+# compares against the executable name, not argv[0]), startplasma-wayland copies
+# /bin/bash to a file literally named "kwin_wayland" and runs this payload.
+cat > "${STUB_DIR}/kwin_wayland-payload.sh" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+echo "kwin_wayland stub invoked" >> "${STARTUP_SENTINEL:?}"
+sleep 8
+EOF
+chmod +x "${STUB_DIR}/kwin_wayland-payload.sh"
+
 cat > "${STUB_DIR}/plasmashell" <<'EOF'
 #!/bin/bash
 set -euo pipefail
 echo "plasmashell stub invoked" >> "${STARTUP_SENTINEL:?}"
 echo "argv: $*" >> "${STARTUP_SENTINEL:?}"
 echo "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" >> "${STARTUP_SENTINEL:?}"
+echo "DISPLAY=${DISPLAY:-}" >> "${STARTUP_SENTINEL:?}"
+echo "XAUTHORITY=${XAUTHORITY:-}" >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/plasmashell"
 
@@ -366,8 +404,9 @@ fi
 for expected in \
     "dbus-run-session stub invoked" \
     "dbus-update-activation-environment stub invoked" \
-    "dbus env argv: WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS HOME PATH XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE KDE_FULL_SESSION KDE_SESSION_VERSION XDG_DATA_DIRS" \
+    "dbus env argv: WAYLAND_DISPLAY DISPLAY XAUTHORITY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS HOME PATH XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE KDE_FULL_SESSION KDE_SESSION_VERSION XDG_DATA_DIRS" \
     "startplasma-wayland stub invoked" \
+    "kwin_wayland stub invoked" \
     "startkderc systemdBoot=false" \
     "kde session version exported" \
     "flatpak data dirs exported" \
@@ -376,7 +415,9 @@ for expected in \
     "return-to-steam desktop shortcut installed" \
     "plasmashell stub invoked" \
     "argv: --replace" \
-    "WAYLAND_DISPLAY=wayland-6"; do
+    "WAYLAND_DISPLAY=wayland-6" \
+    "DISPLAY=:7" \
+    "XAUTHORITY=/tmp/startup-smoke/xauth_test"; do
     if ! grep -qF "${expected}" "${PLASMA_SENTINEL_PATH}"; then
         fail "missing plasma startup evidence: ${expected}"
     fi
