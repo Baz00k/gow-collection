@@ -31,66 +31,63 @@ RUN curl -fsSL -o /tmp/rpmfusion-free-release.rpm "${RPMFUSION_FREE_URL}" && \
 # Package Installation
 # -----------------------------------------------------------------------------
 # hadolint ignore=DL3041
-RUN <<_INSTALL_PACKAGES
+RUN <<'_INSTALL_PACKAGES' bash
 set -eux
 
-# Steam client and gaming overlays/performance helpers
-dnf install -y \
-    steam \
-    gamemode \
+packages=(
+    # Steam client and gaming overlays/performance helpers
+    steam
+    gamescope
+    gamemode
     mangohud
 
-# Desktop services Steam and KDE expect to be available at runtime
-dnf install -y \
-    bluez \
-    dbus-daemon \
-    ibus \
+    # Desktop services Steam and KDE expect to be available at runtime
+    bluez
+    dbus-daemon
+    ibus
     NetworkManager
 
-# General desktop integration helpers used by Steam, Flatpak, and launchers
-dnf install -y \
-    file \
-    lsb-release \
-    xwininfo \
-    xdg-user-dirs \
-    xdg-utils \
-    xz \
+    # General desktop integration helpers used by Steam, Flatpak, and launchers
+    file
+    lsb-release
+    xwininfo
+    xdg-user-dirs
+    xdg-utils
+    xz
     zenity
 
-# Graphics diagnostics used for smoke tests and troubleshooting
-dnf install -y \
-    mesa-demos \
+    # Graphics diagnostics used for smoke tests and troubleshooting
+    mesa-demos
     vulkan-tools
 
-# KDE Plasma desktop session used when Steam exits to desktop mode
-dnf install -y \
-    dolphin \
-    kdialog \
-    konsole \
-    kwin \
-    kwin-wayland \
-    plasma-desktop \
-    plasma-discover \
-    plasma-discover-flatpak \
-    plasma-workspace \
-    plasma-workspace-wayland \
+    # KDE Plasma desktop session used when Steam exits to desktop mode
+    dolphin
+    kdialog
+    konsole
+    kwin
+    kwin-wayland
+    plasma-desktop
+    plasma-discover
+    plasma-discover-flatpak
+    plasma-workspace
+    plasma-workspace-wayland
     firefox
 
-# Portal and Flatpak support for desktop apps and Flathub integration
-dnf install -y \
-    flatpak \
-    xdg-desktop-portal \
+    # Portal and Flatpak support for desktop apps and Flathub integration
+    flatpak
+    xdg-desktop-portal
     xdg-desktop-portal-kde
 
-# Fonts
-dnf install -y \
-    dejavu-fonts-all \
+    # Fonts
+    dejavu-fonts-all
     google-noto-fonts-common
 
-# Scripting utilities used by Steam-specific init and helper scripts
-dnf install -y \
-    jq \
+    # Scripting utilities used by Steam-specific init and helper scripts
+    jq
     python3
+)
+
+dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
 
 dnf clean all
 rm -rf /var/cache/dnf

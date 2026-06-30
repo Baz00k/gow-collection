@@ -8,7 +8,7 @@
 #   - runtime user creation + gosu privilege-drop handoff (entrypoint.sh)
 #   - /etc/cont-init.d/* init-script runner (user, devices, NVIDIA)
 #   - shared logging + performance-tuning helpers
-#   - non-setuid bubblewrap for Flatpak sandboxing with flatpak-spawn PID sharing
+#   - non-setuid bubblewrap for Flatpak sandboxing
 # -----------------------------------------------------------------------------
 ARG BASE_IMAGE
 ARG BASE_IMAGE_DIGEST
@@ -20,50 +20,47 @@ FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}
 # Shared runtime packages
 # -----------------------------------------------------------------------------
 # hadolint ignore=DL3041
-RUN <<_INSTALL_PACKAGES
+RUN <<'_INSTALL_PACKAGES' bash
 set -eux
 
-# Core shell utils
-dnf install -y \
-    bash \
-    coreutils \
-    curl \
-    findutils \
-    procps-ng \
-    shadow-utils \
-    util-linux \
+packages=(
+    # Core shell utils
+    bash
+    coreutils
+    curl
+    findutils
+    procps-ng
+    shadow-utils
+    util-linux
     neovim
 
-# Graphics and compositor stack shared by downstream app images
-dnf install -y \
-    fontconfig \
-    gamescope \
-    glibc-langpack-en \
+    # Graphics and compositor stack shared by downstream app images
+    gamescope
     xorg-x11-server-Xwayland
+    fontconfig
+    glibc-langpack-en
 
-# Mesa/Vulkan runtime drivers and loaders required for accelerated rendering
-dnf install -y \
-    mesa-dri-drivers \
-    mesa-vulkan-drivers \
-    mesa-va-drivers \
-    mesa-libEGL \
-    mesa-libGL \
-    mesa-libgbm \
+    # Mesa/Vulkan runtime drivers and loaders
+    mesa-dri-drivers
+    mesa-vulkan-drivers
+    mesa-va-drivers
+    mesa-libEGL
+    mesa-libGL
+    mesa-libgbm
     vulkan-loader
 
-# Hardware discovery
-dnf install -y \
+    # Hardware discovery
     pciutils
 
-# Flatpak sandbox helper. It must remain non-setuid so flatpak-spawn
-# --share-pids works for Proton/UMU launchers inside Flatpak apps.
-dnf install -y \
+    # Flatpak sandbox helper
     bubblewrap
 
-# FUSE 2 is needed by many AppImage runtimes; FUSE 3 covers newer tools.
-dnf install -y \
-    fuse \
+    # FUSE for AppImage
+    fuse
     fuse3
+)
+
+dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
 
 dnf clean all
 rm -rf /var/cache/dnf
@@ -99,8 +96,6 @@ COPY --chmod=755 overlay /
 # in unprivileged/non-setuid mode so flatpak-spawn --share-pids and --expose-pids
 # work. Proton/UMU launchers use that path from Flatpak apps such as Heroic. If a
 # runtime blocks unprivileged user namespaces, fix the Wolf/Docker runner profile;
-# do not switch bwrap to setuid, because setuid bwrap starts Flatpaks but breaks
-# those PID-sharing portal features.
 RUN chmod 0755 /usr/bin/bwrap
 
 # -----------------------------------------------------------------------------

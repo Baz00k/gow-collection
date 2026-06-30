@@ -5,18 +5,20 @@ ARG BASE_APP_IMAGE
 FROM ${BASE_APP_IMAGE}
 
 # hadolint ignore=DL3041
-RUN <<_INSTALL_PACKAGES
+RUN <<'_INSTALL_PACKAGES' bash
 set -eux
 
-# TLS and download tooling used to fetch pinned JRE and AppImage artifacts
-dnf install -y \
-    ca-certificates \
+packages=(
+    # TLS and download tooling used to fetch pinned JRE and AppImage artifacts
+    ca-certificates
     curl
 
-# Archive tooling required to unpack Temurin JRE tarballs
-dnf install -y \
-    bsdtar \
+    # Archive tooling required to unpack Temurin JRE tarballs
+    bsdtar
     gzip
+)
+
+dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
 
 dnf clean all
 rm -rf /var/cache/dnf
