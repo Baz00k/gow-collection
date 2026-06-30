@@ -7,15 +7,13 @@ set -euo pipefail
 # shellcheck source=/dev/null
 source /opt/gow/logging.sh
 
-gow_log() { echo "$(date +"[%Y-%m-%d %H:%M:%S]") $*"; }
-
 start_dbus() {
     if ! mkdir -p /run/dbus; then
-        gow_log "WARNING: Failed to create /run/dbus directory"
+        log_warn "Failed to create /run/dbus directory"
         return 1
     fi
     if ! dbus-daemon --system --fork --nosyslog; then
-        gow_log "WARNING: Failed to start D-Bus daemon"
+        log_warn "Failed to start D-Bus daemon"
         return 1
     fi
     log_debug "DBus started"
@@ -28,7 +26,7 @@ start_bluetooth() {
     bluetoothd_path="${bluetoothd_path:-/usr/libexec/bluetooth/bluetoothd}"
 
     if [ ! -x "${bluetoothd_path}" ]; then
-        gow_log "WARNING: bluetoothd not found, skipping"
+        log_warn "bluetoothd not found, skipping"
         return 1
     fi
     "${bluetoothd_path}" --nodetach &
@@ -38,7 +36,7 @@ start_bluetooth() {
 
 start_networkmanager() {
     if ! command -v NetworkManager &>/dev/null; then
-        gow_log "WARNING: NetworkManager not found, skipping"
+        log_warn "NetworkManager not found, skipping"
         return 1
     fi
     NetworkManager &
@@ -48,7 +46,7 @@ start_networkmanager() {
 
 start_dbus_watchdog() {
     if [ ! -x /usr/local/bin/steamos-dbus-watchdog.sh ]; then
-        gow_log "WARNING: steamos-dbus-watchdog.sh not found, skipping"
+        log_warn "steamos-dbus-watchdog.sh not found, skipping"
         return 1
     fi
     /usr/local/bin/steamos-dbus-watchdog.sh &
@@ -58,7 +56,7 @@ start_dbus_watchdog() {
 
 start_decky_loader() {
     if [ ! -f /opt/decky/PluginLoader ]; then
-        gow_log "*** Decky Loader not found in /opt/decky, skipping ***"
+        log_info "Decky Loader not found in /opt/decky, skipping"
         return 0
     fi
 
@@ -82,7 +80,7 @@ start_decky_loader() {
     mkdir -p "${STEAM_DATA}"
 
     if ! touch "${STEAM_DATA}/.cef-enable-remote-debugging"; then
-        gow_log "WARNING: Failed to create .cef-enable-remote-debugging"
+        log_warn "Failed to create .cef-enable-remote-debugging"
         return 1
     fi
 
@@ -90,11 +88,11 @@ start_decky_loader() {
 
     if [ ! -f "${services_dir}/PluginLoader" ] || ! cmp -s /opt/decky/PluginLoader "${services_dir}/PluginLoader"; then
         if ! cp /opt/decky/PluginLoader "${services_dir}/PluginLoader"; then
-            gow_log "WARNING: Failed to copy PluginLoader"
+            log_warn "Failed to copy PluginLoader"
             return 1
         fi
         if ! chmod +x "${services_dir}/PluginLoader"; then
-            gow_log "WARNING: Failed to make PluginLoader executable"
+            log_warn "Failed to make PluginLoader executable"
             return 1
         fi
     fi
@@ -117,7 +115,7 @@ start_decky_loader() {
     return 0
 }
 
-gow_log "=== Starting system services ==="
+log_info "Starting system services"
 
 start_dbus || true
 start_bluetooth || true
@@ -127,4 +125,4 @@ start_decky_loader || true
 
 disown
 
-gow_log "=== System services bootstrap complete ==="
+log_info "System services bootstrap complete"
