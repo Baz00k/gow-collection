@@ -1,6 +1,6 @@
 # Steam
 
-Steam packaged for Games on Whales / Wolf as a SteamOS-style session with gamescope, KDE Plasma desktop mode, Firefox, Flatpak, MangoHud, GameMode, and Decky Loader.
+Steam packaged for Games on Whales / Wolf as a SteamOS-style session with gamescope, KDE Plasma desktop mode, Flatpak, MangoHud, GameMode, and Decky Loader.
 
 ## Quick Start
 
@@ -44,10 +44,8 @@ base_create_json = """
 
 ## Features
 
-- Steam installed from RPM Fusion.
 - SteamOS/GamepadUI session through gamescope by default.
 - KDE Plasma desktop mode through Steam's session switch.
-- Firefox browser in desktop mode.
 - Flatpak with Flathub configured for user-selected desktop apps.
 - MangoHud performance overlay.
 - GameMode support.
@@ -56,15 +54,16 @@ base_create_json = """
 
 ## Sessions
 
-The container starts in the Steam gaming session. Steam's `Switch to Desktop` action switches to KDE Plasma. Use the `Return to Steam` desktop launcher in Plasma to switch back to Steam.
+The container starts in the Steam gaming session. Steam's `Switch to Desktop` action switches to KDE Plasma.
+Use the `Return to Steam` desktop launcher in Plasma to switch back to Steam.
 
-The Steam session uses gamescope's Steam integration mode. The Plasma session runs as a nested KDE Wayland desktop on the Wolf compositor.
-
-For diagnostics, set `STEAMOS_SESSION=plasma` to start directly in desktop mode.
+The Steam session uses gamescope's Steam integration mode.
+The Plasma session runs as a nested KDE Wayland desktop on the Wolf compositor.
 
 ## Installing Apps
 
-Use KDE Discover or Flatpak in desktop mode to install the apps you want. The image does not bundle third-party launchers; Heroic, Lutris, Bottles, emulators, and similar apps are user choices.
+Use KDE Discover in desktop mode or use CLI to install the apps you want.
+The image does not bundle third-party launchers; Heroic, Lutris, Bottles, emulators, and similar apps are user choices.
 
 Example:
 
@@ -74,27 +73,20 @@ flatpak install --user flathub com.heroicgameslauncher.hgl
 
 After installing another launcher or game, add it to Steam as a non-Steam game if you want it available from the gaming session.
 
-Flatpak requires the runner profile above to allow unprivileged user namespaces.
-That keeps `/usr/bin/bwrap` non-setuid, which is required by `flatpak-spawn --share-pids` for Proton/UMU launchers such as Heroic. To verify the runtime profile from a terminal in the container:
-
-```bash
-stat -c '%A %U:%G %a' /usr/bin/bwrap
-unshare -Ur true
-bwrap --ro-bind / / --proc /proc --dev /dev /usr/bin/true
-```
-
 ## Configuration
 
-| Variable                             | Default                                     | Description                                                   |
-| ------------------------------------ | ------------------------------------------- | ------------------------------------------------------------- |
-| `STEAMOS_SESSION`                    | `gamescope`                                 | Initial session: `gamescope` or `plasma`                      |
-| `GAMESCOPE_FORCE_WINDOWS_FULLSCREEN` | `off`                                       | `on` adds gamescope's `--force-windows-fullscreen` workaround |
+| Variable                             | Default                                     | Description                                                         |
+| ------------------------------------ | ------------------------------------------- | ------------------------------------------------------------------- |
+| `STEAMOS_SESSION`                    | `gamescope`                                 | Initial session: `gamescope` or `plasma`                            |
+| `GAMESCOPE_FORCE_WINDOWS_FULLSCREEN` | `off`                                       | `on` adds gamescope's `--force-windows-fullscreen` workaround       |
 | `STEAM_WINDOW_TAGGER`                | `on`                                        | `off` disables tagging broken non-Steam game windows in gaming mode |
-| `STEAM_STARTUP_FLAGS`                | `-gamepadui -steamos3 -steampal -steamdeck` | Flags passed to Steam                                         |
+| `STEAM_STARTUP_FLAGS`                | `-gamepadui -steamos3 -steampal -steamdeck` | Flags passed to Steam                                               |
 
 Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
 
-`STEAM_WINDOW_TAGGER=on` starts a small gaming-mode-only helper that works around non-Steam launchers whose game windows keep `steam_app_0` instead of the active Steam AppId. Without that AppId, gamescope's Steam mode can leave the game behind Steam's loading screen. Set `STEAM_WINDOW_TAGGER=off` if the workaround causes problems or you want the unmodified Steam/gamescope behavior.
+`STEAM_WINDOW_TAGGER=on` starts a small gaming-mode-only helper that works around non-Steam launchers whose game windows keep `steam_app_0` instead of the active Steam AppId.
+Without that AppId, gamescope's Steam mode can leave the game behind Steam's loading screen.
+Set `STEAM_WINDOW_TAGGER=off` if the workaround causes problems or you want the unmodified Steam/gamescope behavior.
 
 ## MangoHud
 
@@ -118,8 +110,9 @@ MangoHud runs as MangoApp through gamescope. FPS stats may freeze or show wrong 
 
 This image uses Valve's standard data layout: `~/.steam/steam` points to `~/.local/share/Steam/`.
 
-On first boot, the image detects the old upstream GoW layout and migrates it. The two images should not share the same data directory after migration. Use separate Wolf profiles if you need to switch between them.
+On first boot, the image detects the old upstream GoW layout and migrates it.
+The two images should not share the same data directory after migration. Use separate Wolf profiles if you need to switch between them.
 
 ## Updates
 
-Steam itself updates through Steam. Decky Loader pins are tracked in `build/pins.env` and updated by this image's update scripts.
+Steam itself updates through Steam. The image can be updated through the Wolf UI or CLI.
