@@ -76,11 +76,6 @@ RUN set -eux; \
 # Copy Prism-specific startup overlay.
 COPY --chmod=755 overlay /
 
-# XDG_RUNTIME_DIR is required for Wayland compositor integration
-# Wolf sets up /tmp/.X11-unix for X11 socket forwarding
-
-ENV XDG_RUNTIME_DIR=/tmp/.X11-unix
-
 ARG IMAGE_SOURCE="https://github.com/Baz00k/gow-collection"
 
 LABEL org.opencontainers.image.description="Prism Launcher with offline account support for Games on Whales (Wolf)"

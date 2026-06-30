@@ -97,6 +97,7 @@ SENTINEL_PATH="${STUB_DIR}/invoked"
 RUN_LOG="${STUB_DIR}/docker-run.log"
 PLASMA_SENTINEL_PATH="${STUB_DIR}/plasma-invoked"
 PLASMA_RUN_LOG="${STUB_DIR}/docker-run-plasma.log"
+X11_SOCKET_DIR="${STUB_DIR}/x11-unix"
 DISABLED_SENTINEL_PATH="${STUB_DIR}/disabled-invoked"
 DISABLED_RUN_LOG="${STUB_DIR}/docker-run-disabled.log"
 
@@ -190,6 +191,8 @@ cat > "${STUB_DIR}/startplasma-wayland" <<'EOF'
 #!/bin/bash
 set -euo pipefail
 echo "startplasma-wayland stub invoked" >> "${STARTUP_SENTINEL:?}"
+test "$(stat -c %a /tmp/.X11-unix)" = "1777"
+echo "x11 socket dir prepared" >> "${STARTUP_SENTINEL:?}"
 mkdir -p "${XDG_RUNTIME_DIR:?}"
 rm -f "${XDG_RUNTIME_DIR}/wayland-6"
 /usr/bin/python3 - <<'PY' &
@@ -378,10 +381,13 @@ fi
 
 log_info "Exercising Plasma startup path..."
 rm -f "${PLASMA_SENTINEL_PATH}"
+mkdir -p "${X11_SOCKET_DIR}"
+chmod 777 "${STUB_DIR}"
+chmod 755 "${X11_SOCKET_DIR}"
 set +e
 docker run \
     --rm \
-    -e PUID=0 \
+    -e PUID=1000 \
     -e STEAMOS_SESSION=plasma \
     -e XDG_RUNTIME_DIR=/tmp/plasma-runtime \
     -e WAYLAND_DISPLAY=wayland-3 \
@@ -391,6 +397,7 @@ docker run \
     -v "${STUB_DIR}/dbus-update-activation-environment:/usr/bin/dbus-update-activation-environment:ro" \
     -v "${STUB_DIR}/startplasma-wayland:/usr/bin/startplasma-wayland:ro" \
     -v "${STUB_DIR}/plasmashell:/usr/bin/plasmashell:ro" \
+    -v "${X11_SOCKET_DIR}:/tmp/.X11-unix" \
     -v "${STUB_DIR}:/tmp/startup-smoke" \
     "${IMAGE_NAME}" > "${PLASMA_RUN_LOG}" 2>&1
 PLASMA_RUN_EXIT_CODE=$?
@@ -416,6 +423,7 @@ for expected in \
     "dbus-update-activation-environment stub invoked" \
     "dbus env argv: WAYLAND_DISPLAY DISPLAY XAUTHORITY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS HOME PATH XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE KDE_FULL_SESSION KDE_SESSION_VERSION XDG_DATA_DIRS" \
     "startplasma-wayland stub invoked" \
+    "x11 socket dir prepared" \
     "kwin_wayland stub invoked" \
     "startkderc systemdBoot=false" \
     "kde session version exported" \

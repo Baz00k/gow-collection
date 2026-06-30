@@ -76,8 +76,8 @@ RUNTIME_USER=$(docker exec "${CONTAINER_NAME}" awk -F'"' '/^UNAME=/{print $2}' /
 echo "Entrypoint UNAME default: ${RUNTIME_USER}" >> "${EVIDENCE_FILE}"
 [[ "${RUNTIME_USER}" == *retro* ]] || fail "runtime user default not retro"
 
-# XDG fallback present.
-if ! docker exec "${CONTAINER_NAME}" grep -qF 'XDG_RUNTIME_DIR:-/tmp/.X11-unix' /opt/gow/entrypoint.sh; then
+# XDG fallback is a private per-user runtime dir, not the global X11 socket dir.
+if ! docker exec "${CONTAINER_NAME}" grep -qF 'XDG_RUNTIME_DIR="/run/user/${PUID}"' /opt/gow/entrypoint.sh; then
     fail "XDG_RUNTIME_DIR fallback missing"
 fi
 
@@ -139,6 +139,33 @@ WHOAMI=$(docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" whoami 2>/dev
     | grep -v '\[INFO\]' | grep -v '\[WARN\]' | sed '/^$/d' | tail -1 || true)
 echo "entrypoint 'whoami' as PUID=1000: ${WHOAMI}" >> "${EVIDENCE_FILE}"
 [[ "${WHOAMI}" == "retro" ]] || fail "entrypoint did not drop to retro user (got '${WHOAMI}')"
+
+RUNTIME_DIR_MODE=$(docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" stat -c %a /run/user/1000 2>/dev/null \
+    | grep -v '\[INFO\]' | grep -v '\[WARN\]' | sed '/^$/d' | tail -1 || true)
+echo "entrypoint XDG_RUNTIME_DIR mode: ${RUNTIME_DIR_MODE}" >> "${EVIDENCE_FILE}"
+[[ "${RUNTIME_DIR_MODE}" == "700" ]] || fail "XDG_RUNTIME_DIR /run/user/1000 must be mode 700 (got '${RUNTIME_DIR_MODE}')"
+
+RUNTIME_DIR_ENV=$(docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" bash -c 'printf "%s" "${XDG_RUNTIME_DIR}"' 2>/dev/null \
+    | grep -v '\[INFO\]' | grep -v '\[WARN\]' | sed '/^$/d' | tail -1 || true)
+echo "entrypoint XDG_RUNTIME_DIR value: ${RUNTIME_DIR_ENV}" >> "${EVIDENCE_FILE}"
+[[ "${RUNTIME_DIR_ENV}" == "/run/user/1000" ]] || fail "XDG_RUNTIME_DIR default must be /run/user/1000 (got '${RUNTIME_DIR_ENV}')"
+
+X11_SOCKET_MODE=$(docker run --rm -e PUID=1000 -e PGID=1000 -e XDG_RUNTIME_DIR=/tmp/runtime-test "${IMAGE_NAME}" stat -c %a /tmp/.X11-unix 2>/dev/null \
+    | grep -v '\[INFO\]' | grep -v '\[WARN\]' | sed '/^$/d' | tail -1 || true)
+echo "entrypoint /tmp/.X11-unix mode with separate XDG_RUNTIME_DIR: ${X11_SOCKET_MODE}" >> "${EVIDENCE_FILE}"
+[[ "${X11_SOCKET_MODE}" == "1777" ]] || fail "/tmp/.X11-unix must be mode 1777 even when XDG_RUNTIME_DIR differs (got '${X11_SOCKET_MODE}')"
+
+LEGACY_RUNTIME_DIR_ENV=$(docker run --rm -e PUID=1000 -e PGID=1000 -e XDG_RUNTIME_DIR=/tmp/.X11-unix "${IMAGE_NAME}" bash -c 'printf "%s" "${XDG_RUNTIME_DIR}"' 2>/dev/null \
+    | grep -v '\[INFO\]' | grep -v '\[WARN\]' | sed '/^$/d' | tail -1 || true)
+echo "entrypoint legacy XDG_RUNTIME_DIR override result: ${LEGACY_RUNTIME_DIR_ENV}" >> "${EVIDENCE_FILE}"
+[[ "${LEGACY_RUNTIME_DIR_ENV}" == "/run/user/1000" ]] || fail "legacy XDG_RUNTIME_DIR=/tmp/.X11-unix must be normalized (got '${LEGACY_RUNTIME_DIR_ENV}')"
+
+# The X11 socket dir is shared infrastructure and must be prepared even for root
+# containers, which skip runtime-user creation.
+ROOT_X11_SOCKET_MODE=$(docker run --rm -e PUID=0 -e PGID=0 "${IMAGE_NAME}" stat -c %a /tmp/.X11-unix 2>/dev/null \
+    | grep -v '\[INFO\]' | grep -v '\[WARN\]' | sed '/^$/d' | tail -1 || true)
+echo "entrypoint /tmp/.X11-unix mode with PUID=0: ${ROOT_X11_SOCKET_MODE}" >> "${EVIDENCE_FILE}"
+[[ "${ROOT_X11_SOCKET_MODE}" == "1777" ]] || fail "/tmp/.X11-unix must be mode 1777 for root containers (got '${ROOT_X11_SOCKET_MODE}')"
 
 echo "RESULT: PASSED" >> "${EVIDENCE_FILE}"
 log_info "All base runtime checks passed"

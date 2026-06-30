@@ -5,7 +5,8 @@ set -euo pipefail
 source /opt/gow/logging.sh
 
 target="${1:-plasma}"
-fifo="${GOW_STEAMOS_SESSION_FIFO:-${XDG_RUNTIME_DIR:-/tmp/.X11-unix}/gow-steamos-session.cmd}"
+runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+fifo="${GOW_STEAMOS_SESSION_FIFO:-${runtime_dir}/gow-steamos-session.cmd}"
 
 log_debug "[steamos-session-select] Invoked: argv='$*' user='$(id -un)' uid='$(id -u)'"
 log_debug "[steamos-session-select] XDG_RUNTIME_DIR='${XDG_RUNTIME_DIR:-}' fifo='${fifo}'"

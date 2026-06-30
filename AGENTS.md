@@ -51,7 +51,7 @@ Smoke evidence goes to `test-results/<name>/` (gitignored).
 ## Conventions
 
 - **Bash**: `set -euo pipefail`; double-quote variables; `UPPER_SNAKE` vars, `lower_snake` functions, `kebab-case` files; smoke tests prefixed `smoke-`. Shebang `#!/bin/bash` (update scripts use `#!/usr/bin/env bash`).
-- **Dockerfiles**: start `# syntax=docker/dockerfile:1.4`; app images declare `ARG BASE_APP_IMAGE` and use exactly one `FROM ${BASE_APP_IMAGE}` (no direct upstream `FROM`); Fedora uses `dnf` (`dnf clean all && rm -rf /var/cache/dnf`); verify downloads with `sha256sum -c`; copy the overlay with `COPY --chmod=755 overlay /`; set `ENV XDG_RUNTIME_DIR=/tmp/.X11-unix`; end with OCI labels.
+- **Dockerfiles**: start `# syntax=docker/dockerfile:1.4`; app images declare `ARG BASE_APP_IMAGE` and use exactly one `FROM ${BASE_APP_IMAGE}` (no direct upstream `FROM`); Fedora uses `dnf` (`dnf clean all && rm -rf /var/cache/dnf`); verify downloads with `sha256sum -c`; copy the overlay with `COPY --chmod=755 overlay /`; inherit the base runtime `XDG_RUNTIME_DIR` default unless an image has a concrete reason to override it; end with OCI labels.
 - **pins.env**: `BASE_APP_IMAGE` must pin `ghcr.io/<owner>/gow-collection/base:edge@sha256:<digest>`; app versions get a matching `*_SHA256`.
 - **Update scripts**: communicate via `$GITHUB_OUTPUT` (`check.sh` → `update_available`, `apply.sh` → `applied`, both optionally `summary_md`); receive `PINS_FILE` and `IMAGE_DIR`; must be executable.
 

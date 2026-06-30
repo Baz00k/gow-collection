@@ -137,7 +137,7 @@ if ! grep -q "argv: prismlauncher" "${SENTINEL_PATH}"; then
     exit 1
 fi
 
-if ! grep -q "XDG_RUNTIME_DIR: /tmp/.X11-unix" "${SENTINEL_PATH}"; then
+if ! grep -q "XDG_RUNTIME_DIR: /run/user/0" "${SENTINEL_PATH}"; then
     log_error "XDG_RUNTIME_DIR was not set for startup path"
     echo "RESULT: FAILED (XDG_RUNTIME_DIR)" >> "${EVIDENCE_FILE}"
     exit 1

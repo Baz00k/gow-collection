@@ -7,8 +7,8 @@ PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
 UNAME="${UNAME:-retro}"
 UHOME="${UHOME:-/home/${UNAME}}"
-XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/.X11-unix}"
-export PUID PGID UNAME UHOME XDG_RUNTIME_DIR
+XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-}"
+export PUID PGID UNAME UHOME
 
 if ! [[ "${PUID}" =~ ^[0-9]+$ ]]; then
     log_error "PUID must be a numeric value, got: ${PUID}"
@@ -19,6 +19,14 @@ if ! [[ "${PGID}" =~ ^[0-9]+$ ]]; then
     log_error "PGID must be a numeric value, got: ${PGID}"
     exit 1
 fi
+
+if [ -z "${XDG_RUNTIME_DIR}" ]; then
+    XDG_RUNTIME_DIR="/run/user/${PUID}"
+elif [ "${XDG_RUNTIME_DIR}" = "/tmp/.X11-unix" ]; then
+    log_warn "XDG_RUNTIME_DIR=/tmp/.X11-unix conflates the private runtime dir with the global X11 socket dir; using /run/user/${PUID}"
+    XDG_RUNTIME_DIR="/run/user/${PUID}"
+fi
+export XDG_RUNTIME_DIR
 
 run_container_init() {
     if [ ! -d /etc/cont-init.d ]; then

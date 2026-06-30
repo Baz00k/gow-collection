@@ -101,7 +101,6 @@ RUN chmod 0755 /usr/bin/bwrap
 # -----------------------------------------------------------------------------
 # Environment and Labels
 # -----------------------------------------------------------------------------
-ENV XDG_RUNTIME_DIR=/tmp/.X11-unix
 ENV LANG=C.UTF-8
 
 ARG IMAGE_SOURCE="https://github.com/Baz00k/gow-collection"

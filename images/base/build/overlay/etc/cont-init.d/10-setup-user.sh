@@ -4,6 +4,15 @@ set -euo pipefail
 # shellcheck source=/dev/null
 source /opt/gow/logging.sh
 
+# XDG_RUNTIME_DIR and /tmp/.X11-unix are different runtime surfaces. Keep the
+# XDG runtime dir private for Wayland, PulseAudio, and session IPC. Keep the X11
+# socket dir sticky world-writable so X servers such as Xwayland can create X<N>
+# sockets there while clients can connect. The X11 socket dir is shared
+# infrastructure independent of the runtime user, so prepare it even for PUID=0.
+log_info "Ensuring X11 socket directory exists at /tmp/.X11-unix"
+install -d -m 1777 /tmp/.X11-unix
+chmod 1777 /tmp/.X11-unix
+
 if [ "${PUID}" = "0" ]; then
     log_warn "PUID=0, running as root (no runtime user creation)"
     # shellcheck disable=SC2317 # Script may be sourced by the init runner.
