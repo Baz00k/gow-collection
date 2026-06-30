@@ -77,6 +77,16 @@ if ! docker exec "${CONTAINER_NAME}" test -x /opt/gow/entrypoint.sh; then
 fi
 echo "/opt/gow/entrypoint.sh: ok" >> "${EVIDENCE_FILE}"
 
+if ! docker exec "${CONTAINER_NAME}" test -x /opt/decky/PluginLoader; then
+    fail "Decky PluginLoader missing or not executable"
+fi
+echo "/opt/decky/PluginLoader: ok" >> "${EVIDENCE_FILE}"
+
+if ! docker exec "${CONTAINER_NAME}" test -s /opt/decky/.loader.version; then
+    fail "Decky loader version marker missing"
+fi
+echo "/opt/decky/.loader.version: ok" >> "${EVIDENCE_FILE}"
+
 if ! docker exec "${CONTAINER_NAME}" flatpak remotes --system | grep -q '^flathub$'; then
     fail "system Flathub remote missing"
 fi

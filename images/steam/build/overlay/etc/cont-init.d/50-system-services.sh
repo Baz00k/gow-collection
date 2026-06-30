@@ -4,6 +4,7 @@ set -euo pipefail
 # System service bootstrap for Steam on Fedora (runs as ROOT before user switch)
 # Starts: dbus-daemon, bluetoothd, NetworkManager, D-Bus watchdog, Decky Loader
 
+# shellcheck source=/dev/null
 source /opt/gow/logging.sh
 
 gow_log() { echo "$(date +"[%Y-%m-%d %H:%M:%S]") $*"; }
@@ -61,12 +62,22 @@ start_decky_loader() {
         return 0
     fi
 
-    UHOME="${UHOME:-${HOME:-/root}}"
+    UHOME="${UHOME:-${HOME:-/home/retro}}"
+
+    local homebrew_dir
+    local services_dir
+    local plugins_dir
+    local version_file
+
+    homebrew_dir="${UHOME}/homebrew"
+    services_dir="${homebrew_dir}/services"
+    plugins_dir="${homebrew_dir}/plugins"
+    version_file="${services_dir}/.loader.version"
 
     # Steam's bin_steam.sh creates ~/.steam/steam as a symlink to
-    # ~/.local/share/Steam during bootstrap.  If we mkdir it first the
+    # ~/.local/share/Steam during bootstrap. If we mkdir it first the
     # symlink creation silently fails and Steam refuses to start with
-    # "Couldn't set up Steam data".  Use the real data path instead.
+    # "Couldn't set up Steam data". Use the real data path instead.
     STEAM_DATA="${UHOME}/.local/share/Steam"
     mkdir -p "${STEAM_DATA}"
 
@@ -75,22 +86,33 @@ start_decky_loader() {
         return 1
     fi
 
-    mkdir -p "${UHOME}/homebrew/services/"
+    mkdir -p "${services_dir}" "${plugins_dir}"
 
-    if [ ! -f "${UHOME}/homebrew/services/PluginLoader" ]; then
-        if ! cp /opt/decky/PluginLoader "${UHOME}/homebrew/services/PluginLoader"; then
+    if [ ! -f "${services_dir}/PluginLoader" ] || ! cmp -s /opt/decky/PluginLoader "${services_dir}/PluginLoader"; then
+        if ! cp /opt/decky/PluginLoader "${services_dir}/PluginLoader"; then
             gow_log "WARNING: Failed to copy PluginLoader"
             return 1
         fi
-        if ! chmod +x "${UHOME}/homebrew/services/PluginLoader"; then
+        if ! chmod +x "${services_dir}/PluginLoader"; then
             gow_log "WARNING: Failed to make PluginLoader executable"
             return 1
         fi
     fi
-    chown -R "${PUID:-1000}:${PGID:-1000}" "${UHOME}/homebrew" "${STEAM_DATA}" 2>/dev/null || true
+
+    if [ -f /opt/decky/.loader.version ]; then
+        cp /opt/decky/.loader.version "${version_file}" || true
+    fi
+
+    chown -R "${PUID:-1000}:${PGID:-1000}" "${homebrew_dir}" "${STEAM_DATA}" 2>/dev/null || true
 
     log_debug "Starting Decky Loader"
-    "${UHOME}/homebrew/services/PluginLoader" &
+    (
+        cd "${services_dir}"
+        UNPRIVILEGED_PATH="${homebrew_dir}" \
+            PRIVILEGED_PATH="${homebrew_dir}" \
+            LOG_LEVEL="${DECKY_LOG_LEVEL:-INFO}" \
+            "${services_dir}/PluginLoader"
+    ) &
 
     return 0
 }

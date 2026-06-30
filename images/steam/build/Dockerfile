@@ -100,7 +100,8 @@ RUN mkdir -p /opt/decky && \
     curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 60 \
         -o /opt/decky/PluginLoader "${DECKY_LOADER_URL}" && \
     echo "${DECKY_LOADER_SHA256}  /opt/decky/PluginLoader" | sha256sum -c - && \
-    chmod +x /opt/decky/PluginLoader
+    chmod +x /opt/decky/PluginLoader && \
+    echo "v${DECKY_LOADER_VERSION}" > /opt/decky/.loader.version
 
 # -----------------------------------------------------------------------------
 # System Configuration
