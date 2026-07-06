@@ -58,10 +58,6 @@ ulimits = ["nofile=65536:65536"]
 
 Drop's `develop` branch has built-in [Proton/UMU support](https://github.com/Drop-OSS/drop-app/blob/develop/src-tauri/process/src/compat.rs), but this is not yet included in the latest release used here. When a release ships compatibility-layer support, this image can add `umu-run` and Proton.
 
-## Updates
-
-The Drop release URL and checksum are tracked in `build/pins.env` and updated by this image's update scripts.
-
 ## Troubleshooting
 
 See [shared troubleshooting](../../docs/troubleshooting.md) first. Drop-specific startup failures are usually missing `DROP_SERVER_URL`, browser/auth problems, or open-file limits during downloads.
