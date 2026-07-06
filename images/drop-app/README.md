@@ -29,7 +29,7 @@ base_create_json = """
     "IpcMode": "host",
     "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN"],
     "Privileged": false,
-    "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+    "DeviceCgroupRules": ["c 13:* rwm", "c 244:* rwm"]
   }
 }
 \
