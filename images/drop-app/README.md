@@ -2,6 +2,9 @@
 
 [Drop](https://github.com/Drop-OSS/drop-app) desktop client packaged for Games on Whales / Wolf.
 
+> [!WARNING]
+> Drop has been archived by its upstream maintainers and is no longer under active development. This image is kept for existing users, but new features and upstream fixes should not be expected.
+
 ## Quick Start
 
 ```toml
