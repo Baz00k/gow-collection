@@ -98,13 +98,14 @@ Set `STEAM_WINDOW_TAGGER=off` if the workaround causes problems or you want the 
 
 MangoHud runs as MangoApp through gamescope. FPS stats may freeze or show wrong values even when the game is running normally.
 
-## Known Limitations
+## Caveats
 
-- SteamOS update, BIOS update, and hardware power-management commands are compatibility stubs, not real host firmware or OS controls.
+- Steam's UI can be laggy in GamepadUI/Gaming Mode unless Steam GPU acceleration is enabled. Enable it from desktop mode: switch to KDE Plasma, open Steam, go to Settings, and enable GPU accelerated rendering in web views.
+- Gaming performance in desktop mode can be noticeably worse than in the Gaming Mode for some games. Add non-Steam games to Steam and launch them from Gaming Mode.
+- Some games only use a few CPU threads unless launched through GameMode. Add `gamemoderun %command%` to the game's Steam launch options if needed.
 - KDE Plasma runs nested inside Wolf's compositor. Some desktop compositor behavior may differ from a physical Steam Deck.
 - Flatpak app installs depend on the container permissions and namespace support provided by the Wolf runner configuration.
-- Steam uses file locks. Do not run two Steam containers against the same data directory.
-- Some games only use a few CPU threads unless launched through GameMode. Add `gamemoderun %command%` to the game's Steam launch options if needed.
+- SteamOS update, BIOS update, and hardware power-management commands are compatibility stubs, not real host firmware or OS controls.
 
 ## Migration From Upstream GoW Steam
 
