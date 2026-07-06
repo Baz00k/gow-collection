@@ -21,11 +21,7 @@ get_current_prism_version() {
 }
 
 fetch_latest_prism_version() {
-    if command -v gh &>/dev/null; then
-        gh api "repos/${PRISM_REPO}/releases/latest" --jq '.tag_name' | sed 's/^v//'
-    else
-        curl -fsSL "https://api.github.com/repos/${PRISM_REPO}/releases/latest" | jq -r '.tag_name // empty' | sed 's/^v//'
-    fi
+    curl -fsSL "https://api.github.com/repos/${PRISM_REPO}/releases/latest" | jq -r '.tag_name // empty' | sed 's/^v//'
 }
 
 [[ ! -f "$PINS_FILE" ]] && abort "pins.env not found at $PINS_FILE"

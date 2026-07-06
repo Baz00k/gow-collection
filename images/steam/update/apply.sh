@@ -27,11 +27,7 @@ get_decky_repo() {
 fetch_latest_decky_version() {
     local repo
     repo=$(get_decky_repo)
-    if command -v gh &>/dev/null; then
-        gh api "repos/${repo}/releases/latest" --jq '.tag_name' | sed 's/^v//'
-    else
-        curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" | jq -r '.tag_name // empty' | sed 's/^v//'
-    fi
+    curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" | jq -r '.tag_name // empty' | sed 's/^v//'
 }
 
 fetch_file_sha256() {
