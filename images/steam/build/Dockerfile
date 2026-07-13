@@ -56,10 +56,6 @@ packages=(
     xz
     zenity
 
-    # Graphics diagnostics used for smoke tests and troubleshooting
-    mesa-demos
-    vulkan-tools
-
     # KDE Plasma desktop session used when Steam exits to desktop mode
     dolphin
     kdialog
