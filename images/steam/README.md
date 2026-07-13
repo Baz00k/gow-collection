@@ -106,6 +106,7 @@ MangoHud runs as MangoApp through gamescope. FPS stats may freeze or show wrong 
 - KDE Plasma runs nested inside Wolf's compositor. Some desktop compositor behavior may differ from a physical Steam Deck.
 - Flatpak app installs depend on the container permissions and namespace support provided by the Wolf runner configuration.
 - SteamOS update, BIOS update, and hardware power-management commands are compatibility stubs, not real host firmware or OS controls.
+- Gamescope can lose keyboard modifier state in nested Wayland sessions. Affected games detect Left Shift or Control while rebinding, but do not see the modifier held during gameplay. This is tracked upstream in [gamescope #2032](https://github.com/ValveSoftware/gamescope/issues/2032) and the underlying nested-modifier issue [gamescope #266](https://github.com/ValveSoftware/gamescope/issues/266). The same symptom was previously reported to Wolf in [wolf #217](https://github.com/games-on-whales/wolf/issues/217).
 
 ## Migration From Upstream GoW Steam
 
