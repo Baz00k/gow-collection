@@ -24,7 +24,7 @@ mkdir -p "${EVIDENCE_DIR}"
 printf '=== Smoke Test: Steam Wrapper ===\nImage: %s\n\n' "${IMAGE_NAME}" > "${EVIDENCE_FILE}"
 
 TEST_HOME="$(mktemp -d "${EVIDENCE_DIR}/steam-wrapper.XXXXXX")"
-mkdir -p "${TEST_HOME}/.local/share/Steam"
+mkdir -p "${TEST_HOME}/.steam" "${TEST_HOME}/.local/share/Steam"
 
 cat > "${TEST_HOME}/.local/share/Steam/steam.sh" <<'EOF'
 #!/bin/bash
