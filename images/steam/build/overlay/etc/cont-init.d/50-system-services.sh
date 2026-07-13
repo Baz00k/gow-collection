@@ -101,7 +101,14 @@ start_decky_loader() {
         cp /opt/decky/.loader.version "${version_file}" || true
     fi
 
-    chown -R "${PUID:-1000}:${PGID:-1000}" "${homebrew_dir}" "${STEAM_DATA}" 2>/dev/null || true
+    chown "${PUID:-1000}:${PGID:-1000}" \
+        "${homebrew_dir}" \
+        "${services_dir}" \
+        "${plugins_dir}" \
+        "${STEAM_DATA}" \
+        "${STEAM_DATA}/.cef-enable-remote-debugging" \
+        "${services_dir}/PluginLoader" \
+        "${version_file}" 2>/dev/null || true
 
     log_debug "Starting Decky Loader"
     (

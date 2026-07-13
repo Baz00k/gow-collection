@@ -6,6 +6,36 @@ set -euo pipefail
 STEAMDIR="${HOME}/.local/share/Steam"
 STEAMDIR_LEGACY="${HOME}/.steam/steam"
 STEAM_BOOTSTRAP="/usr/lib/steam/bootstraplinux_ubuntu12_32.tar.xz"
+STEAM_MAX_CRASH_RESTARTS="${STEAM_MAX_CRASH_RESTARTS:-5}"
+STEAM_CRASH_RESTART_BASE_DELAY="${STEAM_CRASH_RESTART_BASE_DELAY:-2}"
+STEAM_CRASH_RESTART_MAX_DELAY="${STEAM_CRASH_RESTART_MAX_DELAY:-30}"
+STEAM_CRASH_RESET_SECONDS="${STEAM_CRASH_RESET_SECONDS:-300}"
+
+normalize_setting() {
+    local name="$1"
+    local maximum="$2"
+    local value="${!name}"
+
+    # Bash treats leading zeroes as octal in arithmetic expressions. Normalize
+    # accepted values to base 10 and keep them small enough to avoid overflow.
+    if ! [[ "${value}" =~ ^(0|[1-9][0-9]*)$ ]] || (( ${#value} > 9 )); then
+        echo "ERROR: ${name} must be a whole number from 0 to ${maximum}, got '${value}'" >&2
+        exit 1
+    fi
+
+    value=$((10#${value}))
+    if (( value > maximum )); then
+        echo "ERROR: ${name} must be a whole number from 0 to ${maximum}, got '${value}'" >&2
+        exit 1
+    fi
+
+    printf -v "${name}" '%d' "${value}"
+}
+
+normalize_setting STEAM_MAX_CRASH_RESTARTS 100
+normalize_setting STEAM_CRASH_RESTART_BASE_DELAY 3600
+normalize_setting STEAM_CRASH_RESTART_MAX_DELAY 3600
+normalize_setting STEAM_CRASH_RESET_SECONDS 86400
 
 echo "Steam directory: ${STEAMDIR}"
 
@@ -34,16 +64,49 @@ if [[ "${1:-}" == "-shutdown" ]]; then
     exec ./steam.sh "$@"
 fi
 
+crash_count=0
 while true; do
     echo "Steam arguments received: $*"
-    ./steam.sh "$@"
-    EXIT_CODE=$?
+    started_at="${SECONDS}"
+    if ./steam.sh "$@"; then
+        exit_code=0
+    else
+        exit_code=$?
+    fi
+    runtime_seconds=$((SECONDS - started_at))
 
-    if [[ ${EXIT_CODE} -eq 0 ]]; then
+    if [[ ${exit_code} -eq 0 ]]; then
         echo "Steam exited cleanly"
         break
     fi
 
-    echo "Steam exited with code ${EXIT_CODE}, restarting in 2 seconds..."
-    sleep 2
+    if (( STEAM_MAX_CRASH_RESTARTS == 0 )); then
+        echo "Steam exited with code ${exit_code}; automatic crash restart is disabled" >&2
+        exit "${exit_code}"
+    fi
+
+    if (( STEAM_CRASH_RESET_SECONDS > 0 && runtime_seconds >= STEAM_CRASH_RESET_SECONDS )); then
+        crash_count=0
+    fi
+    ((crash_count += 1))
+
+    if (( crash_count > STEAM_MAX_CRASH_RESTARTS )); then
+        echo "Steam exited with code ${exit_code}; maximum consecutive crash restarts reached" >&2
+        exit "${exit_code}"
+    fi
+
+    delay="${STEAM_CRASH_RESTART_BASE_DELAY}"
+    for ((attempt = 1; attempt < crash_count; attempt++)); do
+        delay=$((delay * 2))
+        if (( delay >= STEAM_CRASH_RESTART_MAX_DELAY )); then
+            delay="${STEAM_CRASH_RESTART_MAX_DELAY}"
+            break
+        fi
+    done
+    if (( delay > STEAM_CRASH_RESTART_MAX_DELAY )); then
+        delay="${STEAM_CRASH_RESTART_MAX_DELAY}"
+    fi
+
+    echo "Steam exited with code ${exit_code}; restarting in ${delay}s (${crash_count}/${STEAM_MAX_CRASH_RESTARTS})..." >&2
+    sleep "${delay}"
 done

@@ -13,10 +13,6 @@ if [[ -z "${STEAM_STARTUP_FLAGS:-}" ]]; then
 fi
 read -r -a STEAM_ARGS <<< "${STEAM_STARTUP_FLAGS}"
 
-start_ibus() {
-    /usr/bin/ibus-daemon -d -r --panel=disable --emoji-extension=disable || true
-}
-
 start_window_tagger() {
     case "${STEAM_WINDOW_TAGGER:-on}" in
         1|true|yes|on)
@@ -48,6 +44,7 @@ start_gamescope_compositor() {
     gamescope_require_runtime_dir
     gamescope_append_base_args gamescope_args
     append_steam_gamescope_args gamescope_args
+    gamescope_append_extra_args gamescope_args
 
     tmpdir="$(mktemp -p "${XDG_RUNTIME_DIR}" -d -t gamescope.XXXXXXX)"
     socket="${tmpdir}/startup.socket"
@@ -80,10 +77,9 @@ start_gamescope_compositor() {
 case "${SESSION}" in
     gamescope)
         start_gamescope_compositor
-        start_ibus
         start_window_tagger
         unset WAYLAND_DISPLAY
-        exec dbus-run-session -- /usr/bin/steam "${STEAM_ARGS[@]}"
+        exec dbus-run-session -- /opt/gow/steam-session.sh "${STEAM_ARGS[@]}"
         ;;
     plasma)
         exec /opt/gow/steamos-plasma-session.sh

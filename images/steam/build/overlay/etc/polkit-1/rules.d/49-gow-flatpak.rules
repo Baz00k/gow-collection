@@ -1,0 +1,21 @@
+polkit.addRule(function(action, subject) {
+    var flatpakActions = [
+        "org.freedesktop.Flatpak.app-install",
+        "org.freedesktop.Flatpak.runtime-install",
+        "org.freedesktop.Flatpak.app-update",
+        "org.freedesktop.Flatpak.runtime-update",
+        "org.freedesktop.Flatpak.update-remote",
+        "org.freedesktop.Flatpak.modify-repo",
+        "org.freedesktop.Flatpak.install-bundle",
+        "org.freedesktop.Flatpak.runtime-uninstall",
+        "org.freedesktop.Flatpak.app-uninstall",
+        "org.freedesktop.Flatpak.configure-remote",
+        "org.freedesktop.Flatpak.configure",
+        "org.freedesktop.Flatpak.appstream-update",
+        "org.freedesktop.Flatpak.metadata-update"
+    ];
+
+    if (flatpakActions.indexOf(action.id) !== -1 && subject.isInGroup("gow-flatpak")) {
+        return polkit.Result.YES;
+    }
+});

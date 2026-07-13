@@ -63,6 +63,7 @@ REQUIRED_EXEC=(
     /usr/bin/firefox
     /usr/bin/xwininfo
     /usr/local/bin/return-to-steam
+    /etc/cont-init.d/16-setup-flatpak-user.sh
 )
 
 for f in "${REQUIRED_EXEC[@]}"; do
@@ -92,6 +93,22 @@ if ! docker exec "${CONTAINER_NAME}" flatpak remotes --system | grep -q '^flathu
 fi
 echo "system Flathub remote: ok" >> "${EVIDENCE_FILE}"
 
+if ! docker exec "${CONTAINER_NAME}" test -s /etc/polkit-1/rules.d/49-gow-flatpak.rules; then
+    fail "Flatpak polkit rule missing"
+fi
+echo "Flatpak polkit rule: ok" >> "${EVIDENCE_FILE}"
+
+if ! docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" id -nG | grep -qw gow-flatpak; then
+    fail "runtime user is not authorized for system Flatpak operations"
+fi
+echo "runtime Flatpak group: ok" >> "${EVIDENCE_FILE}"
+
+if ! docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" \
+    bash -lc 'flatpak remote-modify --system --disable flathub && flatpak remote-modify --system --enable flathub'; then
+    fail "runtime user cannot modify the system Flatpak installation"
+fi
+echo "system Flatpak authorization: ok" >> "${EVIDENCE_FILE}"
+
 STUB_DIR="$(mktemp -d "${EVIDENCE_DIR}/startup-stub.XXXXXX")"
 SENTINEL_PATH="${STUB_DIR}/invoked"
 RUN_LOG="${STUB_DIR}/docker-run.log"
@@ -105,6 +122,7 @@ cat > "${STUB_DIR}/gamescope" <<'EOF'
 #!/bin/bash
 set -euo pipefail
 echo "gamescope stub invoked" > "${STARTUP_SENTINEL:?}"
+echo "gamescope argv: $*" >> "${STARTUP_SENTINEL:?}"
 while [[ "$#" -gt 0 ]]; do
     if [[ "$1" == "-R" ]]; then
         socket="$2"
@@ -128,6 +146,7 @@ cat > "${STUB_DIR}/ibus-daemon" <<'EOF'
 #!/bin/bash
 set -euo pipefail
 echo "ibus-daemon stub invoked" >> "${STARTUP_SENTINEL:?}"
+echo "ibus dbus: ${DBUS_SESSION_BUS_ADDRESS:-}" >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/ibus-daemon"
 
@@ -157,6 +176,7 @@ fi
 if [[ "${1:-}" == "--" ]]; then
     shift
 fi
+export DBUS_SESSION_BUS_ADDRESS=unix:path=/tmp/startup-smoke/session-bus
 exec "$@"
 EOF
 chmod +x "${STUB_DIR}/dbus-run-session"
@@ -174,6 +194,7 @@ cat > "${STUB_DIR}/steam" <<'EOF'
 set -euo pipefail
 echo "steam stub invoked" >> "${STARTUP_SENTINEL:?}"
 echo "argv: $*" >> "${STARTUP_SENTINEL}"
+echo "steam dbus: ${DBUS_SESSION_BUS_ADDRESS:-}" >> "${STARTUP_SENTINEL}"
 EOF
 chmod +x "${STUB_DIR}/steam"
 
@@ -289,6 +310,7 @@ docker run \
     -e PUID=0 \
     -e STARTUP_SENTINEL=/tmp/startup-smoke/invoked \
     -e STEAM_STARTUP_FLAGS="-gamepadui -steamos3 -steampal -steamdeck" \
+    -e GAMESCOPE_EXTRA_ARGS="--adaptive-sync --immediate-flips" \
     -e PATH=/tmp/startup-smoke:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     -v "${STUB_DIR}/gamescope:/usr/bin/gamescope:ro" \
     -v "${STUB_DIR}/ibus-daemon:/usr/bin/ibus-daemon:ro" \
@@ -318,10 +340,13 @@ fi
 
 for expected in \
     "gamescope stub invoked" \
+    "gamescope argv: --backend wayland -b -w 1920 -h 1080 -W 1920 -H 1080 -r 60 --adaptive-sync --immediate-flips -e --steam --mangoapp" \
     "ibus-daemon stub invoked" \
+    "ibus dbus: unix:path=/tmp/startup-smoke/session-bus" \
     "steam-game-window-tagger stub invoked" \
     "dbus-run-session stub invoked" \
     "steam stub invoked" \
+    "steam dbus: unix:path=/tmp/startup-smoke/session-bus" \
     "argv: -gamepadui -steamos3 -steampal -steamdeck"; do
     if ! grep -qF "${expected}" "${SENTINEL_PATH}"; then
         fail "missing startup evidence: ${expected}"

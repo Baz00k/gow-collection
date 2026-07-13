@@ -13,16 +13,22 @@ if [ "${PUID}" = "0" ]; then
 fi
 
 log_info "Creating Steam runtime directories"
-mkdir -p "${UHOME}/.steam" "${UHOME}/.local/share/Steam"
+mkdir -p \
+    "${UHOME}/.steam" \
+    "${UHOME}/.local" \
+    "${UHOME}/.local/share" \
+    "${UHOME}/.local/share/Steam"
+chown "${PUID}:${PGID}" \
+    "${UHOME}/.steam" \
+    "${UHOME}/.local" \
+    "${UHOME}/.local/share" \
+    "${UHOME}/.local/share/Steam"
 
 if [ -d "${UHOME}/.steam/steam" ] && [ ! -L "${UHOME}/.steam/steam" ]; then
     log_error "Legacy ~/.steam/steam directory detected; automatic migration is disabled"
     log_error "Move ~/.steam/steam/* into ~/.local/share/Steam/ manually, then remove ~/.steam/steam so the symlink can be recreated"
     fail_init
 fi
-
-log_info "Setting Steam runtime ownership for ${UHOME}"
-chown -R "${PUID}:${PGID}" "${UHOME}/.steam" "${UHOME}/.local"
 
 if [ -f /usr/bin/gamescope ]; then
     log_info "Setting gamescope ownership to ${UNAME}:${UNAME}"
