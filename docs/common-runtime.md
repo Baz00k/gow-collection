@@ -22,6 +22,29 @@ env = [
 ]
 ```
 
+## Timezone
+
+Containers cannot discover the host timezone automatically. To keep application
+clocks aligned with the host, bind-mount the host timezone configuration:
+
+```toml
+mounts = [
+    "/etc/localtime:/etc/localtime:ro"
+]
+```
+
+To use a timezone different from the host, omit that mount and pass an IANA
+timezone name instead:
+
+```toml
+env = [
+    "TZ=Europe/Stockholm"
+]
+```
+
+Application-level regional or timezone settings may only affect displayed
+formats. They do not necessarily change the process timezone inside a container.
+
 ## Debug Logs
 
 Use `GOW_DEBUG` when a container exits early or something is missing from startup logs.
