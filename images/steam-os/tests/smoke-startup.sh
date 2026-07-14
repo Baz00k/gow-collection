@@ -2,9 +2,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE_NAME="${IMAGE_NAME:-ghcr.io/baz00k/gow-collection/steam:test}"
-CONTAINER_NAME="${CONTAINER_NAME:-smoke-test-startup-steam}"
-EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../../test-results/steam}"
+IMAGE_NAME="${IMAGE_NAME:-ghcr.io/baz00k/gow-collection/steam-os:test}"
+CONTAINER_NAME="${CONTAINER_NAME:-smoke-test-startup-steam-os}"
+EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../../test-results/steam-os}"
 EVIDENCE_FILE="${EVIDENCE_DIR}/startup.txt"
 STUB_DIR=""
 
@@ -17,7 +17,7 @@ log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 
 mkdir -p "${EVIDENCE_DIR}"
 {
-    echo "=== Smoke Test: Steam Startup ==="
+    echo "=== Smoke Test: SteamOS Startup ==="
     echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
     echo "Image: ${IMAGE_NAME}"
     echo "Container: ${CONTAINER_NAME}"
@@ -467,5 +467,5 @@ for expected in \
 done
 
 echo "RESULT: PASSED" >> "${EVIDENCE_FILE}"
-log_info "Steam startup smoke test passed"
+log_info "SteamOS startup smoke test passed"
 exit 0

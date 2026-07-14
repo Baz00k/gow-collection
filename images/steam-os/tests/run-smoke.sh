@@ -2,8 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE_NAME="${IMAGE_NAME:-ghcr.io/baz00k/gow-collection/steam:test}"
-EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../../test-results/steam}"
+IMAGE_NAME="${IMAGE_NAME:-ghcr.io/baz00k/gow-collection/steam-os:test}"
+EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../../test-results/steam-os}"
 EVIDENCE_FILE="${EVIDENCE_DIR}/all.txt"
 
 GREEN='\033[0;32m'
@@ -12,7 +12,7 @@ NC='\033[0m'
 
 mkdir -p "${EVIDENCE_DIR}"
 {
-    echo "=== Smoke Test Suite: Steam ==="
+    echo "=== Smoke Test Suite: SteamOS ==="
     echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
     echo "Image: ${IMAGE_NAME}"
     echo ""
@@ -32,10 +32,10 @@ done
 
 if [[ ${FAILED} -eq 0 ]]; then
     echo "RESULT: PASSED" >> "${EVIDENCE_FILE}"
-    echo -e "${GREEN}[PASS]${NC} Steam smoke test passed"
+    echo -e "${GREEN}[PASS]${NC} SteamOS smoke test passed"
     exit 0
 fi
 
 echo "RESULT: FAILED" >> "${EVIDENCE_FILE}"
-echo -e "${RED}[FAIL]${NC} Steam smoke test failed"
+echo -e "${RED}[FAIL]${NC} SteamOS smoke test failed"
 exit 1

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Apply steam dependency updates
+# Apply SteamOS image dependency updates
 # Updates: Decky Loader version/URL/SHA256
 
 set -euo pipefail

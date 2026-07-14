@@ -1,19 +1,19 @@
-# Steam
+# SteamOS
 
-Steam packaged for Games on Whales / Wolf as a SteamOS-style session with gamescope, KDE Plasma desktop mode, Flatpak, MangoHud, GameMode, and Decky Loader.
+A SteamOS-style image for Games on Whales / Wolf, with Steam running in gamescope, KDE Plasma desktop mode, Flatpak, MangoHud, GameMode, and Decky Loader.
 
 ## Quick Start
 
 ```toml
 [[profiles.apps]]
-title = "Steam"
-icon_png_path = "https://games-on-whales.github.io/wildlife/apps/steam/assets/icon.png"
+title = "SteamOS"
+icon_png_path = "https://raw.githubusercontent.com/Baz00k/gow-collection/main/images/steam-os/assets/icon.png"
 start_virtual_compositor = true
 
 [profiles.apps.runner]
 type = "docker"
-name = "WolfSteam"
-image = "ghcr.io/baz00k/gow-collection/steam:edge"
+name = "WolfSteamOS"
+image = "ghcr.io/baz00k/gow-collection/steam-os:edge"
 mounts = []
 env = [
     "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*"

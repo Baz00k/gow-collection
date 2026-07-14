@@ -111,7 +111,7 @@ RUN flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flath
 RUN fc-cache -f -v
 
 # -----------------------------------------------------------------------------
-# Overlay (Steam-specific cont-init scripts, startup, SteamOS stubs)
+# Overlay (SteamOS session init, startup, and compatibility stubs)
 # -----------------------------------------------------------------------------
 COPY --chmod=755 overlay /
 
@@ -121,8 +121,8 @@ RUN mkdir -p /usr/games && \
 
 ARG IMAGE_SOURCE="https://github.com/Baz00k/gow-collection"
 
-LABEL org.opencontainers.image.title="Steam for Games on Whales (Fedora)"
-LABEL org.opencontainers.image.description="Fedora-based Steam with gamescope for Wolf cloud gaming"
+LABEL org.opencontainers.image.title="SteamOS for Games on Whales"
+LABEL org.opencontainers.image.description="SteamOS-style gaming environment with gamescope and KDE Plasma for Wolf"
 LABEL org.opencontainers.image.authors="Baz00k"
 LABEL org.opencontainers.image.source=$IMAGE_SOURCE
 LABEL org.opencontainers.image.licenses="GPL-3.0-only"

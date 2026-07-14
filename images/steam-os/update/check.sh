@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Check for steam dependency updates
+# Check for SteamOS image dependency updates
 # Checks: Decky Loader version
 
 set -euo pipefail
