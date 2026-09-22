@@ -85,6 +85,7 @@ At startup the container:
 | `WIVRN_PORT`           | `9757`     | TCP/UDP port the headset connects to                                   |
 | `WIVRN_APPLICATION`    | empty      | App started on headset connect, e.g. `["steam", "steam://launch/..."]` |
 | `STEAM_STARTUP_FLAGS`  | empty      | Flags passed to Steam (plain Steam, no GamepadUI by default)           |
+| `VR_OVERRIDE`          | OpenComposite path | OpenVR compatibility runtime for SteamVR games              |
 
 Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
 
@@ -110,5 +111,8 @@ headset with `WIVRN_PUBLISH=off`.
 
 ## Updates
 
-WiVRn and Steam ship from Fedora/RPM Fusion at build time. The image can be
-updated through the Wolf UI or CLI.
+The WiVRn server is built from the pinned upstream release in `build/pins.env`
+(`WIVRN_VERSION`), because the Quest client and the server versions must match
+and Fedora lags upstream. `update/check.sh` + `update/apply.sh` track new
+upstream releases automatically through `update.yml`. Steam itself updates
+through Steam. The image can be updated through the Wolf UI or CLI.
