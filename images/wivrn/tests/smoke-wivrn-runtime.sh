@@ -75,6 +75,21 @@ while IFS= read -r manifest; do
     echo "runtime library resolves: ok" >> "${EVIDENCE_FILE}"
 done <<< "${MANIFESTS}"
 
+log_info "Checking OpenComposite compat library layout..."
+# The compat path must resolve bin/linux64/vrclient.so underneath it: WiVRn
+# (active_runtime.cpp) and the OpenVR loader both append that suffix. A
+# wrong level (e.g. Fedora's /usr/lib64/opencomposite without /runtime)
+# silently drops games to desktop mode — no HMD image, no tracking.
+EXPECTED_COMPAT="$(grep '^WIVRN_OPENVR_COMPAT_PATH=' "${SCRIPT_DIR}/../build/overlay/opt/gow/wivrn-config.sh" | head -1 | grep -o '/[^"}]*' || true)"
+if [[ -z "${EXPECTED_COMPAT}" ]]; then
+    EXPECTED_COMPAT="/usr/lib64/opencomposite/runtime"
+fi
+echo "expected compat path: ${EXPECTED_COMPAT}" >> "${EVIDENCE_FILE}"
+if ! docker exec "${CONTAINER_NAME}" test -f "${EXPECTED_COMPAT}/bin/linux64/vrclient.so"; then
+    fail "OpenVR compat library missing: ${EXPECTED_COMPAT}/bin/linux64/vrclient.so not found in image"
+fi
+echo "compat vrclient.so resolves: ok" >> "${EVIDENCE_FILE}"
+
 log_info "Checking wivrn-server..."
 if ! docker exec "${CONTAINER_NAME}" wivrn-server --help >> "${EVIDENCE_FILE}" 2>&1; then
     fail "wivrn-server --help failed"

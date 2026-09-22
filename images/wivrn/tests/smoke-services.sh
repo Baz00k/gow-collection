@@ -97,7 +97,7 @@ assert config["tcp-only"] is True, config
 assert config["publish-service"] is None, config
 assert config["encoder"] == {"encoder": "vaapi", "codec": "h265"}, config
 assert config["application"] == ["steam", "steam://launch/275850/VR"], config
-assert config["openvr-compat-path"] == "/usr/lib64/opencomposite", config
+assert config["openvr-compat-path"] == "/usr/lib64/opencomposite/runtime", config
 PY
     fail "generated WiVRn config does not match explicit env"
 fi
@@ -121,7 +121,7 @@ print(json.dumps(config, indent=2))
 assert config["port"] == 9757, config
 assert config["tcp-only"] is False, config
 assert config["publish-service"] == "avahi", config
-assert config["openvr-compat-path"] == "/usr/lib64/opencomposite", config
+assert config["openvr-compat-path"] == "/usr/lib64/opencomposite/runtime", config
 assert "encoder" not in config, config
 assert "application" not in config, config
 PY
@@ -290,8 +290,8 @@ for expected in \
     "steam argv: --test-passthrough" \
     "steam PULSE_SERVER: unix:/run/user/0/pulse/native" \
     "steam PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES: 1" \
-    "steam VR_OVERRIDE: /run/host/usr/lib64/opencomposite" \
-    "wivrn VR_OVERRIDE: /run/host/usr/lib64/opencomposite" \
+    "steam VR_OVERRIDE: /run/host/usr/lib64/opencomposite/runtime" \
+    "wivrn VR_OVERRIDE: /run/host/usr/lib64/opencomposite/runtime" \
     "wivrn PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES: 1"; do
     if ! grep -qF "${expected}" "${SENTINEL_PATH}"; then
         fail "missing services evidence: ${expected}"

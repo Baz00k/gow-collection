@@ -100,7 +100,7 @@ fi
 log_info "PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=${PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES}"
 
 if [[ -z "${VR_OVERRIDE:-}" ]]; then
-    _compat="${WIVRN_OPENVR_COMPAT_PATH:-/usr/lib64/opencomposite}"
+    _compat="${WIVRN_OPENVR_COMPAT_PATH:-/usr/lib64/opencomposite/runtime}"
     _compat_lower="${_compat,,}"
     case "${_compat_lower}" in
         ""|"auto"|"off"|"none"|"null"|"disabled")
@@ -129,6 +129,18 @@ if [[ -z "${VR_OVERRIDE:-}" ]]; then
                     log_warn "Ignoring unexpected WIVRN_OPENVR_COMPAT_PATH=${_compat}; leaving VR_OVERRIDE unset"
                     ;;
             esac
+            # The compat path must contain bin/linux64/vrclient.so — that is
+            # what WiVRn (active_runtime.cpp) and the OpenVR loader resolve
+            # underneath it. A wrong level silently drops games to desktop
+            # mode (no HMD image, no tracking), so fail the check loudly.
+            # (Fedora nests it: /usr/lib64/opencomposite/runtime.)
+            if [[ -n "${VR_OVERRIDE:-}" ]]; then
+                if [[ ! -f "${_compat}/bin/linux64/vrclient.so" ]]; then
+                    log_error "OpenVR compat library missing: ${_compat}/bin/linux64/vrclient.so not found; OpenVR games will fall back to desktop mode"
+                else
+                    log_info "OpenVR compat library ok: ${_compat}/bin/linux64/vrclient.so"
+                fi
+            fi
             ;;
     esac
     unset _compat _compat_lower

@@ -15,7 +15,10 @@ WIVRN_TCP_ONLY="${WIVRN_TCP_ONLY:-false}"
 WIVRN_PUBLISH="${WIVRN_PUBLISH:-avahi}"
 WIVRN_PORT="${WIVRN_PORT:-9757}"
 WIVRN_APPLICATION="${WIVRN_APPLICATION:-}"
-WIVRN_OPENVR_COMPAT_PATH="${WIVRN_OPENVR_COMPAT_PATH:-/usr/lib64/opencomposite}"
+# NOTE: the compat path must be the directory containing bin/linux64/vrclient.so
+# (what VR_OVERRIDE and openvrpaths.vrpath "runtime" point at). Fedora's
+# opencomposite package nests it one level down: /usr/lib64/opencomposite/runtime.
+WIVRN_OPENVR_COMPAT_PATH="${WIVRN_OPENVR_COMPAT_PATH:-/usr/lib64/opencomposite/runtime}"
 
 if ! [[ "${WIVRN_PORT}" =~ ^[0-9]+$ ]]; then
     log_error "WIVRN_PORT must be numeric, got: '${WIVRN_PORT}'"
@@ -42,7 +45,7 @@ tcp_only_raw = os.environ.get("WIVRN_TCP_ONLY", "false").strip().lower()
 publish_raw = os.environ.get("WIVRN_PUBLISH", "avahi").strip().lower()
 port_raw = os.environ.get("WIVRN_PORT", "9757").strip()
 application_raw = os.environ.get("WIVRN_APPLICATION", "").strip()
-compat_raw = os.environ.get("WIVRN_OPENVR_COMPAT_PATH", "/usr/lib64/opencomposite").strip()
+compat_raw = os.environ.get("WIVRN_OPENVR_COMPAT_PATH", "/usr/lib64/opencomposite/runtime").strip()
 config_file = os.environ["CONFIG_FILE"]
 
 

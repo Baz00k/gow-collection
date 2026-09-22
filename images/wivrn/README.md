@@ -98,7 +98,7 @@ At startup the container:
 | `WIVRN_PUBLISH`        | `avahi`    | `avahi` publishes over mDNS; `off` requires manual address entry       |
 | `WIVRN_PORT`           | `9757`     | TCP/UDP port the headset connects to                                   |
 | `WIVRN_APPLICATION`    | empty      | App started on headset connect, e.g. `["steam", "steam://launch/..."]` |
-| `WIVRN_OPENVR_COMPAT_PATH` | `/usr/lib64/opencomposite` | OpenVR compatibility tool dir managed by WiVRn (`auto` = autodetect, `off` = don't manage) |
+| `WIVRN_OPENVR_COMPAT_PATH` | `/usr/lib64/opencomposite/runtime` | OpenVR compatibility tool dir managed by WiVRn (`auto` = autodetect, `off` = don't manage). Must be the directory containing `bin/linux64/vrclient.so` — Fedora nests it one level down under `/usr/lib64/opencomposite/` |
 | `STEAM_STARTUP_FLAGS`  | empty      | Flags passed to Steam (plain Steam, no GamepadUI by default)           |
 | `VR_OVERRIDE`          | auto-translated | Explicit override for the OpenVR runtime path (leave empty; derived from `WIVRN_OPENVR_COMPAT_PATH` with the `/usr` → `/run/host/usr` Pressure Vessel translation) |
 
