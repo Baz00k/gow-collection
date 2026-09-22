@@ -175,6 +175,8 @@ set -euo pipefail
 echo "wivrn-server stub invoked" >> "${STARTUP_SENTINEL:?}"
 echo "wivrn argv: $*" >> "${STARTUP_SENTINEL:?}"
 echo "wivrn PULSE_SERVER: ${PULSE_SERVER:-unset}" >> "${STARTUP_SENTINEL:?}"
+echo "wivrn VR_OVERRIDE: ${VR_OVERRIDE:-unset}" >> "${STARTUP_SENTINEL:?}"
+echo "wivrn PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES: ${PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES:-unset}" >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/wivrn-server"
 
@@ -278,12 +280,19 @@ if ! [[ "${DBUS_LINE}" -lt "${PIPEWIRE_LINE}" && "${DBUS_LINE}" -lt "${PULSE_LIN
 fi
 echo "service ordering: ok" >> "${EVIDENCE_FILE}"
 
+# The OpenVR compat path (/usr/...) must be translated for the Pressure
+# Vessel sandbox (/run/host prefix) so OpenVR games find OpenComposite
+# instead of silently falling back to desktop mode (no HMD image, no
+# tracking). Both wivrn-server (headset-initiated launches inherit its
+# environment) and Steam must see the translated value.
 for expected in \
     "gamescope argv: --backend wayland -b -w 1920 -h 1080 -W 1920 -H 1080 -r 60 -e --steam --mangoapp -- steam --test-passthrough" \
     "steam argv: --test-passthrough" \
     "steam PULSE_SERVER: unix:/run/user/0/pulse/native" \
     "steam PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES: 1" \
-    "steam VR_OVERRIDE: unset"; do
+    "steam VR_OVERRIDE: /run/host/usr/lib64/opencomposite" \
+    "wivrn VR_OVERRIDE: /run/host/usr/lib64/opencomposite" \
+    "wivrn PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES: 1"; do
     if ! grep -qF "${expected}" "${SENTINEL_PATH}"; then
         fail "missing services evidence: ${expected}"
     fi

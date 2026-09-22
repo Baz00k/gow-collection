@@ -49,11 +49,24 @@ wait_for_socket() {
     log_info "${label} ready at ${socket_path}"
 }
 
+# Poll the kernel socket tables instead of opening a TCP connection: a
+# /dev/tcp probe would be accepted by wivrn-server as a headset handshake
+# and log a spurious "Client connection failed: Socket shutdown" on boot.
 wait_for_port() {
     local port="$1"
-    local start now
+    local port_hex start now
+    port_hex="$(printf '%04X' "${port}")"
     start="$(date +%s)"
-    while ! (echo > "/dev/tcp/127.0.0.1/${port}") 2>/dev/null; do
+    while true; do
+        if command -v ss >/dev/null 2>&1; then
+            if ss -ltn 2>/dev/null | grep -qE ":${port}([[:space:]]|$)"; then
+                log_info "wivrn-server listening on port ${port}"
+                return 0
+            fi
+        elif grep -qiE ":${port_hex}[[:space:]]+[0-9A-Fa-f:.]+[[:space:]]+0A" /proc/net/tcp /proc/net/tcp6 2>/dev/null; then
+            log_info "wivrn-server listening on port ${port}"
+            return 0
+        fi
         now="$(date +%s)"
         if (( now - start >= WIVRN_WAIT_TIMEOUT )); then
             log_warn "wivrn-server port ${port} did not open; continuing anyway"
@@ -61,11 +74,68 @@ wait_for_port() {
         fi
         sleep 1
     done
-    log_info "wivrn-server listening on port ${port}"
 }
 
 # --- WiVRn runtime config ---------------------------------------------------
 /opt/gow/wivrn-config.sh
+
+# --- Steam / Pressure Vessel integration ------------------------------------
+# Steam sandboxes games with Pressure Vessel, which hides the host /usr
+# (games see it as /run/host/usr) and does not pass the OpenXR runtime
+# through unless asked. Upstream WiVRn prints the required per-game launch
+# options at startup ("For Steam games, set command to ... %command%"),
+# but in this container Steam only runs here, so apply them globally:
+# every game inherits them and no per-game launch options are needed.
+#
+# This mirrors upstream WiVRn server/main.cpp steam_command():
+#   /usr/... -> VR_OVERRIDE=/run/host/usr/... (host /usr is remapped)
+#   $HOME/... -> usable as-is (home is shared into the sandbox)
+#   anything else absolute -> passthrough via PRESSURE_VESSEL_FILESYSTEMS_RW
+# An explicit VR_OVERRIDE from the environment is always respected.
+# These exports must happen BEFORE wivrn-server starts so headset-initiated
+# launches (which inherit the server environment) get them too.
+if [[ -z "${PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES:-}" ]]; then
+    export PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=1
+fi
+log_info "PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=${PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES}"
+
+if [[ -z "${VR_OVERRIDE:-}" ]]; then
+    _compat="${WIVRN_OPENVR_COMPAT_PATH:-/usr/lib64/opencomposite}"
+    _compat_lower="${_compat,,}"
+    case "${_compat_lower}" in
+        ""|"auto"|"off"|"none"|"null"|"disabled")
+            log_info "OpenVR compat management disabled (WIVRN_OPENVR_COMPAT_PATH=${_compat}); leaving VR_OVERRIDE unset"
+            ;;
+        *)
+            case "${_compat}" in
+                /usr/*)
+                    export VR_OVERRIDE="/run/host${_compat}"
+                    log_info "VR_OVERRIDE=${VR_OVERRIDE} (translated for Pressure Vessel)"
+                    ;;
+                "${HOME}"/*)
+                    export VR_OVERRIDE="${_compat}"
+                    log_info "VR_OVERRIDE=${VR_OVERRIDE} (under HOME, shared into sandbox as-is)"
+                    ;;
+                /*)
+                    export VR_OVERRIDE="${_compat}"
+                    if [[ -z "${PRESSURE_VESSEL_FILESYSTEMS_RW:-}" ]]; then
+                        export PRESSURE_VESSEL_FILESYSTEMS_RW="${_compat}"
+                    else
+                        export PRESSURE_VESSEL_FILESYSTEMS_RW="${PRESSURE_VESSEL_FILESYSTEMS_RW}:${_compat}"
+                    fi
+                    log_warn "OpenVR compat path ${_compat} is outside /usr and HOME; exported VR_OVERRIDE as-is and added to PRESSURE_VESSEL_FILESYSTEMS_RW"
+                    ;;
+                *)
+                    log_warn "Ignoring unexpected WIVRN_OPENVR_COMPAT_PATH=${_compat}; leaving VR_OVERRIDE unset"
+                    ;;
+            esac
+            ;;
+    esac
+    unset _compat _compat_lower
+else
+    export VR_OVERRIDE
+    log_info "VR_OVERRIDE=${VR_OVERRIDE} (explicit override)"
+fi
 
 # --- Audio: PipeWire + WirePlumber (replaces Wolf's PulseAudio) -------------
 log_info "Starting PipeWire audio"
@@ -90,19 +160,6 @@ log_info "Starting wivrn-server (port ${WIVRN_PORT})"
 wivrn-server &
 track_pid "$!"
 wait_for_port "${WIVRN_PORT}"
-
-# Steam (Pressure Vessel) only imports host OpenXR runtimes when told to.
-export PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=1
-
-# Point OpenVR games at the OpenComposite compatibility runtime. WiVRn manages
-# openvrpaths.vrpath itself once openvr-compat-path is configured (see
-# wivrn-config.sh), so leave this unset by default: inside Steam's
-# Pressure Vessel sandbox the host path must be /run/host-prefixed, and a
-# wrong global value would override WiVRn's own per-launch setup.
-if [[ -n "${VR_OVERRIDE:-}" ]]; then
-    export VR_OVERRIDE
-    log_info "VR_OVERRIDE=${VR_OVERRIDE}"
-fi
 
 # --- Steam inside gamescope ---------------------------------------------------
 read -r -a STEAM_ARGS <<< "${STEAM_STARTUP_FLAGS}"

@@ -66,6 +66,14 @@ launch a VR game from Steam.
 > or OpenXR games directly instead: OpenVR calls are translated to OpenXR by
 > OpenComposite, which WiVRn configures automatically
 > (`WIVRN_OPENVR_COMPAT_PATH`).
+>
+> **No per-game launch options needed.** Upstream WiVRn prints a
+> `... %command%` prefix (`PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=1` plus
+> `VR_OVERRIDE=/run/host/...`) for Steam games. This container applies both
+> globally before `wivrn-server` and Steam start, so every game — including
+> launches triggered from the headset — inherits them. If a game starts on
+> the virtual screen with no HMD image and no tracking, it fell back to
+> desktop mode: check the startup logs for the `VR_OVERRIDE=...` line.
 
 ## How It Works
 
@@ -92,7 +100,7 @@ At startup the container:
 | `WIVRN_APPLICATION`    | empty      | App started on headset connect, e.g. `["steam", "steam://launch/..."]` |
 | `WIVRN_OPENVR_COMPAT_PATH` | `/usr/lib64/opencomposite` | OpenVR compatibility tool dir managed by WiVRn (`auto` = autodetect, `off` = don't manage) |
 | `STEAM_STARTUP_FLAGS`  | empty      | Flags passed to Steam (plain Steam, no GamepadUI by default)           |
-| `VR_OVERRIDE`          | empty      | Override OpenVR runtime path (leave empty; WiVRn manages this once the compat path is set) |
+| `VR_OVERRIDE`          | auto-translated | Explicit override for the OpenVR runtime path (leave empty; derived from `WIVRN_OPENVR_COMPAT_PATH` with the `/usr` → `/run/host/usr` Pressure Vessel translation) |
 
 Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
 
