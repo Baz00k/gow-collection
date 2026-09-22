@@ -1,0 +1,100 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IMAGE_NAME="${IMAGE_NAME:-ghcr.io/baz00k/gow-collection/wivrn:test}"
+CONTAINER_NAME="${CONTAINER_NAME:-smoke-test-wivrn-runtime}"
+EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../../test-results/wivrn}"
+EVIDENCE_FILE="${EVIDENCE_DIR}/wivrn-runtime.txt"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+log_info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
+log_warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
+
+mkdir -p "${EVIDENCE_DIR}"
+{
+    echo "=== Smoke Test: WiVRn Runtime ==="
+    echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+    echo "Image: ${IMAGE_NAME}"
+    echo "Container: ${CONTAINER_NAME}"
+    echo ""
+} > "${EVIDENCE_FILE}"
+
+# shellcheck disable=SC2329 # Invoked via trap.
+cleanup() {
+    docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+fail() {
+    log_error "$1"
+    echo "RESULT: FAILED ($1)" >> "${EVIDENCE_FILE}"
+    exit 1
+}
+
+if ! docker image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
+    fail "image not found"
+fi
+
+log_info "Starting container..."
+docker run -d --entrypoint "" --name "${CONTAINER_NAME}" "${IMAGE_NAME}" sleep infinity >/dev/null
+sleep 2
+
+if [[ "$(docker inspect --format='{{.State.Status}}' "${CONTAINER_NAME}")" != "running" ]]; then
+    fail "container not running"
+fi
+
+log_info "Checking OpenXR runtime manifest..."
+MANIFESTS="$(docker exec "${CONTAINER_NAME}" sh -c 'find /usr/share/openxr -iname "*wivrn*.json" 2>/dev/null' || true)"
+if [[ -z "${MANIFESTS}" ]]; then
+    fail "no WiVRn OpenXR manifest found under /usr/share/openxr"
+fi
+echo "manifests:" >> "${EVIDENCE_FILE}"
+echo "${MANIFESTS}" >> "${EVIDENCE_FILE}"
+
+while IFS= read -r manifest; do
+    [[ -z "${manifest}" ]] && continue
+    if ! docker exec "${CONTAINER_NAME}" /usr/bin/python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "${manifest}"; then
+        fail "manifest is not valid JSON: ${manifest}"
+    fi
+    LIBRARY="$(docker exec "${CONTAINER_NAME}" /usr/bin/python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["runtime"]["library_path"])' "${manifest}" || true)"
+    if [[ -z "${LIBRARY}" ]]; then
+        fail "manifest has no runtime.library_path: ${manifest}"
+    fi
+    echo "library_path: ${LIBRARY}" >> "${EVIDENCE_FILE}"
+    MANIFEST_DIR="$(dirname "${manifest}")"
+    if ! docker exec "${CONTAINER_NAME}" sh -c \
+        "test -f '${LIBRARY}' || test -f '${MANIFEST_DIR}/${LIBRARY}' || test -f '/usr/lib64/${LIBRARY}' || test -f '/usr/lib64/wivrn/${LIBRARY}'"; then
+        fail "OpenXR runtime library missing: ${LIBRARY}"
+    fi
+    echo "runtime library resolves: ok" >> "${EVIDENCE_FILE}"
+done <<< "${MANIFESTS}"
+
+log_info "Checking wivrn-server..."
+if ! docker exec "${CONTAINER_NAME}" wivrn-server --help >> "${EVIDENCE_FILE}" 2>&1; then
+    fail "wivrn-server --help failed"
+fi
+echo "wivrn-server --help: ok" >> "${EVIDENCE_FILE}"
+
+log_info "Checking wivrnctl..."
+if ! docker exec "${CONTAINER_NAME}" wivrnctl --help >> "${EVIDENCE_FILE}" 2>&1; then
+    fail "wivrnctl --help failed"
+fi
+echo "wivrnctl --help: ok" >> "${EVIDENCE_FILE}"
+
+log_info "Checking Vulkan loader (software rendering is acceptable)..."
+if docker exec "${CONTAINER_NAME}" vulkaninfo --summary >> "${EVIDENCE_FILE}" 2>&1; then
+    echo "vulkaninfo --summary: ok" >> "${EVIDENCE_FILE}"
+else
+    log_warn "vulkaninfo --summary failed; GPU-dependent, not fatal"
+    echo "vulkaninfo --summary: WARN (see output above)" >> "${EVIDENCE_FILE}"
+fi
+
+echo "RESULT: PASSED" >> "${EVIDENCE_FILE}"
+log_info "WiVRn runtime smoke test passed"
+exit 0

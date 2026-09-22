@@ -1,0 +1,5 @@
+{
+  "port": 9757,
+  "tcp-only": false,
+  "publish-service": "avahi"
+}
