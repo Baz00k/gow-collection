@@ -94,9 +94,15 @@ wait_for_port "${WIVRN_PORT}"
 # Steam (Pressure Vessel) only imports host OpenXR runtimes when told to.
 export PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=1
 
-# Point OpenVR games at the OpenComposite compatibility runtime, as suggested
-# by wivrn-server itself at startup. Overridable per game if needed.
-export VR_OVERRIDE="${VR_OVERRIDE:-/usr/lib64/opencomposite/runtime}"
+# Point OpenVR games at the OpenComposite compatibility runtime. WiVRn manages
+# openvrpaths.vrpath itself once openvr-compat-path is configured (see
+# wivrn-config.sh), so leave this unset by default: inside Steam's
+# Pressure Vessel sandbox the host path must be /run/host-prefixed, and a
+# wrong global value would override WiVRn's own per-launch setup.
+if [[ -n "${VR_OVERRIDE:-}" ]]; then
+    export VR_OVERRIDE
+    log_info "VR_OVERRIDE=${VR_OVERRIDE}"
+fi
 
 # --- Steam inside gamescope ---------------------------------------------------
 read -r -a STEAM_ARGS <<< "${STEAM_STARTUP_FLAGS}"

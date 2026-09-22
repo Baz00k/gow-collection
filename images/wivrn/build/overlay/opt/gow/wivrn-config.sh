@@ -15,6 +15,7 @@ WIVRN_TCP_ONLY="${WIVRN_TCP_ONLY:-false}"
 WIVRN_PUBLISH="${WIVRN_PUBLISH:-avahi}"
 WIVRN_PORT="${WIVRN_PORT:-9757}"
 WIVRN_APPLICATION="${WIVRN_APPLICATION:-}"
+WIVRN_OPENVR_COMPAT_PATH="${WIVRN_OPENVR_COMPAT_PATH:-/usr/lib64/opencomposite}"
 
 if ! [[ "${WIVRN_PORT}" =~ ^[0-9]+$ ]]; then
     log_error "WIVRN_PORT must be numeric, got: '${WIVRN_PORT}'"
@@ -25,7 +26,7 @@ CONFIG_DIR="${HOME:-/home/retro}/.config/wivrn"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 mkdir -p "${CONFIG_DIR}"
 
-export WIVRN_ENCODER WIVRN_CODEC WIVRN_TCP_ONLY WIVRN_PUBLISH WIVRN_PORT WIVRN_APPLICATION CONFIG_FILE
+export WIVRN_ENCODER WIVRN_CODEC WIVRN_TCP_ONLY WIVRN_PUBLISH WIVRN_PORT WIVRN_APPLICATION WIVRN_OPENVR_COMPAT_PATH CONFIG_FILE
 
 /usr/bin/python3 <<'PY'
 import json
@@ -41,6 +42,7 @@ tcp_only_raw = os.environ.get("WIVRN_TCP_ONLY", "false").strip().lower()
 publish_raw = os.environ.get("WIVRN_PUBLISH", "avahi").strip().lower()
 port_raw = os.environ.get("WIVRN_PORT", "9757").strip()
 application_raw = os.environ.get("WIVRN_APPLICATION", "").strip()
+compat_raw = os.environ.get("WIVRN_OPENVR_COMPAT_PATH", "/usr/lib64/opencomposite").strip()
 config_file = os.environ["CONFIG_FILE"]
 
 
@@ -82,6 +84,15 @@ if codec:
         config["encoder"] = {"encoder": encoder, "codec": codec}
 elif encoder != "auto":
     config["encoder"] = encoder
+
+if compat_raw.lower() in ("", "auto"):
+    pass
+elif compat_raw.lower() in ("off", "none", "null", "disabled"):
+    config["openvr-compat-path"] = None
+elif compat_raw.startswith("/"):
+    config["openvr-compat-path"] = compat_raw
+else:
+    fail(f"WIVRN_OPENVR_COMPAT_PATH must be an absolute path, 'auto', or 'off', got: '{compat_raw}'")
 
 if application_raw:
     if application_raw.startswith("["):

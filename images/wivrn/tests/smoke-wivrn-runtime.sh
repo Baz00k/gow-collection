@@ -92,6 +92,21 @@ if ! grep -qF "${EXPECTED_VERSION}" <<< "${SERVER_VERSION}"; then
 fi
 echo "wivrn-server version ${EXPECTED_VERSION}: ok" >> "${EVIDENCE_FILE}"
 
+log_info "Checking OpenComposite compat detection..."
+if ! docker exec "${CONTAINER_NAME}" sh -c 'mkdir -p /run/dbus && dbus-daemon --system --fork --nosyslog'; then
+    fail "could not start system D-Bus for compat probe"
+fi
+if ! docker exec -e HOME=/tmp/compat-test "${CONTAINER_NAME}" /opt/gow/wivrn-config.sh >> "${EVIDENCE_FILE}" 2>&1; then
+    fail "wivrn-config.sh failed for compat probe"
+fi
+COMPAT_LOG="$(docker exec -e HOME=/tmp/compat-test -e XDG_RUNTIME_DIR=/tmp/wxdg "${CONTAINER_NAME}" \
+    sh -c 'dbus-run-session -- timeout 10 wivrn-server 2>&1' || true)"
+echo "${COMPAT_LOG}" >> "${EVIDENCE_FILE}"
+if ! grep -qF 'VR_OVERRIDE=/run/host/usr/lib64/opencomposite' <<< "${COMPAT_LOG}"; then
+    fail "wivrn-server did not pick up OpenComposite from openvr-compat-path"
+fi
+echo "OpenComposite compat detected: ok" >> "${EVIDENCE_FILE}"
+
 log_info "Checking wivrnctl..."
 if ! docker exec "${CONTAINER_NAME}" wivrnctl --help >> "${EVIDENCE_FILE}" 2>&1; then
     fail "wivrnctl --help failed"

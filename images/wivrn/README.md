@@ -61,6 +61,12 @@ ports = [
 Then install the WiVRn client app on the headset, connect to the server, and
 launch a VR game from Steam.
 
+> **Don't launch SteamVR itself** — WiVRn only provides an OpenXR runtime and
+> there is no SteamVR HMD driver, so SteamVR exits immediately. Launch OpenVR
+> or OpenXR games directly instead: OpenVR calls are translated to OpenXR by
+> OpenComposite, which WiVRn configures automatically
+> (`WIVRN_OPENVR_COMPAT_PATH`).
+
 ## How It Works
 
 At startup the container:
@@ -84,8 +90,9 @@ At startup the container:
 | `WIVRN_PUBLISH`        | `avahi`    | `avahi` publishes over mDNS; `off` requires manual address entry       |
 | `WIVRN_PORT`           | `9757`     | TCP/UDP port the headset connects to                                   |
 | `WIVRN_APPLICATION`    | empty      | App started on headset connect, e.g. `["steam", "steam://launch/..."]` |
+| `WIVRN_OPENVR_COMPAT_PATH` | `/usr/lib64/opencomposite` | OpenVR compatibility tool dir managed by WiVRn (`auto` = autodetect, `off` = don't manage) |
 | `STEAM_STARTUP_FLAGS`  | empty      | Flags passed to Steam (plain Steam, no GamepadUI by default)           |
-| `VR_OVERRIDE`          | OpenComposite path | OpenVR compatibility runtime for SteamVR games              |
+| `VR_OVERRIDE`          | empty      | Override OpenVR runtime path (leave empty; WiVRn manages this once the compat path is set) |
 
 Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
 
