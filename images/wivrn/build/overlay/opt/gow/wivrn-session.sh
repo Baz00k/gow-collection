@@ -94,6 +94,10 @@ wait_for_port "${WIVRN_PORT}"
 # Steam (Pressure Vessel) only imports host OpenXR runtimes when told to.
 export PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=1
 
+# Point OpenVR games at the OpenComposite compatibility runtime, as suggested
+# by wivrn-server itself at startup. Overridable per game if needed.
+export VR_OVERRIDE="${VR_OVERRIDE:-/usr/lib64/opencomposite/runtime}"
+
 # --- Steam inside gamescope ---------------------------------------------------
 read -r -a STEAM_ARGS <<< "${STEAM_STARTUP_FLAGS}"
 

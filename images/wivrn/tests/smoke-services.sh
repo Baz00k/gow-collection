@@ -203,6 +203,7 @@ echo "steam stub invoked" >> "${STARTUP_SENTINEL:?}"
 echo "steam argv: $*" >> "${STARTUP_SENTINEL:?}"
 echo "steam PULSE_SERVER: ${PULSE_SERVER:-unset}" >> "${STARTUP_SENTINEL:?}"
 echo "steam PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES: ${PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES:-unset}" >> "${STARTUP_SENTINEL:?}"
+echo "steam VR_OVERRIDE: ${VR_OVERRIDE:-unset}" >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/steam"
 
@@ -279,7 +280,8 @@ for expected in \
     "gamescope argv: --backend wayland -b -w 1920 -h 1080 -W 1920 -H 1080 -r 60 -e --steam --mangoapp -- steam --test-passthrough" \
     "steam argv: --test-passthrough" \
     "steam PULSE_SERVER: unix:/run/user/0/pulse/native" \
-    "steam PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES: 1"; do
+    "steam PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES: 1" \
+    "steam VR_OVERRIDE: /usr/lib64/opencomposite/runtime"; do
     if ! grep -qF "${expected}" "${SENTINEL_PATH}"; then
         fail "missing services evidence: ${expected}"
     fi

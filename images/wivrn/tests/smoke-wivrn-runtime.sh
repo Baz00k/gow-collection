@@ -81,6 +81,17 @@ if ! docker exec "${CONTAINER_NAME}" wivrn-server --help >> "${EVIDENCE_FILE}" 2
 fi
 echo "wivrn-server --help: ok" >> "${EVIDENCE_FILE}"
 
+EXPECTED_VERSION="$(grep '^WIVRN_VERSION=' "${SCRIPT_DIR}/../build/pins.env" | head -1 | cut -d= -f2- || true)"
+if [[ -z "${EXPECTED_VERSION}" ]]; then
+    fail "WIVRN_VERSION pin missing"
+fi
+SERVER_VERSION="$(docker exec "${CONTAINER_NAME}" wivrn-server --version 2>&1 || true)"
+echo "wivrn-server version output: ${SERVER_VERSION}" >> "${EVIDENCE_FILE}"
+if ! grep -qF "${EXPECTED_VERSION}" <<< "${SERVER_VERSION}"; then
+    fail "wivrn-server version does not match pinned WIVRN_VERSION=${EXPECTED_VERSION} (client and server versions must match)"
+fi
+echo "wivrn-server version ${EXPECTED_VERSION}: ok" >> "${EVIDENCE_FILE}"
+
 log_info "Checking wivrnctl..."
 if ! docker exec "${CONTAINER_NAME}" wivrnctl --help >> "${EVIDENCE_FILE}" 2>&1; then
     fail "wivrnctl --help failed"
