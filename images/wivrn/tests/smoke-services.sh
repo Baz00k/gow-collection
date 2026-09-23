@@ -149,6 +149,11 @@ STUB_DIR="$(mktemp -d "${EVIDENCE_DIR}/services-stub.XXXXXX")"
 SENTINEL_PATH="${STUB_DIR}/invoked"
 RUN_LOG="${STUB_DIR}/docker-run.log"
 
+# Fedora Steam can leave the first root WiVRn discovers empty while storing
+# the VR manifest in the second root. Reproduce that layout for startup.
+mkdir -p "${STUB_DIR}/home/.steam/debian-installation" "${STUB_DIR}/home/.local/share/Steam/config"
+echo '{"applications":[{"app_key":"steam.app.546560"}]}' > "${STUB_DIR}/home/.local/share/Steam/config/steamapps.vrmanifest"
+
 cat > "${STUB_DIR}/dbus-run-session" <<'EOF'
 #!/bin/bash
 set -euo pipefail
@@ -215,6 +220,7 @@ set +e
 docker run \
     --rm \
     -e PUID=0 \
+    -e HOME=/tmp/smoke/home \
     -e STARTUP_SENTINEL=/tmp/smoke/invoked \
     -e STEAM_STARTUP_FLAGS="--test-passthrough" \
     -e WIVRN_PORT=19757 \
@@ -243,6 +249,12 @@ fi
 if [[ ! -f "${SENTINEL_PATH}" ]]; then
     fail "service stubs were not invoked"
 fi
+
+if [[ ! -L "${STUB_DIR}/home/.steam/debian-installation/config/steamapps.vrmanifest" ]] || \
+    ! grep -qF 'steam.app.546560' "${STUB_DIR}/home/.steam/debian-installation/config/steamapps.vrmanifest"; then
+    fail "WiVRn's first Steam root does not resolve the VR manifest from Fedora Steam"
+fi
+echo "Steam VR manifest discovery: ok" >> "${EVIDENCE_FILE}"
 
 # The audio daemons start concurrently, so their relative order is up to the
 # scheduler. Assert group ordering instead: session bus first, then the whole

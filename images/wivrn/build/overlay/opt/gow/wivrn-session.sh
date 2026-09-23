@@ -79,6 +79,20 @@ wait_for_port() {
 # --- WiVRn runtime config ---------------------------------------------------
 /opt/gow/wivrn-config.sh
 
+# WiVRn 26.9 chooses the first existing Steam root in this order:
+# ~/.steam/debian-installation, then ~/.local/share/Steam. Fedora Steam may
+# create the former as an empty directory while writing the VR manifest to
+# the latter. Let WiVRn see the real manifest without modifying either Steam
+# installation or replacing a manifest that already exists at the first root.
+STEAM_VR_MANIFEST="${HOME}/.local/share/Steam/config/steamapps.vrmanifest"
+DEBIAN_STEAM_ROOT="${HOME}/.steam/debian-installation"
+if [[ -d "${DEBIAN_STEAM_ROOT}" && ! -e "${DEBIAN_STEAM_ROOT}/config/steamapps.vrmanifest" && ! -L "${DEBIAN_STEAM_ROOT}/config/steamapps.vrmanifest" && -f "${STEAM_VR_MANIFEST}" ]]; then
+    mkdir -p "${DEBIAN_STEAM_ROOT}/config"
+    # Relative target also resolves through Wolf's bind-mounted home in tests.
+    ln -s "../../../.local/share/Steam/config/steamapps.vrmanifest" "${DEBIAN_STEAM_ROOT}/config/steamapps.vrmanifest"
+    log_info "Linked Steam VR manifest for WiVRn app discovery"
+fi
+
 # --- Steam / Pressure Vessel integration ------------------------------------
 # Steam sandboxes games with Pressure Vessel, which hides the host /usr
 # (games see it as /run/host/usr) and does not pass the OpenXR runtime
