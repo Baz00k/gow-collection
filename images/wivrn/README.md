@@ -126,6 +126,9 @@ headset with `WIVRN_PUBLISH=off`.
 
 ## Per-Game Notes
 
+The [Alyx compatibility investigation](../../docs/wivrn-alyx.md) records the
+tested stack, exact xrizer artifact, failures, and how to update it.
+
 - **Half-Life: Alyx ships a native Linux build**, and Steam runs it instead of
   Proton by default. The native build's OpenVR startup does not work with
   WiVRn/OpenComposite — it exits immediately. Force the Windows build instead:
