@@ -124,6 +124,23 @@ headset with `WIVRN_PUBLISH=off`.
   is why host networking is recommended.
 - Steam itself updates through Steam. The image can be updated through the Wolf UI or CLI.
 
+## Per-Game Notes
+
+- **Half-Life: Alyx ships a native Linux build**, and Steam runs it instead of
+  Proton by default. The native build's OpenVR startup does not work with
+  WiVRn/OpenComposite — it exits immediately. Force the Windows build instead:
+  Steam → Half-Life: Alyx → Properties → Compatibility → check "Force the use
+  of a specific Steam Play compatibility tool" → Proton Experimental (Proton 9
+  and GE-Proton are also reported working). The same applies to any VR game
+  that exits immediately while offering a native Linux build: when in doubt,
+  force Proton.
+- The headset app list only shows Steam's VR-flagged titles and is refreshed
+  when Steam (re)starts — restart Steam after installing a game or changing
+  its compatibility setting if it doesn't show up.
+- Alyx's first Proton launch takes a while (shader processing), and loading
+  screens may stay black while audio plays. That is a known harmless quirk,
+  not the desktop-fallback bug: tracking and image appear once the menu loads.
+
 ## Updates
 
 The WiVRn server is built from the pinned upstream release in `build/pins.env`
