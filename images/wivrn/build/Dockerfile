@@ -11,6 +11,8 @@ ARG RPMFUSION_NONFREE_SHA256
 ARG WIVRN_VERSION
 ARG WIVRN_TARBALL_URL
 ARG WIVRN_TARBALL_SHA256
+ARG XRIZER_RPM_URL
+ARG XRIZER_RPM_SHA256
 
 # -----------------------------------------------------------------------------
 # RPM Fusion Setup
@@ -101,6 +103,18 @@ dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
 dnf clean all
 rm -rf /var/cache/dnf
 _INSTALL_PACKAGES
+
+# Install a pinned XR SIG build of xrizer alongside Fedora OpenComposite.
+# Fedora's OpenComposite is the proven default for VRChat, while this xrizer
+# build implements IVRSystem_026 needed by newer OpenVR clients. Select it
+# per game with VR_OVERRIDE=/run/host/usr/lib64/xrizer/runtime.
+RUN curl -fsSL --retry 5 --retry-all-errors -o /tmp/xrizer.rpm "${XRIZER_RPM_URL}" && \
+    echo "${XRIZER_RPM_SHA256}  /tmp/xrizer.rpm" | sha256sum -c - && \
+    dnf install -y /tmp/xrizer.rpm && \
+    test -f /usr/lib64/xrizer/runtime/bin/linux64/vrclient.so && \
+    grep -aFq 'IVRSystem_026' /usr/lib64/xrizer/runtime/bin/linux64/vrclient.so && \
+    rm -f /tmp/xrizer.rpm && \
+    dnf clean all && rm -rf /var/cache/dnf
 
 # -----------------------------------------------------------------------------
 # WiVRn Server (source build)

@@ -139,15 +139,13 @@ headset with `WIVRN_PUBLISH=off`.
   `~/.steam/debian-installation` installation when Steam actually writes it to
   `~/.local/share/Steam`, because WiVRn checks the former first. Restart the
   WiVRn session after installing a game if it still does not appear.
-- Alyx with Proton Experimental 11, GE 11.7, or Proton 9.0-4 may fail with
+- Alyx with Proton Experimental 11, GE 11.7, or Proton 9.0-4 can fail with
   `OpenComposite DLLMain ERROR: unknown/unsupported interface IVRSystem_026`.
-  The Fedora OpenComposite in this image does not support that interface.
-  Current xrizer source implements `IVRSystem_026`; to try a current xrizer
-  build **for Alyx only**, place its runtime directory under the shared home
-  (the directory with `bin/linux64/vrclient.so`), then set Alyx's Steam launch
-  options to `VR_OVERRIDE=/home/retro/xrizer %command%` if extracted there.
-  Keep the image's OpenComposite default for other games. Remove `PROTON_LOG=1`
-  after capturing diagnostics: Wine fault loops can produce huge logs.
+  This image also installs a pinned xrizer build supporting that interface.
+  For **Alyx only**, set Steam launch options to
+  `VR_OVERRIDE=/run/host/usr/lib64/xrizer/runtime %command%` and keep the
+  working OpenComposite default for VRChat. Remove `PROTON_LOG=1` after
+  capturing diagnostics; Wine fault loops can produce huge logs.
 - Alyx's first Proton launch takes a while (shader processing), and loading
   screens may stay black while audio plays. That is a known harmless quirk,
   not the desktop-fallback bug: tracking and image appear once the menu loads.
