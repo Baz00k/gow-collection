@@ -141,11 +141,13 @@ headset with `WIVRN_PUBLISH=off`.
   WiVRn session after installing a game if it still does not appear.
 - Alyx with Proton Experimental 11, GE 11.7, or Proton 9.0-4 can fail with
   `OpenComposite DLLMain ERROR: unknown/unsupported interface IVRSystem_026`.
-  This image also installs a pinned xrizer build supporting that interface.
+  This image also installs the checksum-pinned xrizer build tested with Alyx.
   For **Alyx only**, set Steam launch options to
   `VR_OVERRIDE=/run/host/usr/lib64/xrizer/runtime %command%` and keep the
-  working OpenComposite default for VRChat. Remove `PROTON_LOG=1` after
-  capturing diagnostics; Wine fault loops can produce huge logs.
+  working OpenComposite default for VRChat. Disable headset hand tracking and
+  wake the physical controllers before connecting; with hand tracking enabled
+  Alyx lost its controllers and the OpenXR session during testing. Remove
+  `PROTON_LOG=1` after capturing diagnostics; Wine fault loops can produce huge logs.
 - Alyx's first Proton launch takes a while (shader processing), and loading
   screens may stay black while audio plays. That is a known harmless quirk,
   not the desktop-fallback bug: tracking and image appear once the menu loads.

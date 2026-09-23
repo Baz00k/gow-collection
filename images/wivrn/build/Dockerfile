@@ -11,8 +11,9 @@ ARG RPMFUSION_NONFREE_SHA256
 ARG WIVRN_VERSION
 ARG WIVRN_TARBALL_URL
 ARG WIVRN_TARBALL_SHA256
-ARG XRIZER_RPM_URL
-ARG XRIZER_RPM_SHA256
+ARG XRIZER_ZIP_URL
+ARG XRIZER_ZIP_SHA256
+ARG XRIZER_VRCLIENT_SHA256
 
 # -----------------------------------------------------------------------------
 # RPM Fusion Setup
@@ -104,17 +105,17 @@ dnf clean all
 rm -rf /var/cache/dnf
 _INSTALL_PACKAGES
 
-# Install a pinned XR SIG build of xrizer alongside Fedora OpenComposite.
-# Fedora's OpenComposite is the proven default for VRChat, while this xrizer
-# build implements IVRSystem_026 needed by newer OpenVR clients. Select it
-# per game with VR_OVERRIDE=/run/host/usr/lib64/xrizer/runtime.
-RUN curl -fsSL --retry 5 --retry-all-errors -o /tmp/xrizer.rpm "${XRIZER_RPM_URL}" && \
-    echo "${XRIZER_RPM_SHA256}  /tmp/xrizer.rpm" | sha256sum -c - && \
-    dnf install -y /tmp/xrizer.rpm && \
-    test -f /usr/lib64/xrizer/runtime/bin/linux64/vrclient.so && \
+# Install the exact xrizer artifact tested successfully with Alyx, alongside
+# Fedora OpenComposite (the default used by VRChat). Extract only the runtime
+# library, not arbitrary paths from the ZIP. Steam sees it under /run/host/usr.
+RUN curl -fsSL --retry 5 --retry-all-errors -o /tmp/xrizer.zip "${XRIZER_ZIP_URL}" && \
+    echo "${XRIZER_ZIP_SHA256}  /tmp/xrizer.zip" | sha256sum -c - && \
+    mkdir -p /usr/lib64/xrizer/runtime/bin/linux64 && \
+    python3 -c 'import shutil, sys, zipfile; z = zipfile.ZipFile(sys.argv[1]); src = z.open("xrizer/bin/linux64/vrclient.so"); dst = open(sys.argv[2], "wb"); shutil.copyfileobj(src, dst); dst.close(); src.close()' \
+        /tmp/xrizer.zip /usr/lib64/xrizer/runtime/bin/linux64/vrclient.so && \
+    echo "${XRIZER_VRCLIENT_SHA256}  /usr/lib64/xrizer/runtime/bin/linux64/vrclient.so" | sha256sum -c - && \
     grep -aFq 'IVRSystem_026' /usr/lib64/xrizer/runtime/bin/linux64/vrclient.so && \
-    rm -f /tmp/xrizer.rpm && \
-    dnf clean all && rm -rf /var/cache/dnf
+    rm -f /tmp/xrizer.zip
 
 # -----------------------------------------------------------------------------
 # WiVRn Server (source build)

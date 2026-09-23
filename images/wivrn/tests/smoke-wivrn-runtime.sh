@@ -90,12 +90,17 @@ if ! docker exec "${CONTAINER_NAME}" test -f "${EXPECTED_COMPAT}/bin/linux64/vrc
 fi
 echo "compat vrclient.so resolves: ok" >> "${EVIDENCE_FILE}"
 
-log_info "Checking pinned xrizer supports IVRSystem_026..."
+log_info "Checking tested xrizer artifact and IVRSystem_026..."
 if ! docker exec "${CONTAINER_NAME}" sh -c \
     'test -f /usr/lib64/xrizer/runtime/bin/linux64/vrclient.so && grep -aFq IVRSystem_026 /usr/lib64/xrizer/runtime/bin/linux64/vrclient.so'; then
     fail "xrizer is missing or does not contain IVRSystem_026"
 fi
-echo "xrizer IVRSystem_026: ok" >> "${EVIDENCE_FILE}"
+XRIZER_VRCLIENT_SHA256="$(grep '^XRIZER_VRCLIENT_SHA256=' "${SCRIPT_DIR}/../build/pins.env" | cut -d= -f2-)"
+if ! docker exec "${CONTAINER_NAME}" sh -c \
+    "echo '${XRIZER_VRCLIENT_SHA256}  /usr/lib64/xrizer/runtime/bin/linux64/vrclient.so' | sha256sum -c -" >> "${EVIDENCE_FILE}" 2>&1; then
+    fail "xrizer library does not match the artifact tested with Alyx"
+fi
+echo "tested xrizer artifact and IVRSystem_026: ok" >> "${EVIDENCE_FILE}"
 
 log_info "Checking wivrn-server..."
 if ! docker exec "${CONTAINER_NAME}" wivrn-server --help >> "${EVIDENCE_FILE}" 2>&1; then
