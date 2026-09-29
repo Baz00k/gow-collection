@@ -3,8 +3,7 @@
 This is the hand-tested state of the `images/wivrn` image as of September 23,
 2026. It is **not** a general claim that all versions of WiVRn, Proton, Alyx,
 or xrizer work together. Re-test on the actual headset after changing any of
-them. See `images/wivrn/build/pins.env` for the current pins and
-`images/wivrn/README.md` for the runner profile.
+them. See [the current pins](../build/pins.env) and the [runner profile](../README.md).
 
 ## Known-working path
 

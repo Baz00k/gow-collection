@@ -4,12 +4,12 @@ Ready-to-use Docker images for [Games on Whales](https://github.com/games-on-wha
 
 ## Available Images
 
-| Image                                           | What it is                                                   | Image reference                                    |
-| ----------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------- |
-| [steam-os](images/steam-os/README.md)           | SteamOS-style gaming environment with Steam and KDE Plasma   | `ghcr.io/Baz00k/gow-collection/steam-os:edge`      |
-| [wivrn](images/wivrn/README.md)                 | Native WiVRn VR streaming server with Steam                  | `ghcr.io/Baz00k/gow-collection/wivrn:edge`         |
-| [prism-offline](images/prism-offline/README.md) | Offline-capable [Prism Launcher](https://prismlauncher.org/) | `ghcr.io/Baz00k/gow-collection/prism-offline:edge` |
-| [drop-app](images/drop-app/README.md)           | [Drop](https://github.com/Drop-OSS/drop-app) desktop client  | `ghcr.io/Baz00k/gow-collection/drop-app:edge`      |
+| Image                                           | What it is                                                                    | Image reference                                    |
+| ----------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------- |
+| [steam-os](images/steam-os/README.md)           | SteamOS-style gaming environment with Steam and KDE Plasma                    | `ghcr.io/Baz00k/gow-collection/steam-os:edge`      |
+| [wivrn](images/wivrn/README.md)                 | Native [WiVRn](https://github.com/WiVRn/WiVRn) VR streaming server with Steam | `ghcr.io/Baz00k/gow-collection/wivrn:edge`         |
+| [prism-offline](images/prism-offline/README.md) | Offline-capable [Prism Launcher](https://prismlauncher.org/)                  | `ghcr.io/Baz00k/gow-collection/prism-offline:edge` |
+| [drop-app](images/drop-app/README.md)           | [Drop](https://github.com/Drop-OSS/drop-app) desktop client                   | `ghcr.io/Baz00k/gow-collection/drop-app:edge`      |
 
 ## How To Use
 

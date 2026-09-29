@@ -75,19 +75,6 @@ launch a VR game from Steam.
 > the virtual screen with no HMD image and no tracking, it fell back to
 > desktop mode: check the startup logs for the `VR_OVERRIDE=...` line.
 
-## How It Works
-
-At startup the container:
-
-1. Starts the system D-Bus daemon and Avahi (mDNS publishing) via cont-init.
-2. Generates `~/.config/wivrn/config.json` from `WIVRN_*` variables.
-3. Starts PipeWire + WirePlumber and points `PULSE_SERVER` at PipeWire,
-   replacing Wolf's PulseAudio inside this container.
-4. Starts `wivrn-server` and waits for it to listen.
-5. Exports `PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=1` so Steam's
-   Pressure Vessel container picks up the host OpenXR runtime.
-6. Launches Steam inside gamescope.
-
 ## Configuration
 
 | Variable               | Default    | Description                                                            |
@@ -122,43 +109,11 @@ headset with `WIVRN_PUBLISH=off`.
   explicitly if auto-selection misbehaves, and check the WiVRn logs.
 - Avahi publishing needs D-Bus and multicast on the container network, which
   is why host networking is recommended.
-- Steam itself updates through Steam. The image can be updated through the Wolf UI or CLI.
 
 ## Per-Game Notes
 
-The [Alyx compatibility investigation](../../docs/wivrn-alyx.md) records the
-tested stack, exact xrizer artifact, failures, and how to update it.
-
-- **Half-Life: Alyx ships a native Linux build**, and Steam runs it instead of
-  Proton by default. The native build's OpenVR startup does not work with
-  WiVRn/OpenComposite — it exits immediately. Force the Windows build instead:
-  Steam → Half-Life: Alyx → Properties → Compatibility → check "Force the use
-  of a specific Steam Play compatibility tool" → Proton Experimental (Proton 9
-  and GE-Proton are also reported working). The same applies to any VR game
-  that exits immediately while offering a native Linux build: when in doubt,
-  force Proton.
-- WiVRn reads Steam's `config/steamapps.vrmanifest` to populate the headset
-  launcher. The container links that manifest into an empty
-  `~/.steam/debian-installation` installation when Steam actually writes it to
-  `~/.local/share/Steam`, because WiVRn checks the former first. Restart the
-  WiVRn session after installing a game if it still does not appear.
-- Alyx with Proton Experimental 11, GE 11.7, or Proton 9.0-4 can fail with
-  `OpenComposite DLLMain ERROR: unknown/unsupported interface IVRSystem_026`.
-  This image also installs the checksum-pinned xrizer build tested with Alyx.
-  For **Alyx only**, set Steam launch options to
-  `VR_OVERRIDE=/run/host/usr/lib64/xrizer/runtime %command%` and keep the
-  working OpenComposite default for VRChat. Disable headset hand tracking and
-  wake the physical controllers before connecting; with hand tracking enabled
-  Alyx lost its controllers and the OpenXR session during testing. Remove
-  `PROTON_LOG=1` after capturing diagnostics; Wine fault loops can produce huge logs.
-- Alyx's first Proton launch takes a while (shader processing), and loading
-  screens may stay black while audio plays. That is a known harmless quirk,
-  not the desktop-fallback bug: tracking and image appear once the menu loads.
-
-## Updates
-
-The WiVRn server is built from the pinned upstream release in `build/pins.env`
-(`WIVRN_VERSION`), because the Quest client and the server versions must match
-and Fedora lags upstream. `update/check.sh` + `update/apply.sh` track new
-upstream releases automatically through `update.yml`. Steam itself updates
-through Steam. The image can be updated through the Wolf UI or CLI.
+For Half-Life: Alyx, force Proton instead of the native Linux build. If it fails
+with OpenComposite's `IVRSystem_026` error, use the Alyx-only Steam launch option
+`VR_OVERRIDE=/run/host/usr/lib64/xrizer/runtime %command%`. See the
+[Alyx compatibility notes](docs/wivrn-alyx.md) for tested versions, controller
+settings, and caveats.
