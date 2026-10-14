@@ -113,5 +113,4 @@ headset with `WIVRN_PUBLISH=off`.
   supported by this image.
 - OpenVR games run through a pinned xrizer release (see
   [`build/pins.env`](build/pins.env)). If one misbehaves, check the first
-  error in `~/.local/state/xrizer/xrizer.txt`. Remove any old per-game
-  `VR_OVERRIDE` launch options from earlier OpenComposite setups.
+  error in `~/.local/state/xrizer/xrizer.txt`.
