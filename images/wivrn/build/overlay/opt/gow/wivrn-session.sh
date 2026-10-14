@@ -114,10 +114,13 @@ fi
 log_info "PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=${PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES}"
 
 if [[ -z "${VR_OVERRIDE:-}" ]]; then
-    _compat="${WIVRN_OPENVR_COMPAT_PATH:-/usr/lib64/opencomposite/runtime}"
+    _compat="${WIVRN_OPENVR_COMPAT_PATH:-/opt/xrizer}"
     _compat_lower="${_compat,,}"
+    # WiVRn autodetects the packaged runtime for "auto", but Steam starts
+    # independently of wivrn-server, so resolve it here for Steam as well.
+    [[ "${_compat_lower}" == "auto" ]] && _compat=/opt/xrizer
     case "${_compat_lower}" in
-        ""|"auto"|"off"|"none"|"null"|"disabled")
+        ""|"off"|"none"|"null"|"disabled")
             log_info "OpenVR compat management disabled (WIVRN_OPENVR_COMPAT_PATH=${_compat}); leaving VR_OVERRIDE unset"
             ;;
         *)
@@ -137,7 +140,7 @@ if [[ -z "${VR_OVERRIDE:-}" ]]; then
                     else
                         export PRESSURE_VESSEL_FILESYSTEMS_RW="${PRESSURE_VESSEL_FILESYSTEMS_RW}:${_compat}"
                     fi
-                    log_warn "OpenVR compat path ${_compat} is outside /usr and HOME; exported VR_OVERRIDE as-is and added to PRESSURE_VESSEL_FILESYSTEMS_RW"
+                    log_info "VR_OVERRIDE=${VR_OVERRIDE} (outside /usr and HOME, added to PRESSURE_VESSEL_FILESYSTEMS_RW)"
                     ;;
                 *)
                     log_warn "Ignoring unexpected WIVRN_OPENVR_COMPAT_PATH=${_compat}; leaving VR_OVERRIDE unset"
@@ -147,7 +150,6 @@ if [[ -z "${VR_OVERRIDE:-}" ]]; then
             # what WiVRn (active_runtime.cpp) and the OpenVR loader resolve
             # underneath it. A wrong level silently drops games to desktop
             # mode (no HMD image, no tracking), so fail the check loudly.
-            # (Fedora nests it: /usr/lib64/opencomposite/runtime.)
             if [[ -n "${VR_OVERRIDE:-}" ]]; then
                 if [[ ! -f "${_compat}/bin/linux64/vrclient.so" ]]; then
                     log_error "OpenVR compat library missing: ${_compat}/bin/linux64/vrclient.so not found; OpenVR games will fall back to desktop mode"

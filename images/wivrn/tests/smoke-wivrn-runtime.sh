@@ -75,14 +75,14 @@ while IFS= read -r manifest; do
     echo "runtime library resolves: ok" >> "${EVIDENCE_FILE}"
 done <<< "${MANIFESTS}"
 
-log_info "Checking OpenComposite compat library layout..."
+log_info "Checking xrizer compat library layout..."
 # The compat path must resolve bin/linux64/vrclient.so underneath it: WiVRn
 # (active_runtime.cpp) and the OpenVR loader both append that suffix. A
-# wrong level (e.g. Fedora's /usr/lib64/opencomposite without /runtime)
+# wrong level (e.g. /opt/xrizer/bin instead of /opt/xrizer)
 # silently drops games to desktop mode — no HMD image, no tracking.
 EXPECTED_COMPAT="$(grep '^WIVRN_OPENVR_COMPAT_PATH=' "${SCRIPT_DIR}/../build/overlay/opt/gow/wivrn-config.sh" | head -1 | grep -o '/[^"}]*' || true)"
 if [[ -z "${EXPECTED_COMPAT}" ]]; then
-    EXPECTED_COMPAT="/usr/lib64/opencomposite/runtime"
+    fail "WIVRN_OPENVR_COMPAT_PATH default missing"
 fi
 echo "expected compat path: ${EXPECTED_COMPAT}" >> "${EVIDENCE_FILE}"
 if ! docker exec "${CONTAINER_NAME}" test -f "${EXPECTED_COMPAT}/bin/linux64/vrclient.so"; then
@@ -90,17 +90,24 @@ if ! docker exec "${CONTAINER_NAME}" test -f "${EXPECTED_COMPAT}/bin/linux64/vrc
 fi
 echo "compat vrclient.so resolves: ok" >> "${EVIDENCE_FILE}"
 
-log_info "Checking tested xrizer artifact and IVRSystem_026..."
+log_info "Checking pinned xrizer release and IVRSystem_026..."
 if ! docker exec "${CONTAINER_NAME}" sh -c \
-    'test -f /usr/lib64/xrizer/runtime/bin/linux64/vrclient.so && grep -aFq IVRSystem_026 /usr/lib64/xrizer/runtime/bin/linux64/vrclient.so'; then
+    'test -f /opt/xrizer/bin/linux64/vrclient.so && grep -aFq IVRSystem_026 /opt/xrizer/bin/linux64/vrclient.so'; then
     fail "xrizer is missing or does not contain IVRSystem_026"
 fi
 XRIZER_VRCLIENT_SHA256="$(grep '^XRIZER_VRCLIENT_SHA256=' "${SCRIPT_DIR}/../build/pins.env" | cut -d= -f2-)"
 if ! docker exec "${CONTAINER_NAME}" sh -c \
-    "echo '${XRIZER_VRCLIENT_SHA256}  /usr/lib64/xrizer/runtime/bin/linux64/vrclient.so' | sha256sum -c -" >> "${EVIDENCE_FILE}" 2>&1; then
-    fail "xrizer library does not match the artifact tested with Alyx"
+    "echo '${XRIZER_VRCLIENT_SHA256}  /opt/xrizer/bin/linux64/vrclient.so' | sha256sum -c -" >> "${EVIDENCE_FILE}" 2>&1; then
+    fail "xrizer library does not match the pinned release"
 fi
-echo "tested xrizer artifact and IVRSystem_026: ok" >> "${EVIDENCE_FILE}"
+echo "pinned xrizer release and IVRSystem_026: ok" >> "${EVIDENCE_FILE}"
+
+log_info "Checking xrizer shared-library dependencies..."
+if ! docker exec "${CONTAINER_NAME}" /usr/bin/python3 -c \
+    'import ctypes; ctypes.CDLL("/opt/xrizer/bin/linux64/vrclient.so")' >> "${EVIDENCE_FILE}" 2>&1; then
+    fail "xrizer library cannot be loaded (missing dependency or incompatible ABI)"
+fi
+echo "xrizer library loads: ok" >> "${EVIDENCE_FILE}"
 
 log_info "Checking wivrn-server..."
 if ! docker exec "${CONTAINER_NAME}" wivrn-server --help >> "${EVIDENCE_FILE}" 2>&1; then
@@ -118,21 +125,6 @@ if ! grep -qF "${EXPECTED_VERSION}" <<< "${SERVER_VERSION}"; then
     fail "wivrn-server version does not match pinned WIVRN_VERSION=${EXPECTED_VERSION} (client and server versions must match)"
 fi
 echo "wivrn-server version ${EXPECTED_VERSION}: ok" >> "${EVIDENCE_FILE}"
-
-log_info "Checking OpenComposite compat detection..."
-if ! docker exec "${CONTAINER_NAME}" sh -c 'mkdir -p /run/dbus && dbus-daemon --system --fork --nosyslog'; then
-    fail "could not start system D-Bus for compat probe"
-fi
-if ! docker exec -e HOME=/tmp/compat-test "${CONTAINER_NAME}" /opt/gow/wivrn-config.sh >> "${EVIDENCE_FILE}" 2>&1; then
-    fail "wivrn-config.sh failed for compat probe"
-fi
-COMPAT_LOG="$(docker exec -e HOME=/tmp/compat-test -e XDG_RUNTIME_DIR=/tmp/wxdg "${CONTAINER_NAME}" \
-    sh -c 'dbus-run-session -- timeout 10 wivrn-server 2>&1' || true)"
-echo "${COMPAT_LOG}" >> "${EVIDENCE_FILE}"
-if ! grep -qF 'VR_OVERRIDE=/run/host/usr/lib64/opencomposite' <<< "${COMPAT_LOG}"; then
-    fail "wivrn-server did not pick up OpenComposite from openvr-compat-path"
-fi
-echo "OpenComposite compat detected: ok" >> "${EVIDENCE_FILE}"
 
 log_info "Checking wivrnctl..."
 if ! docker exec "${CONTAINER_NAME}" wivrnctl --help >> "${EVIDENCE_FILE}" 2>&1; then
