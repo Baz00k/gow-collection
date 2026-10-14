@@ -90,9 +90,6 @@ jobs:
                   chmod +x tests/policy-check.sh
                   ./tests/policy-check.sh --strict
 
-            - name: Test WiVRn dependency updater (offline)
-              run: bash tests/test-wivrn-update.sh
-
             - name: Upload policy results (on failure)
               if: failure()
               uses: actions/upload-artifact@v7

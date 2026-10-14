@@ -85,9 +85,9 @@ launch a VR game from Steam.
 | `WIVRN_PUBLISH`        | `avahi`    | `avahi` publishes over mDNS; `off` requires manual address entry       |
 | `WIVRN_PORT`           | `9757`     | TCP/UDP port the headset connects to                                   |
 | `WIVRN_APPLICATION`    | empty      | App started on headset connect, e.g. `["steam", "steam://launch/..."]` |
-| `WIVRN_OPENVR_COMPAT_PATH` | `/opt/xrizer` | OpenVR compatibility tool dir managed by WiVRn (`auto` discovers the packaged xrizer, `off` = don't manage). Must be the directory containing `bin/linux64/vrclient.so` |
+| `WIVRN_OPENVR_COMPAT_PATH` | `/opt/xrizer` | OpenVR compatibility tool dir managed by WiVRn (`auto` = autodetect the packaged xrizer, `off` = don't manage). Must be the directory containing `bin/linux64/vrclient.so` |
 | `STEAM_STARTUP_FLAGS`  | empty      | Flags passed to Steam (plain Steam, no GamepadUI by default)           |
-| `VR_OVERRIDE`          | auto-derived | Explicit override for the OpenVR runtime path (leave empty; derived from `WIVRN_OPENVR_COMPAT_PATH`). Startup shares `/opt/xrizer` with Pressure Vessel; custom `/usr` paths use `/run/host/usr` |
+| `VR_OVERRIDE`          | auto-derived | Explicit override for the OpenVR runtime path (leave empty; derived from `WIVRN_OPENVR_COMPAT_PATH` and translated for Pressure Vessel) |
 
 Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
 
@@ -114,26 +114,19 @@ headset with `WIVRN_PUBLISH=off`.
 
 ## Per-Game Notes
 
-The image uses a checksum-pinned [xrizer release][xrizer-release] for OpenVR games,
-matching WiVRn's choice of translator in its [Flatpak distribution][wivrn-steam].
-No per-game `VR_OVERRIDE` is needed. Remove old launch options and runner
-`WIVRN_OPENVR_COMPAT_PATH` overrides that point at another translator; leave
-the runner's `VR_OVERRIDE` unset so startup derives the packaged xrizer path.
-
-The runtime is installed at `/opt/xrizer`, WiVRn's first autodetection path.
-Both the default and `WIVRN_OPENVR_COMPAT_PATH=auto` expose this path to Steam
-through `PRESSURE_VESSEL_FILESYSTEMS_RW`. The image's update scripts track
-stable WiVRn and xrizer releases and update the xrizer version, download URL,
-archive checksum, and extracted-library checksum together.
-The exact packaged versions are recorded in [`build/pins.env`](build/pins.env).
+OpenVR games use a pinned [xrizer release][xrizer-release] (the translator
+WiVRn's own [Flatpak][wivrn-steam] uses), installed at `/opt/xrizer`. No
+per-game launch options are needed; remove any old `VR_OVERRIDE` launch
+options or `WIVRN_OPENVR_COMPAT_PATH` overrides that point at another
+translator. Versions are pinned in [`build/pins.env`](build/pins.env) and
+bumped automatically with the WiVRn pin.
 
 For Half-Life: Alyx, force Proton instead of the native Linux build. If
 controllers disappear, try disabling hand tracking in the WiVRn headset app
 and wake the physical controllers before connecting.
 
 For translator failures, inspect the first error in
-`~/.local/state/xrizer/xrizer.txt` (or `$XDG_STATE_HOME/xrizer/xrizer.txt` if set).
-Image smoke tests check packaging and startup, not headset gameplay.
+`~/.local/state/xrizer/xrizer.txt` (or `$XDG_STATE_HOME/xrizer/xrizer.txt`).
 
 [xrizer-release]: https://github.com/Supreeeme/xrizer/releases
 [wivrn-steam]: https://github.com/WiVRn/WiVRn/blob/v26.9/docs/steamvr.md

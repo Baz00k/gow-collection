@@ -116,18 +116,9 @@ log_info "PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=${PRESSURE_VESSEL_IMPORT_OPEN
 if [[ -z "${VR_OVERRIDE:-}" ]]; then
     _compat="${WIVRN_OPENVR_COMPAT_PATH:-/opt/xrizer}"
     _compat_lower="${_compat,,}"
-    # WiVRn's first upstream autodetection path is the packaged runtime.
-    # Resolve it here too: Steam starts independently of wivrn-server and
-    # must inherit the same override and Pressure Vessel filesystem export.
-    if [[ "${_compat_lower}" == "auto" ]]; then
-        if [[ ! -f /opt/xrizer/bin/linux64/vrclient.so ]]; then
-            log_error "Cannot autodetect packaged xrizer: /opt/xrizer/bin/linux64/vrclient.so missing"
-            exit 1
-        fi
-        _compat=/opt/xrizer
-        _compat_lower="${_compat}"
-        log_info "Autodetected OpenVR compat path: ${_compat}"
-    fi
+    # WiVRn autodetects the packaged runtime for "auto", but Steam starts
+    # independently of wivrn-server, so resolve it here for Steam as well.
+    [[ "${_compat_lower}" == "auto" ]] && _compat=/opt/xrizer
     case "${_compat_lower}" in
         ""|"off"|"none"|"null"|"disabled")
             log_info "OpenVR compat management disabled (WIVRN_OPENVR_COMPAT_PATH=${_compat}); leaving VR_OVERRIDE unset"
@@ -149,7 +140,7 @@ if [[ -z "${VR_OVERRIDE:-}" ]]; then
                     else
                         export PRESSURE_VESSEL_FILESYSTEMS_RW="${PRESSURE_VESSEL_FILESYSTEMS_RW}:${_compat}"
                     fi
-                    log_warn "OpenVR compat path ${_compat} is outside /usr and HOME; exported VR_OVERRIDE as-is and added to PRESSURE_VESSEL_FILESYSTEMS_RW"
+                    log_info "VR_OVERRIDE=${VR_OVERRIDE} (outside /usr and HOME, added to PRESSURE_VESSEL_FILESYSTEMS_RW)"
                     ;;
                 *)
                     log_warn "Ignoring unexpected WIVRN_OPENVR_COMPAT_PATH=${_compat}; leaving VR_OVERRIDE unset"

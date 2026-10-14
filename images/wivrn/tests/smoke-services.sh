@@ -294,11 +294,11 @@ if ! [[ "${DBUS_LINE}" -lt "${PIPEWIRE_LINE}" && "${DBUS_LINE}" -lt "${PULSE_LIN
 fi
 echo "service ordering: ok" >> "${EVIDENCE_FILE}"
 
-# The /opt/xrizer compat path must be shared into the Pressure
-# Vessel sandbox so OpenVR games find xrizer
-# instead of silently falling back to desktop mode (no HMD image, no
-# tracking). Both wivrn-server (headset-initiated launches inherit its
-# environment) and Steam must see the override and filesystem export.
+# The /opt/xrizer compat path must be shared into the Pressure Vessel sandbox
+# so OpenVR games find xrizer instead of silently falling back to desktop
+# mode (no HMD image, no tracking). Both wivrn-server (headset-initiated
+# launches inherit its environment) and Steam must see the override and the
+# filesystem export.
 for expected in \
     "gamescope argv: --backend wayland -b -w 1920 -h 1080 -W 1920 -H 1080 -r 60 -e --steam --mangoapp -- steam --test-passthrough" \
     "steam argv: --test-passthrough" \
