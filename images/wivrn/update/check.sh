@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Check for WiVRn image dependency updates
-# Checks: WiVRn server version (client and server versions must match)
+# Checks: WiVRn server version (client and server versions must match), xrizer
 
 set -euo pipefail
 
@@ -46,6 +46,26 @@ if [[ -n "$latest_wivrn" ]]; then
     fi
 else
     echo "Warning: Could not fetch latest WiVRn version"
+fi
+
+echo "Checking xrizer..."
+xrizer_repo=$(get_pin XRIZER_REPO)
+xrizer_repo="${xrizer_repo:-Supreeeme/xrizer}"
+current_xrizer=$(get_pin XRIZER_VERSION)
+xrizer_release=$(curl -fsSL "https://api.github.com/repos/${xrizer_repo}/releases/latest")
+latest_xrizer=$(jq -er '.tag_name | select(type == "string" and length > 0)' <<< "$xrizer_release")
+latest_xrizer="${latest_xrizer#v}"
+[[ "$latest_xrizer" =~ ^[0-9]+(\.[0-9]+)*$ ]] || abort "Unsupported xrizer version: $latest_xrizer"
+# Only advertise releases with the runtime ZIP this Dockerfile can consume.
+jq -e --arg asset "xrizer-v${latest_xrizer}.zip" \
+    '[.assets[] | select(.name == $asset)] | length == 1' <<< "$xrizer_release" >/dev/null \
+    || abort "xrizer release v${latest_xrizer} has no unique runtime ZIP"
+if [[ "$current_xrizer" != "$latest_xrizer" ]]; then
+    echo "xrizer update available: $current_xrizer -> $latest_xrizer"
+    updates+=("xrizer")
+    summary+="### xrizer\n\nUpdated from v${current_xrizer} to v${latest_xrizer}.\n\n"
+else
+    echo "xrizer up to date"
 fi
 
 if [[ ${#updates[@]} -gt 0 ]]; then

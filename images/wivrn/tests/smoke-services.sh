@@ -97,7 +97,7 @@ assert config["tcp-only"] is True, config
 assert config["publish-service"] is None, config
 assert config["encoder"] == {"encoder": "vaapi", "codec": "h265"}, config
 assert config["application"] == ["steam", "steam://launch/275850/VR"], config
-assert config["openvr-compat-path"] == "/usr/lib64/opencomposite/runtime", config
+assert config["openvr-compat-path"] == "/opt/xrizer", config
 PY
     fail "generated WiVRn config does not match explicit env"
 fi
@@ -121,7 +121,7 @@ print(json.dumps(config, indent=2))
 assert config["port"] == 9757, config
 assert config["tcp-only"] is False, config
 assert config["publish-service"] == "avahi", config
-assert config["openvr-compat-path"] == "/usr/lib64/opencomposite/runtime", config
+assert config["openvr-compat-path"] == "/opt/xrizer", config
 assert "encoder" not in config, config
 assert "application" not in config, config
 PY
@@ -181,6 +181,7 @@ echo "wivrn-server stub invoked" >> "${STARTUP_SENTINEL:?}"
 echo "wivrn argv: $*" >> "${STARTUP_SENTINEL:?}"
 echo "wivrn PULSE_SERVER: ${PULSE_SERVER:-unset}" >> "${STARTUP_SENTINEL:?}"
 echo "wivrn VR_OVERRIDE: ${VR_OVERRIDE:-unset}" >> "${STARTUP_SENTINEL:?}"
+echo "wivrn PRESSURE_VESSEL_FILESYSTEMS_RW: ${PRESSURE_VESSEL_FILESYSTEMS_RW:-unset}" >> "${STARTUP_SENTINEL:?}"
 echo "wivrn PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES: ${PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES:-unset}" >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/wivrn-server"
@@ -213,6 +214,7 @@ echo "steam argv: $*" >> "${STARTUP_SENTINEL:?}"
 echo "steam PULSE_SERVER: ${PULSE_SERVER:-unset}" >> "${STARTUP_SENTINEL:?}"
 echo "steam PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES: ${PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES:-unset}" >> "${STARTUP_SENTINEL:?}"
 echo "steam VR_OVERRIDE: ${VR_OVERRIDE:-unset}" >> "${STARTUP_SENTINEL:?}"
+echo "steam PRESSURE_VESSEL_FILESYSTEMS_RW: ${PRESSURE_VESSEL_FILESYSTEMS_RW:-unset}" >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/steam"
 
@@ -292,24 +294,49 @@ if ! [[ "${DBUS_LINE}" -lt "${PIPEWIRE_LINE}" && "${DBUS_LINE}" -lt "${PULSE_LIN
 fi
 echo "service ordering: ok" >> "${EVIDENCE_FILE}"
 
-# The OpenVR compat path (/usr/...) must be translated for the Pressure
-# Vessel sandbox (/run/host prefix) so OpenVR games find OpenComposite
+# The /opt/xrizer compat path must be shared into the Pressure
+# Vessel sandbox so OpenVR games find xrizer
 # instead of silently falling back to desktop mode (no HMD image, no
 # tracking). Both wivrn-server (headset-initiated launches inherit its
-# environment) and Steam must see the translated value.
+# environment) and Steam must see the override and filesystem export.
 for expected in \
     "gamescope argv: --backend wayland -b -w 1920 -h 1080 -W 1920 -H 1080 -r 60 -e --steam --mangoapp -- steam --test-passthrough" \
     "steam argv: --test-passthrough" \
     "steam PULSE_SERVER: unix:/run/user/0/pulse/native" \
     "steam PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES: 1" \
-    "steam VR_OVERRIDE: /run/host/usr/lib64/opencomposite/runtime" \
-    "wivrn VR_OVERRIDE: /run/host/usr/lib64/opencomposite/runtime" \
+    "steam VR_OVERRIDE: /opt/xrizer" \
+    "wivrn VR_OVERRIDE: /opt/xrizer" \
+    "steam PRESSURE_VESSEL_FILESYSTEMS_RW: /opt/xrizer" \
+    "wivrn PRESSURE_VESSEL_FILESYSTEMS_RW: /opt/xrizer" \
     "wivrn PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES: 1"; do
     if ! grep -qF "${expected}" "${SENTINEL_PATH}"; then
         fail "missing services evidence: ${expected}"
     fi
 done
 echo "service env and argv: ok" >> "${EVIDENCE_FILE}"
+
+# Repeat startup with auto to cover the independently launched Steam path.
+SENTINEL_PATH="${STUB_DIR}/auto-invoked"
+if ! docker run --rm \
+    -e PUID=0 -e HOME=/tmp/smoke/home \
+    -e STARTUP_SENTINEL=/tmp/smoke/auto-invoked \
+    -e WIVRN_OPENVR_COMPAT_PATH=auto -e WIVRN_PORT=19757 \
+    -e WIVRN_WAIT_TIMEOUT=1 \
+    -e PATH=/tmp/smoke:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    -v "${STUB_DIR}:/tmp/smoke" \
+    "${IMAGE_NAME}" >> "${EVIDENCE_FILE}" 2>&1; then
+    fail "services startup failed with auto compat selection"
+fi
+for expected in \
+    "steam VR_OVERRIDE: /opt/xrizer" \
+    "wivrn VR_OVERRIDE: /opt/xrizer" \
+    "steam PRESSURE_VESSEL_FILESYSTEMS_RW: /opt/xrizer" \
+    "wivrn PRESSURE_VESSEL_FILESYSTEMS_RW: /opt/xrizer"; do
+    if ! grep -qxF "${expected}" "${SENTINEL_PATH}"; then
+        fail "missing auto services evidence: ${expected}"
+    fi
+done
+echo "auto compat service environment: ok" >> "${EVIDENCE_FILE}"
 
 echo "RESULT: PASSED" >> "${EVIDENCE_FILE}"
 log_info "WiVRn services smoke test passed"

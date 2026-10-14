@@ -114,10 +114,22 @@ fi
 log_info "PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=${PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES}"
 
 if [[ -z "${VR_OVERRIDE:-}" ]]; then
-    _compat="${WIVRN_OPENVR_COMPAT_PATH:-/usr/lib64/opencomposite/runtime}"
+    _compat="${WIVRN_OPENVR_COMPAT_PATH:-/opt/xrizer}"
     _compat_lower="${_compat,,}"
+    # WiVRn's first upstream autodetection path is the packaged runtime.
+    # Resolve it here too: Steam starts independently of wivrn-server and
+    # must inherit the same override and Pressure Vessel filesystem export.
+    if [[ "${_compat_lower}" == "auto" ]]; then
+        if [[ ! -f /opt/xrizer/bin/linux64/vrclient.so ]]; then
+            log_error "Cannot autodetect packaged xrizer: /opt/xrizer/bin/linux64/vrclient.so missing"
+            exit 1
+        fi
+        _compat=/opt/xrizer
+        _compat_lower="${_compat}"
+        log_info "Autodetected OpenVR compat path: ${_compat}"
+    fi
     case "${_compat_lower}" in
-        ""|"auto"|"off"|"none"|"null"|"disabled")
+        ""|"off"|"none"|"null"|"disabled")
             log_info "OpenVR compat management disabled (WIVRN_OPENVR_COMPAT_PATH=${_compat}); leaving VR_OVERRIDE unset"
             ;;
         *)
@@ -147,7 +159,6 @@ if [[ -z "${VR_OVERRIDE:-}" ]]; then
             # what WiVRn (active_runtime.cpp) and the OpenVR loader resolve
             # underneath it. A wrong level silently drops games to desktop
             # mode (no HMD image, no tracking), so fail the check loudly.
-            # (Fedora nests it: /usr/lib64/opencomposite/runtime.)
             if [[ -n "${VR_OVERRIDE:-}" ]]; then
                 if [[ ! -f "${_compat}/bin/linux64/vrclient.so" ]]; then
                     log_error "OpenVR compat library missing: ${_compat}/bin/linux64/vrclient.so not found; OpenVR games will fall back to desktop mode"
