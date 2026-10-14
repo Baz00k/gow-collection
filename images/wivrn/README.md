@@ -111,22 +111,7 @@ headset with `WIVRN_PUBLISH=off`.
   is why host networking is recommended.
 - The packaged xrizer runtime is 64-bit only; 32-bit OpenVR games are not
   supported by this image.
-
-## Per-Game Notes
-
-OpenVR games use a pinned [xrizer release][xrizer-release] (the translator
-WiVRn's own [Flatpak][wivrn-steam] uses), installed at `/opt/xrizer`. No
-per-game launch options are needed; remove any old `VR_OVERRIDE` launch
-options or `WIVRN_OPENVR_COMPAT_PATH` overrides that point at another
-translator. Versions are pinned in [`build/pins.env`](build/pins.env) and
-bumped automatically with the WiVRn pin.
-
-For Half-Life: Alyx, force Proton instead of the native Linux build. If
-controllers disappear, try disabling hand tracking in the WiVRn headset app
-and wake the physical controllers before connecting.
-
-For translator failures, inspect the first error in
-`~/.local/state/xrizer/xrizer.txt` (or `$XDG_STATE_HOME/xrizer/xrizer.txt`).
-
-[xrizer-release]: https://github.com/Supreeeme/xrizer/releases
-[wivrn-steam]: https://github.com/WiVRn/WiVRn/blob/v26.9/docs/steamvr.md
+- OpenVR games run through a pinned xrizer release (see
+  [`build/pins.env`](build/pins.env)). If one misbehaves, check the first
+  error in `~/.local/state/xrizer/xrizer.txt`. Remove any old per-game
+  `VR_OVERRIDE` launch options from earlier OpenComposite setups.
