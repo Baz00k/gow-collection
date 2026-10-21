@@ -17,7 +17,7 @@ gamescope_append_base_args() {
     local height="${GAMESCOPE_HEIGHT:-1080}"
     local game_width="${GAMESCOPE_GAME_WIDTH:-${width}}"
     local game_height="${GAMESCOPE_GAME_HEIGHT:-${height}}"
-    local refresh="${GAMESCOPE_REFRESH:-60}"
+    local refresh="${GAMESCOPE_REFRESH:-}"
     local mode="${GAMESCOPE_MODE:--b}"
     local mode_args=()
 
@@ -32,8 +32,15 @@ gamescope_append_base_args() {
         -h "${game_height}"
         -W "${width}"
         -H "${height}"
-        -r "${refresh}"
     )
+
+    # -r pins gamescope's nested refresh and therefore the rate in-game vsync
+    # targets. When GAMESCOPE_REFRESH is unset, gamescope follows the parent
+    # (Wolf virtual display) mode instead, which is the framerate the GStreamer
+    # pipeline actually negotiated.
+    if [[ -n "${refresh}" ]]; then
+        args_ref+=(-r "${refresh}")
+    fi
 }
 
 gamescope_append_extra_args() {

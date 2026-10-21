@@ -62,15 +62,15 @@ Use `GOW_DEBUG=3` only in trusted environments because shell traces can expose e
 
 Most GUI images launch through gamescope. Configure resolution here:
 
-| Variable                | Default        | Description                          |
-| ----------------------- | -------------- | ------------------------------------ |
-| `GAMESCOPE_WIDTH`       | `1920`         | Output width                         |
-| `GAMESCOPE_HEIGHT`      | `1080`         | Output height                        |
-| `GAMESCOPE_GAME_WIDTH`  | same as width  | Game width                           |
-| `GAMESCOPE_GAME_HEIGHT` | same as height | Game height                          |
-| `GAMESCOPE_REFRESH`     | `60`           | Refresh rate                         |
-| `GAMESCOPE_MODE`        | `-b`           | Gamescope mode, such as `-b` or `-f` |
-| `GAMESCOPE_EXTRA_ARGS`  | empty          | Extra gamescope arguments            |
+| Variable                | Default        | Description                                        |
+| ----------------------- | -------------- | -------------------------------------------------- |
+| `GAMESCOPE_WIDTH`       | `1920`         | Output width                                       |
+| `GAMESCOPE_HEIGHT`      | `1080`         | Output height                                      |
+| `GAMESCOPE_GAME_WIDTH`  | same as width  | Game width                                         |
+| `GAMESCOPE_GAME_HEIGHT` | same as height | Game height                                        |
+| `GAMESCOPE_REFRESH`     | unset          | Refresh rate; follows the virtual display if unset |
+| `GAMESCOPE_MODE`        | `-b`           | Gamescope mode, such as `-b` or `-f`               |
+| `GAMESCOPE_EXTRA_ARGS`  | empty          | Extra gamescope arguments                          |
 
 ## Host Game Setting
 

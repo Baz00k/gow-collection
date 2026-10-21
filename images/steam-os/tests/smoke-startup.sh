@@ -340,7 +340,7 @@ fi
 
 for expected in \
     "gamescope stub invoked" \
-    "gamescope argv: --backend wayland -b -w 1920 -h 1080 -W 1920 -H 1080 -r 60 --adaptive-sync --immediate-flips -e --steam --mangoapp" \
+    "gamescope argv: --backend wayland -b -w 1920 -h 1080 -W 1920 -H 1080 --adaptive-sync --immediate-flips -e --steam --mangoapp" \
     "ibus-daemon stub invoked" \
     "ibus dbus: unix:path=/tmp/startup-smoke/session-bus" \
     "steam-game-window-tagger stub invoked" \

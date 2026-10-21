@@ -300,7 +300,7 @@ echo "service ordering: ok" >> "${EVIDENCE_FILE}"
 # launches inherit its environment) and Steam must see the override and the
 # filesystem export.
 for expected in \
-    "gamescope argv: --backend wayland -b -w 1920 -h 1080 -W 1920 -H 1080 -r 60 -e --steam --mangoapp -- steam --test-passthrough" \
+    "gamescope argv: --backend wayland -b -w 1920 -h 1080 -W 1920 -H 1080 -e --steam --mangoapp -- steam --test-passthrough" \
     "steam argv: --test-passthrough" \
     "steam PULSE_SERVER: unix:/run/user/0/pulse/native" \
     "steam PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES: 1" \
