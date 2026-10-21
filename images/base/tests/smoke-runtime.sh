@@ -127,6 +127,19 @@ if ! docker exec "${CONTAINER_NAME}" bash -c '
     fail "gamescope_append_base_args did not produce expected args"
 fi
 
+# Without GAMESCOPE_REFRESH, gamescope must follow the virtual display refresh
+# instead of being pinned to a hardcoded rate.
+if ! docker exec "${CONTAINER_NAME}" bash -c '
+    source /opt/gow/gamescope-lib.sh
+    unset GAMESCOPE_REFRESH
+    args=()
+    gamescope_append_base_args args
+    output="$(printf "%s\n" "${args[@]}")"
+    ! grep -qFx -- "-r" <<< "${output}"
+'; then
+    fail "gamescope_append_base_args pinned a refresh rate without GAMESCOPE_REFRESH"
+fi
+
 if ! docker exec "${CONTAINER_NAME}" bash -n /opt/gow/launch-gamescope.sh; then
     fail "launch-gamescope.sh has a syntax error"
 fi
