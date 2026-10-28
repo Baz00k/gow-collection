@@ -17,5 +17,22 @@ if [[ -f /usr/share/vulkan/icd.d/nvidia_icd.json ]]; then
     export SHARUN_ALLOW_SYS_VKICD="${SHARUN_ALLOW_SYS_VKICD:-1}"
 fi
 
+# Encryption keys are user-supplied. They are copied from a read-only mount
+# rather than bind-mounted into the profile home: the base image chowns the
+# whole home at startup, which fails on a read-only mount below it.
+EDEN_KEYS_DIR="${EDEN_KEYS_DIR:-/keys}"
+EDEN_HOME="${HOME:-/home/retro}"
+if [[ -d "${EDEN_KEYS_DIR}" ]]; then
+    keys_dir="${EDEN_HOME}/.local/share/eden/keys"
+    mkdir -p "${keys_dir}"
+    for key_file in "${EDEN_KEYS_DIR}"/*.keys; do
+        [[ -e "${key_file}" ]] || continue
+        target="${keys_dir}/$(basename "${key_file}")"
+        [[ -f "${target}" ]] && continue
+        cp "${key_file}" "${target}"
+        log_info "Installed $(basename "${key_file}") from ${EDEN_KEYS_DIR}"
+    done
+fi
+
 log_info "Starting Eden"
 exec /opt/gow/launch-gamescope.sh /opt/eden/AppRun "$@"

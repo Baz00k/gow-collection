@@ -2,8 +2,9 @@
 # Check for Eden updates.
 #
 # Eden is hosted on its own Forgejo instance, so releases come from the Forgejo
-# API instead of GitHub. Only stable releases are tracked (the nightly repo is
-# a separate API endpoint); see the README if you want nightlies instead.
+# API instead of GitHub. Only stable releases are tracked: drafts, prereleases,
+# and pre-release tags (0.3.0-rc1, ...) are skipped. Nightlies live in a
+# separate repository and are not followed by this image.
 
 set -euo pipefail
 
@@ -11,7 +12,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
-EDEN_API_URL="${EDEN_API_URL:-https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases?limit=1}"
+EDEN_API_URL="${EDEN_API_URL:-https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases?limit=30}"
+STABLE_TAG_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
 
 abort() { echo "ERROR: $1" >&2; exit 1; }
 
@@ -20,7 +22,12 @@ get_pin() {
 }
 
 fetch_latest_version() {
-    curl -fsSL "$EDEN_API_URL" | jq -r '.[0].tag_name // empty' | sed 's/^v//'
+    curl -fsSL "$EDEN_API_URL" | jq -r --arg re "$STABLE_TAG_REGEX" '
+        [ .[]
+          | select((.draft // false) | not)
+          | select((.prerelease // false) | not)
+          | select(.tag_name | test($re))
+        ] | first | .tag_name // empty' | sed 's/^v//'
 }
 
 [[ ! -f "$PINS_FILE" ]] && abort "pins.env not found at $PINS_FILE"
@@ -41,7 +48,7 @@ if [[ -n "$latest_eden" ]]; then
         echo "Eden up to date"
     fi
 else
-    echo "Warning: Could not fetch latest Eden version"
+    echo "Warning: Could not fetch latest stable Eden version"
 fi
 
 if [[ ${#updates[@]} -gt 0 ]]; then

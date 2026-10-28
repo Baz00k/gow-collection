@@ -57,7 +57,12 @@ case "${reported_version}" in
 esac
 
 log_info "Checking bundled library resolution..."
-missing_libs="$(run_in_image bash -c 'ldd /opt/eden/bin/eden | grep "not found" || true')"
+# bin/eden is the static sharun launcher; the emulator itself is the dynamic
+# ELF in shared/bin, which resolves against the bundle's own libraries.
+run_in_image test -x /opt/eden/shared/bin/eden || fail "GUI binary is missing or not executable"
+missing_libs="$(run_in_image bash -c '
+    LD_LIBRARY_PATH=/opt/eden/shared/lib ldd /opt/eden/shared/bin/eden 2>&1 | grep "not found" || true
+')"
 if [[ -n "${missing_libs}" ]]; then
     echo "Missing libraries:" >> "${EVIDENCE_FILE}"
     echo "${missing_libs}" >> "${EVIDENCE_FILE}"

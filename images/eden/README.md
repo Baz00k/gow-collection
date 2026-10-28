@@ -15,7 +15,7 @@ name = "WolfEden"
 image = "ghcr.io/baz00k/gow-collection/eden:edge"
 mounts = [
     "/srv/games/switch:/games:ro",
-    "/srv/eden/keys:/home/retro/.local/share/eden/keys:ro"
+    "/srv/eden/keys:/keys:ro"
 ]
 env = [
     "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*"
@@ -48,7 +48,7 @@ Adjust the mount paths to your host layout. Wolf mounts each profile/app home at
 
 Eden starts with an empty configuration. Three things are needed before games launch:
 
-1. **Keys.** Dump `prod.keys` and `title.keys` from your own console and put them on the host, then mount that directory over `/home/retro/.local/share/eden/keys` as in the snippet above. If Eden needs to write into that directory, drop the `:ro` flag or copy the files into the profile volume instead.
+1. **Keys.** Dump `prod.keys` and `title.keys` from your own console and put them on the host, then mount that directory at `/keys` as in the snippet above. Startup copies any `*.keys` file into the profile that does not have it yet; existing keys are never overwritten. Set `EDEN_KEYS_DIR` to use a different mount point.
 2. **Firmware.** Dump the console firmware to a host directory, mount it read-only, and run Eden's firmware installer from the `File` menu, pointing it at the mounted dump.
 3. **Games.** Add the game directory (for example `/games`) under `File` → `Add Game Directory`. Mount dumps read-only: the emulator only needs read access.
 
@@ -66,7 +66,7 @@ Keep game dumps and firmware dumps on host mounts rather than in the profile dir
 ## Graphics
 
 - **Drivers.** The bundled Mesa stack is used by default. On NVIDIA hosts the base image publishes the mounted host driver's ICD and the startup script enables system Vulkan ICDs automatically, so no configuration is needed.
-- **Vulkan version.** Eden 0.2.x requires Vulkan 1.4.321 or newer. Use a reasonably current host driver.
+- **Vulkan version.** Eden is built against Vulkan 1.4 headers but only needs Vulkan 1.1-level device features and extensions, so a current host driver is enough.
 - **CPU target.** This image ships upstream's generic `amd64` build, which needs Haswell/Ryzen or newer. For older CPUs, point `EDEN_APPIMAGE_URL` / `EDEN_APPIMAGE_SHA256` in `build/pins.env` at the `legacy-clang-pgo` asset from the same release and rebuild. The `steamdeck` and `rog-ally` assets are tuned for specific CPUs and are not a good default for arbitrary servers.
 - **Wayland.** Upstream's AppRun hook forces X11 inside gamescope because Eden has known Wayland issues. Set `I_WANT_A_BROKEN_WAYLAND_UI=1` if you want to try the Wayland path anyway.
 

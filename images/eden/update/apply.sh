@@ -2,9 +2,9 @@
 # Apply Eden updates: version, AppImage URL, and AppImage SHA256.
 #
 # Upstream publishes no checksum files, so the SHA256 is taken from the
-# downloaded artifact. The asset URL is read from the release API rather than
-# built from a template, so mirror or filename changes surface as an error
-# instead of a pin pointing at nothing.
+# downloaded artifact. Pins are only rewritten after a successful download, and
+# the asset URL is read from the release API rather than built from a template
+# so mirror or filename changes fail loudly instead of pinning nothing.
 
 set -euo pipefail
 
@@ -12,7 +12,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
-EDEN_API_URL="${EDEN_API_URL:-https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases?limit=1}"
+EDEN_API_URL="${EDEN_API_URL:-https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases?limit=30}"
+STABLE_TAG_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
 # amd64 + PGO: upstream's recommended generic Linux artifact. Switch to
 # "legacy-clang-pgo" for pre-Haswell/pre-Ryzen CPUs.
 EDEN_LINUX_VARIANT="${EDEN_LINUX_VARIANT:-amd64-clang-pgo}"
@@ -27,25 +28,37 @@ get_pin() {
     grep "^$1=" "$PINS_FILE" | head -1 | cut -d'=' -f2- || echo ""
 }
 
-fetch_release_json() {
-    curl -fsSL "$EDEN_API_URL"
+fetch_releases() {
+    curl -fsSL "$EDEN_API_URL" || abort "could not fetch ${EDEN_API_URL}"
 }
 
-fetch_latest_version() {
-    fetch_release_json | jq -r '.[0].tag_name // empty' | sed 's/^v//'
+select_stable_tag() {
+    local releases_json="$1"
+
+    printf '%s' "$releases_json" | jq -r --arg re "$STABLE_TAG_REGEX" '
+        [ .[]
+          | select((.draft // false) | not)
+          | select((.prerelease // false) | not)
+          | select(.tag_name | test($re))
+        ] | first | .tag_name // empty'
 }
 
 fetch_asset_url() {
-    local release_json="$1"
-    local version="$2"
+    local releases_json="$1"
+    local tag="$2"
+    local suffix="-${EDEN_LINUX_VARIANT}.AppImage"
     local url
 
-    url=$(printf '%s' "$release_json" | jq -r --arg name "-${EDEN_LINUX_VARIANT}.AppImage" \
-        '[.[0].assets[]? | select(.name | endswith($name))] | first | .browser_download_url // empty')
+    url=$(printf '%s' "$releases_json" | jq -r --arg tag "$tag" --arg suffix "$suffix" '
+        [ .[]
+          | select(.tag_name == $tag)
+          | .assets[]?
+          | select(.name | endswith($suffix))
+        ] | first | .browser_download_url // empty')
 
     if [[ -z "$url" ]]; then
         # Fallback for releases whose assets are not exposed through the API.
-        url="https://stable.eden-emu.dev/v${version}/Eden-Linux-v${version}-${EDEN_LINUX_VARIANT}.AppImage"
+        url="https://stable.eden-emu.dev/${tag}/Eden-Linux-${tag}${suffix}"
     fi
 
     printf '%s' "$url"
@@ -55,7 +68,14 @@ fetch_appimage_sha256() {
     local url="$1"
     local output_file="$2"
 
-    curl -fsSL "$url" -o "$output_file"
+    rm -f "$output_file"
+    if ! curl -fsSL "$url" -o "$output_file"; then
+        return 1
+    fi
+    if [[ ! -s "$output_file" ]]; then
+        return 1
+    fi
+
     sha256sum "$output_file" | cut -d' ' -f1
 }
 
@@ -65,21 +85,25 @@ applied=false
 summary=""
 
 current_eden=$(get_pin EDEN_VERSION)
-release_json=$(fetch_release_json)
-latest_eden=$(printf '%s' "$release_json" | jq -r '.[0].tag_name // empty' | sed 's/^v//')
-
-[[ -z "$latest_eden" ]] && abort "could not determine latest Eden version"
+releases_json=$(fetch_releases)
+latest_tag=$(select_stable_tag "$releases_json")
+[[ -n "$latest_tag" ]] || abort "could not determine latest stable Eden release"
+latest_eden="${latest_tag#v}"
 
 if [[ "$current_eden" != "$latest_eden" ]]; then
     echo "Updating Eden: $current_eden -> $latest_eden"
 
-    appimage_url=$(fetch_asset_url "$release_json" "$latest_eden")
-    [[ -n "$appimage_url" ]] || abort "no Linux ${EDEN_LINUX_VARIANT} asset for v${latest_eden}"
+    appimage_url=$(fetch_asset_url "$releases_json" "$latest_tag")
+    [[ -n "$appimage_url" ]] || abort "no Linux ${EDEN_LINUX_VARIANT} asset for ${latest_tag}"
 
     echo "Downloading ${appimage_url}"
     tmp_appimage="$(mktemp "${TMPDIR:-/tmp}/eden-appimage.XXXXXX")"
     trap 'rm -f "${tmp_appimage:-}"' EXIT
-    appimage_sha=$(fetch_appimage_sha256 "$appimage_url" "$tmp_appimage")
+
+    if ! appimage_sha=$(fetch_appimage_sha256 "$appimage_url" "$tmp_appimage"); then
+        abort "failed to download ${appimage_url}"
+    fi
+    [[ -n "$appimage_sha" ]] || abort "downloaded artifact produced no checksum"
     echo "SHA256: $appimage_sha"
 
     inplace "s|^EDEN_VERSION=.*|EDEN_VERSION=${latest_eden}|" "$PINS_FILE"
