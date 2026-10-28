@@ -40,6 +40,7 @@ _INSTALL_DROP_APP
 COPY --chmod=755 overlay /
 
 ENV BROWSER=firefox
+ENV WEBKIT_DISABLE_DMABUF_RENDERER=1
 
 # TODO: Once drop-app releases Proton/UMU support (currently on develop branch),
 # install umu-run and a Proton build for Windows game compatibility.
