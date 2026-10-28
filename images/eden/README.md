@@ -65,9 +65,3 @@ The pinned build is upstream's generic amd64 PGO AppImage, which requires a Hasw
 Eden uses its bundled Mesa drivers. On NVIDIA hosts the startup script enables the host driver's Vulkan ICD when `/usr/share/vulkan/icd.d/nvidia_icd.json` exists. Eden needs Vulkan 1.1-level device features, so any current driver works.
 
 Upstream's AppRun forces X11 inside gamescope. Set `I_WANT_A_BROKEN_WAYLAND_UI=1` to use Wayland instead.
-
-Audio goes through Wolf's PulseAudio server and needs no image configuration.
-
-## Updates
-
-`update/check.sh` and `update/apply.sh` follow stable releases only, using Eden's Forgejo API at `git.eden-emu.dev`. Artifacts are downloaded from `stable.eden-emu.dev`. Upstream publishes no checksums, so `apply.sh` hashes the download and writes the result to `build/pins.env`.
