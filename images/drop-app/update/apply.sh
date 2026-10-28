@@ -43,10 +43,15 @@ fetch_latest_drop_tag() {
     curl -fsSL "https://api.github.com/repos/${DROP_APP_REPO}/releases/latest" | jq -r '.tag_name // empty'
 }
 
-fetch_latest_umu_version() {
-    curl -fsSL "https://api.github.com/repos/${UMU_LAUNCHER_REPO}/releases/latest" \
-        | jq -r '.tag_name // empty' \
-        | sed 's/^v//'
+fetch_latest_umu_tag() {
+    # Keep the raw tag: it is part of the download URL even though UMU versions
+    # are bare (1.4.4) while Drop tags carry a v prefix.
+    curl -fsSL "https://api.github.com/repos/${UMU_LAUNCHER_REPO}/releases/latest" | jq -r '.tag_name // empty'
+}
+
+umu_asset_url() {
+    local tag="$1" version="$2" flavour="$3"
+    echo "https://github.com/${UMU_LAUNCHER_REPO}/releases/download/${tag}/umu-launcher-${version}.${flavour}.x86_64.rpm"
 }
 
 fetch_release_json() {
@@ -71,16 +76,25 @@ asset_digest() {
 }
 
 # Release digests are usually present, but fall back to hashing the download so
-# an older release without them still works.
+# an older release without them still works. A failed download or an empty hash
+# must never reach pins.env, the caller runs under a command substitution where
+# errexit is not inherited.
 resolve_digest() {
-    local release_json="$1" asset="$2" url="$3" tmp_file="$4" digest
+    local release_json="$1" asset="$2" url="$3" digest tmp
+
     digest=$(asset_digest "$release_json" "$asset")
     if [[ -z "$digest" ]]; then
         echo "Release digest missing; downloading ${asset} to calculate SHA256..." >&2
-        curl -fsSL "$url" -o "$tmp_file"
-        digest=$(sha256sum "$tmp_file" | cut -d' ' -f1)
-        rm -f "$tmp_file"
+        tmp=$(mktemp)
+        if ! curl -fsSL "$url" -o "$tmp"; then
+            rm -f "$tmp"
+            abort "failed to download ${url}"
+        fi
+        digest=$(sha256sum "$tmp" | cut -d' ' -f1)
+        rm -f "$tmp"
     fi
+
+    [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || abort "invalid SHA256 for ${asset}: '${digest}'"
     echo "$digest"
 }
 
@@ -111,7 +125,7 @@ if [[ -n "$latest_drop" && "$current_drop" != "$latest_drop" ]]; then
     drop_version=$(sed -E 's/^Drop\.Desktop\.Client-(.+)-1\.x86_64\.rpm$/\1/' <<< "$rpm_asset")
     drop_tag="$latest_drop"
     drop_url="https://github.com/${DROP_APP_REPO}/releases/download/${latest_drop}/${rpm_asset}"
-    drop_sha256=$(resolve_digest "$release_json" "$rpm_asset" "$drop_url" /tmp/drop-desktop-client.rpm)
+    drop_sha256=$(resolve_digest "$release_json" "$rpm_asset" "$drop_url")
     echo "Drop client version ${drop_version}, SHA256 ${drop_sha256}"
 fi
 
@@ -120,26 +134,34 @@ umu_url=""
 umu_sha256=""
 
 # Upstream ships one RPM per Fedora release, so the asset name is built from the
-# version plus the pinned target flavour (e.g. fc44).
+# version plus the pinned target flavour (e.g. fc44). Comparing the resolved URL
+# as well as the version means a flavour bump alone also regenerates the pins.
 current_umu=$(get_pin UMU_LAUNCHER_VERSION)
-latest_umu=$(fetch_latest_umu_version)
+umu_flavour=$(get_pin UMU_LAUNCHER_RPM_FLAVOUR)
+pinned_umu_url=$(get_pin UMU_LAUNCHER_RPM_X86_64_URL)
+latest_umu_tag=$(fetch_latest_umu_tag)
+latest_umu="${latest_umu_tag#v}"
 
-if [[ -n "$latest_umu" && "$current_umu" != "$latest_umu" ]]; then
-    echo "Resolving umu-launcher ${current_umu} -> ${latest_umu}"
-    umu_flavour=$(get_pin UMU_LAUNCHER_RPM_FLAVOUR)
+if [[ -n "$latest_umu" ]]; then
     [[ -z "$umu_flavour" ]] && abort "UMU_LAUNCHER_RPM_FLAVOUR missing from $PINS_FILE"
 
-    umu_asset="umu-launcher-${latest_umu}.${umu_flavour}.x86_64.rpm"
-    umu_url="https://github.com/${UMU_LAUNCHER_REPO}/releases/download/${latest_umu}/${umu_asset}"
-    umu_json=$(fetch_release_json "$UMU_LAUNCHER_REPO" "$latest_umu")
+    umu_url=$(umu_asset_url "$latest_umu_tag" "$latest_umu" "$umu_flavour")
 
-    if ! asset_exists "$umu_json" "$umu_asset"; then
-        abort "release ${latest_umu} has no ${umu_asset}; UMU_LAUNCHER_RPM_FLAVOUR (${umu_flavour}) needs updating"
+    if [[ "$current_umu" != "$latest_umu" || "$pinned_umu_url" != "$umu_url" ]]; then
+        echo "Resolving umu-launcher ${current_umu} -> ${latest_umu} (${umu_flavour})"
+        umu_asset="umu-launcher-${latest_umu}.${umu_flavour}.x86_64.rpm"
+        umu_json=$(fetch_release_json "$UMU_LAUNCHER_REPO" "$latest_umu_tag")
+
+        if ! asset_exists "$umu_json" "$umu_asset"; then
+            abort "release ${latest_umu_tag} has no ${umu_asset}; UMU_LAUNCHER_RPM_FLAVOUR (${umu_flavour}) needs updating"
+        fi
+
+        umu_version="$latest_umu"
+        umu_sha256=$(resolve_digest "$umu_json" "$umu_asset" "$umu_url")
+        echo "UMU launcher ${umu_version} (${umu_flavour}), SHA256 ${umu_sha256}"
+    else
+        umu_url=""
     fi
-
-    umu_version="$latest_umu"
-    umu_sha256=$(resolve_digest "$umu_json" "$umu_asset" "$umu_url" /tmp/umu-launcher.rpm)
-    echo "UMU launcher ${umu_version} (${umu_flavour}), SHA256 ${umu_sha256}"
 fi
 
 # Phase 2: write the validated updates.
@@ -159,7 +181,11 @@ if [[ -n "$umu_version" ]]; then
     set_pin UMU_LAUNCHER_RPM_X86_64_URL "$umu_url"
     set_pin UMU_LAUNCHER_RPM_X86_64_SHA256 "$umu_sha256"
     applied=true
-    summary+="### UMU Launcher\n\nUpdated from ${current_umu} to ${umu_version} (${umu_flavour}).\n\n"
+    if [[ "$current_umu" == "$umu_version" ]]; then
+        summary+="### UMU Launcher\n\nRegenerated ${umu_version} pin for flavour ${umu_flavour}.\n\n"
+    else
+        summary+="### UMU Launcher\n\nUpdated from ${current_umu} to ${umu_version} (${umu_flavour}).\n\n"
+    fi
 fi
 
 if [[ "$applied" == "true" ]]; then
