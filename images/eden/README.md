@@ -1,8 +1,8 @@
 # Eden
 
-[Eden](https://git.eden-emu.dev/eden-emu/eden) Nintendo Switch emulator for Games on Whales / Wolf, running in a gamescope session.
+[Eden](https://git.eden-emu.dev/eden-emu/eden) Nintendo Switch emulator for Games on Whales / Wolf, launched through gamescope.
 
-## Quick Start
+## Configuration
 
 ```toml
 [[profiles.apps]]
@@ -35,53 +35,39 @@ base_create_json = """
 """
 ```
 
-Adjust the mount paths to your host layout. Wolf mounts each profile/app home at `/home/retro`, so no extra volume is needed for Eden's own data.
+The image unpacks the stable Linux AppImage at build time, so no `/dev/fuse` passthrough is needed. Shared variables (`PUID`, `GOW_DEBUG`, `GAMESCOPE_*`) are in [common runtime](../../docs/common-runtime.md).
 
-## What Is Included
+## Files you supply
 
-- Upstream stable Linux `amd64` PGO AppImage (version pinned in `build/pins.env`).
-- The AppImage is **unpacked at build time** and the extracted tree is executed directly, so the container needs no `/dev/fuse` and no extra capabilities.
-- The bundle carries its own Qt, Vulkan loader, Mesa drivers, FFmpeg, SDL, and PulseAudio/ALSA client libraries.
-- No firmware, encryption keys, or game dumps.
+The image contains no keys, firmware, or games. See [LEGAL.md](LEGAL.md).
 
-## First Run
+| What | How |
+| --- | --- |
+| Keys | Put `prod.keys` and `title.keys` in the host directory mounted at `/keys`. At startup every `*.keys` file in `EDEN_KEYS_DIR` (default `/keys`) is copied to `~/.local/share/eden/keys`, unless a file of that name is already there. |
+| Firmware | Mount the dump read-only and install it from Eden's own UI. |
+| Games | Mount the dumps read-only and add the mount path as a game directory in Eden. |
 
-Eden starts with an empty configuration. Three things are needed before games launch:
+Mount `/keys` outside the profile home: the base image chowns the home at startup, and a read-only mount below it breaks init. To update a key, delete the copied file in the profile first.
 
-1. **Keys.** Dump `prod.keys` and `title.keys` from your own console and put them on the host, then mount that directory at `/keys` as in the snippet above. Startup copies any `*.keys` file into the profile that does not have it yet; existing keys are never overwritten. Set `EDEN_KEYS_DIR` to use a different mount point.
-2. **Firmware.** Dump the console firmware to a host directory, mount it read-only, and run Eden's firmware installer from the `File` menu, pointing it at the mounted dump.
-3. **Games.** Add the game directory (for example `/games`) under `File` → `Add Game Directory`. Mount dumps read-only: the emulator only needs read access.
+## Persistence
 
-## Storage
+Wolf mounts a per-profile home at `/home/retro`, which is enough. Eden writes to two places there.
 
-Wolf gives each profile and app its own home directory at `/home/retro`, and Eden keeps everything under it:
+| Path | Contents |
+| --- | --- |
+| `~/.config/eden` | Settings |
+| `~/.local/share/eden` | Keys, NAND, saves, firmware, shader cache |
 
-| Path                     | Contents                                            |
-| ------------------------ | --------------------------------------------------- |
-| `~/.config/eden`         | Emulator settings and per-game configuration         |
-| `~/.local/share/eden`    | Keys, NAND, saves, installed firmware, shader cache  |
+## Hardware
 
-Keep game dumps and firmware dumps on host mounts rather than in the profile directory; they are large and read-only.
+The pinned build is upstream's generic amd64 PGO AppImage, which requires a Haswell- or Ryzen-class CPU or newer. For older CPUs, point `EDEN_APPIMAGE_URL` and `EDEN_APPIMAGE_SHA256` in `build/pins.env` at the release's `legacy-clang-pgo` asset and rebuild.
 
-## Graphics
+Eden uses its bundled Mesa drivers. On NVIDIA hosts the startup script enables the host driver's Vulkan ICD when `/usr/share/vulkan/icd.d/nvidia_icd.json` exists. Eden needs Vulkan 1.1-level device features, so any current driver works.
 
-- **Drivers.** The bundled Mesa stack is used by default. On NVIDIA hosts the base image publishes the mounted host driver's ICD and the startup script enables system Vulkan ICDs automatically, so no configuration is needed.
-- **Vulkan version.** Eden is built against Vulkan 1.4 headers but only needs Vulkan 1.1-level device features and extensions, so a current host driver is enough.
-- **CPU target.** This image ships upstream's generic `amd64` build, which needs Haswell/Ryzen or newer. For older CPUs, point `EDEN_APPIMAGE_URL` / `EDEN_APPIMAGE_SHA256` in `build/pins.env` at the `legacy-clang-pgo` asset from the same release and rebuild. The `steamdeck` and `rog-ally` assets are tuned for specific CPUs and are not a good default for arbitrary servers.
-- **Wayland.** Upstream's AppRun hook forces X11 inside gamescope because Eden has known Wayland issues. Set `I_WANT_A_BROKEN_WAYLAND_UI=1` if you want to try the Wayland path anyway.
+Upstream's AppRun forces X11 inside gamescope. Set `I_WANT_A_BROKEN_WAYLAND_UI=1` to use Wayland instead.
 
-## Audio
+Audio goes through Wolf's PulseAudio server and needs no image configuration.
 
-Audio goes through the PulseAudio server Wolf provides; the bundled `libpulse`/`libasound` client libraries pick it up from the environment. No image-specific audio configuration exists.
+## Updates
 
-## Performance
-
-Large shader caches and JIT mappings can exceed the host's default memory map limit. See [common runtime](../../docs/common-runtime.md) for `vm.max_map_count` and the `GAMESCOPE_*` session settings.
-
-## Updating
-
-`update/check.sh` polls Eden's own Forgejo API for the latest **stable** release and `update/apply.sh` re-pins the AppImage URL and its SHA256 (upstream publishes no checksum files). Nightly builds are not tracked; nightly asset names are stable enough to pin manually if you want them.
-
-## Legal
-
-Read [LEGAL.md](LEGAL.md) before using this image.
+`update/check.sh` and `update/apply.sh` follow stable releases only, using Eden's Forgejo API at `git.eden-emu.dev`. Artifacts are downloaded from `stable.eden-emu.dev`. Upstream publishes no checksums, so `apply.sh` hashes the download and writes the result to `build/pins.env`.
