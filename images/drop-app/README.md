@@ -1,16 +1,18 @@
 # Drop App
 
-[Drop](https://github.com/Drop-OSS/drop-app) desktop client packaged for Games on Whales / Wolf.
+[Drop](https://github.com/Drop-OSS/drop) desktop client packaged for Games on Whales / Wolf.
 
 > [!WARNING]
-> Drop has been archived by its upstream maintainers and is no longer under active development. This image is kept for existing users, but new features and upstream fixes should not be expected.
+> Drop is in maintenance mode upstream: maintainers are not adding new large features, but bugs are still being fixed and external contributions are merged. This image tracks those releases.
+
+The desktop client used to live in its own [Drop-OSS/drop-app](https://github.com/Drop-OSS/drop-app) repository, which is archived. Releases are now published from the [Drop-OSS/drop](https://github.com/Drop-OSS/drop) monorepo.
 
 ## Quick Start
 
 ```toml
 [[profiles.apps]]
 title = "Drop"
-icon_png_path = "https://raw.githubusercontent.com/Drop-OSS/drop-app/main/app-icon.png"
+icon_png_path = "https://raw.githubusercontent.com/Drop-OSS/drop/develop/desktop/src-tauri/icons/128x128.png"
 start_virtual_compositor = true
 
 [profiles.apps.runner]
@@ -56,7 +58,7 @@ ulimits = ["nofile=65536:65536"]
 
 ## Windows Games
 
-Drop's `develop` branch has built-in [Proton/UMU support](https://github.com/Drop-OSS/drop-app/blob/develop/src-tauri/process/src/compat.rs), but this is not yet included in the latest release used here. When a release ships compatibility-layer support, this image can add `umu-run` and Proton.
+The image bundles [`umu-run`](https://github.com/Open-Wine-Components/umu-launcher), which the client uses to launch Windows games. Proton builds are not bundled; drop each one into `/usr/share/steam/compatibilitytools.d/` (needs its `proton` binary and a `compatibilitytool.vdf` file) and Drop picks it up automatically.
 
 ## Troubleshooting
 

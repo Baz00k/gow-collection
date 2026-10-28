@@ -5,8 +5,12 @@ ARG BASE_APP_IMAGE
 FROM ${BASE_APP_IMAGE}
 
 ARG DROP_APP_VERSION
+ARG DROP_APP_TAG
 ARG DROP_APP_RPM_X86_64_URL
 ARG DROP_APP_RPM_X86_64_SHA256
+ARG UMU_LAUNCHER_RPM_FLAVOUR
+ARG UMU_LAUNCHER_RPM_X86_64_URL
+ARG UMU_LAUNCHER_RPM_X86_64_SHA256
 
 # hadolint ignore=DL3041
 RUN <<'_INSTALL_DROP_APP' bash
@@ -27,12 +31,20 @@ packages=(
 dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
 
 curl -fsSL -o /tmp/drop-desktop-client.rpm "${DROP_APP_RPM_X86_64_URL}"
+curl -fsSL -o /tmp/umu-launcher.rpm "${UMU_LAUNCHER_RPM_X86_64_URL}"
 echo "${DROP_APP_RPM_X86_64_SHA256}  /tmp/drop-desktop-client.rpm" | sha256sum -c -
+echo "${UMU_LAUNCHER_RPM_X86_64_SHA256}  /tmp/umu-launcher.rpm" | sha256sum -c -
 
 # Pinned upstream Drop desktop client RPM
 dnf install -y /tmp/drop-desktop-client.rpm
 
-rm -f /tmp/drop-desktop-client.rpm
+# UMU launcher, used by the client to start Windows games through Proton
+dnf install -y /tmp/umu-launcher.rpm
+
+# Directory the client scans for Proton builds
+install -d /usr/share/steam/compatibilitytools.d
+
+rm -f /tmp/drop-desktop-client.rpm /tmp/umu-launcher.rpm
 dnf clean all
 rm -rf /var/cache/dnf
 _INSTALL_DROP_APP
@@ -41,10 +53,6 @@ COPY --chmod=755 overlay /
 
 ENV BROWSER=firefox
 ENV WEBKIT_DISABLE_DMABUF_RENDERER=1
-
-# TODO: Once drop-app releases Proton/UMU support (currently on develop branch),
-# install umu-run and a Proton build for Windows game compatibility.
-# See: https://github.com/Drop-OSS/drop-app/blob/develop/src-tauri/process/src/compat.rs
 
 ARG IMAGE_SOURCE="https://github.com/Baz00k/gow-collection"
 
