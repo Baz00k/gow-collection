@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Check for drop-app dependency updates
-# Checks: Drop release tag
+# Checks: Drop release tag, UMU launcher version
 
 set -euo pipefail
 
@@ -9,6 +9,7 @@ PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
 DROP_APP_REPO="${DROP_APP_REPO:-Drop-OSS/drop}"
+UMU_LAUNCHER_REPO="${UMU_LAUNCHER_REPO:-Open-Wine-Components/umu-launcher}"
 
 abort() { echo "ERROR: $1" >&2; exit 1; }
 
@@ -28,6 +29,13 @@ fetch_latest_drop_tag() {
     # intentional here: we follow what upstream marks shippable (v0.4.0-rc-6 is
     # published without the pre-release flag, the rc-1..rc-5 builds were not).
     curl -fsSL "https://api.github.com/repos/${DROP_APP_REPO}/releases/latest" | jq -r '.tag_name // empty'
+}
+
+fetch_latest_umu_version() {
+    # UMU tags are bare versions (1.4.4); tolerate a v prefix if that ever changes.
+    curl -fsSL "https://api.github.com/repos/${UMU_LAUNCHER_REPO}/releases/latest" \
+        | jq -r '.tag_name // empty' \
+        | sed 's/^v//'
 }
 
 # Main
@@ -51,6 +59,23 @@ if [[ -n "$latest_drop" ]]; then
     fi
 else
     echo "Warning: Could not fetch latest drop-app release"
+fi
+
+# Check umu-launcher
+echo "Checking umu-launcher..."
+current_umu=$(get_pin UMU_LAUNCHER_VERSION)
+latest_umu=$(fetch_latest_umu_version)
+
+if [[ -n "$latest_umu" ]]; then
+    if [[ "$current_umu" != "$latest_umu" ]]; then
+        echo "umu-launcher update available: ${current_umu} -> ${latest_umu}"
+        updates+=("umu")
+        summary+="### UMU Launcher\n\nUpdated from ${current_umu} to ${latest_umu}.\n\n"
+    else
+        echo "umu-launcher up to date"
+    fi
+else
+    echo "Warning: Could not fetch latest umu-launcher release"
 fi
 
 # Output results
