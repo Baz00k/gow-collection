@@ -4,11 +4,9 @@ ARG BASE_APP_IMAGE
 # hadolint ignore=DL3006
 FROM ${BASE_APP_IMAGE}
 
-# Eden is distributed as a self-extracting AppImage. Wolf containers do not get
-# /dev/fuse by default, so the AppImage is unpacked at build time and the
-# extracted tree is executed directly. The bundle ships its own Qt, Vulkan
-# loader, Mesa drivers, FFmpeg, SDL, and PulseAudio/ALSA client libraries, so no
-# extra runtime packages are required.
+# The self-extracting AppImage is unpacked at build time; the extracted tree is
+# what runs. The bundle carries its own Qt, Vulkan loader, Mesa drivers, FFmpeg,
+# SDL, and PulseAudio/ALSA client libraries.
 #
 # Upstream: https://git.eden-emu.dev/eden-emu/eden
 ARG EDEN_VERSION=0.2.1

@@ -35,11 +35,11 @@ base_create_json = """
 """
 ```
 
-The image unpacks the stable Linux AppImage at build time, so no `/dev/fuse` passthrough is needed. Shared variables (`PUID`, `GOW_DEBUG`, `GAMESCOPE_*`) are in [common runtime](../../docs/common-runtime.md).
+Shared variables (`PUID`, `GOW_DEBUG`, `GAMESCOPE_*`) are in [common runtime](../../docs/common-runtime.md).
 
 ## Files you supply
 
-The image contains no keys, firmware, or games. See [LEGAL.md](LEGAL.md).
+Keys, firmware, and games come from your own hardware. See [LEGAL.md](LEGAL.md).
 
 | What | How |
 | --- | --- |
