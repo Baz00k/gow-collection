@@ -75,6 +75,46 @@ launch a VR game from Steam.
 > the virtual screen with no HMD image and no tracking, it fell back to
 > desktop mode: check the startup logs for the `VR_OVERRIDE=...` line.
 
+## Share Data With The SteamOS Image
+
+If you also run the [steam-os](../steam-os/README.md) image, it is recommended
+to point WiVRn at the same data directory. Both images keep the Steam install,
+login, and game library under the runner's home (`/home/retro`), so sharing it:
+
+- skips a second Steam login,
+- avoids a duplicate Steam install and duplicate configuration,
+- lets both apps use the same games library, so a game installed once is
+  available to desktop/Big Picture streaming and to VR.
+
+Wolf stores each runner's home on the host at
+`/etc/wolf/profile-data/<profile_id>/<runner_name>` and mounts it at
+`/home/retro`. The simplest way to share it is to replace the WiVRn runner's
+directory with a symlink to the SteamOS runner's directory. The example below
+assumes the runner names `WolfSteamOS` and `WolfWiVRn` from the two Quick Start
+configs and a profile with ID `<profile_id>`:
+
+```bash
+PROFILE_DIR="/etc/wolf/profile-data/<profile_id>"
+
+# Remove the empty directory Wolf created for the WiVRn runner. Skip this and
+# move the contents elsewhere if it already holds data you want to keep.
+rmdir "${PROFILE_DIR}/WolfWiVRn" 2>/dev/null || true
+
+ln -s "${PROFILE_DIR}/WolfSteamOS" "${PROFILE_DIR}/WolfWiVRn"
+```
+
+Notes:
+
+- Sign in to Steam once, in either app; the other picks the session up.
+- Don't run both apps at the same time. They would share one Steam instance
+  and its lock files.
+- The symlink lives on the host and is not part of the Wolf config. Recreate
+  it after rebuilding the host or deleting the profile data.
+- If your games live on a separate host disk, mount it at the same container
+  path in both runners (for example
+  `/mnt/games/steamapps:/home/retro/steam-library:rw` in `mounts`) and add it
+  as a Steam library folder once.
+
 ## Configuration
 
 | Variable               | Default    | Description                                                            |
