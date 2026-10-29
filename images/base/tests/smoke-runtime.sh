@@ -112,6 +112,22 @@ if ! docker exec "${CONTAINER_NAME}" bash -n /opt/gow/launch-gamescope.sh; then
     fail "launch-gamescope.sh has a syntax error"
 fi
 
+# gamescope must exec as the runtime user without SYS_NICE, and get its
+# cap_sys_nice file capability back when the runner grants it.
+gamescope_probe() {
+    docker run --rm -e PUID=1000 -e PGID=1000 "$@" "${IMAGE_NAME}" \
+        bash -c 'getcap /usr/bin/gamescope; gamescope --version' 2>&1 || true
+}
+NO_CAP_PROBE=$(gamescope_probe)
+CAP_PROBE=$(gamescope_probe --cap-add SYS_NICE)
+{
+    echo "gamescope without SYS_NICE: ${NO_CAP_PROBE##*$'\n'}"
+    echo "gamescope with SYS_NICE: ${CAP_PROBE##*$'\n'}"
+} >> "${EVIDENCE_FILE}"
+grep -q 'gamescope version' <<< "${NO_CAP_PROBE}" || fail "gamescope does not exec without SYS_NICE"
+grep -q 'gamescope version' <<< "${CAP_PROBE}" || fail "gamescope does not exec with SYS_NICE"
+grep -q 'cap_sys_nice=ep' <<< "${CAP_PROBE}" || fail "cap_sys_nice was not restored with SYS_NICE"
+
 # Run a command through the real entrypoint. The entrypoint logs to stdout
 # before exec'ing the command, so take the last non-empty line as its output.
 entrypoint_output() {

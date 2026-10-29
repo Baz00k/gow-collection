@@ -41,7 +41,6 @@ set -eux
 packages=(
     # Steam client and gaming overlays/performance helpers
     steam
-    gamescope
     gamemode
     mangohud
 
