@@ -36,26 +36,7 @@ run_in_image() {
     docker run --rm --entrypoint "" "${IMAGE_NAME}" "$@"
 }
 
-log_info "Checking extracted AppImage layout..."
-run_in_image test -x /opt/eden/AppRun || fail "AppRun is missing or not executable"
-run_in_image test -x /opt/eden/bin/eden || fail "Eden binary is missing or not executable"
-run_in_image test ! -e /opt/eden/Eden.AppImage || fail "AppImage was not removed after extraction"
-run_in_image test -f /opt/eden/.eden-version || fail "pinned version marker is missing"
-
-pinned_version="$(run_in_image cat /opt/eden/.eden-version)"
-reported_version="$(run_in_image env HOME=/tmp/eden-smoke QT_QPA_PLATFORM=offscreen /opt/eden/bin/eden-cli --version)"
-
-{
-    echo "Pinned version: ${pinned_version}"
-    echo "Reported version: ${reported_version}"
-} >> "${EVIDENCE_FILE}"
-
-[[ -n "${pinned_version}" ]] || fail "pinned version marker is empty"
-case "${reported_version}" in
-    *"v${pinned_version}"*) ;;
-    *) fail "Eden reports '${reported_version}', expected v${pinned_version}" ;;
-esac
-
+# AppRun, bin/eden and the pinned version are asserted by the Dockerfile.
 log_info "Checking bundled library resolution..."
 # bin/eden is the static sharun launcher; the emulator itself is the dynamic
 # ELF in shared/bin, which resolves against the bundle's own libraries.

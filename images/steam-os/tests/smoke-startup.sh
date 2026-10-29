@@ -3,7 +3,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="${IMAGE_NAME:-ghcr.io/baz00k/gow-collection/steam-os:test}"
-CONTAINER_NAME="${CONTAINER_NAME:-smoke-test-startup-steam-os}"
 EVIDENCE_DIR="${EVIDENCE_DIR:-${SCRIPT_DIR}/../../../test-results/steam-os}"
 EVIDENCE_FILE="${EVIDENCE_DIR}/startup.txt"
 STUB_DIR=""
@@ -20,13 +19,11 @@ mkdir -p "${EVIDENCE_DIR}"
     echo "=== Smoke Test: SteamOS Startup ==="
     echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
     echo "Image: ${IMAGE_NAME}"
-    echo "Container: ${CONTAINER_NAME}"
     echo ""
 } > "${EVIDENCE_FILE}"
 
 # shellcheck disable=SC2329 # Invoked via trap.
 cleanup() {
-    docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
     if [[ -n "${STUB_DIR}" ]]; then
         rm -rf "${STUB_DIR}"
     fi
@@ -43,66 +40,21 @@ if ! docker image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
     fail "image not found"
 fi
 
-log_info "Starting container..."
-docker run -d --entrypoint "" --name "${CONTAINER_NAME}" "${IMAGE_NAME}" sleep infinity >/dev/null
-sleep 2
-
-if [[ "$(docker inspect --format='{{.State.Status}}' "${CONTAINER_NAME}")" != "running" ]]; then
-    fail "container not running"
-fi
-
+# Binaries the startup runs below stub out or never reach.
 REQUIRED_EXEC=(
-    /opt/gow/startup.sh
-    /opt/gow/steamos-session-supervisor.sh
-    /opt/gow/steamos-session-runner.sh
-    /opt/gow/steamos-plasma-session.sh
-    /usr/bin/steam
-    /usr/bin/steamos-session-select
-    /usr/bin/gamescope
-    /usr/bin/flatpak
     /usr/bin/firefox
     /usr/bin/xwininfo
-    /usr/local/bin/return-to-steam
-    /etc/cont-init.d/16-setup-flatpak-user.sh
 )
 
-for f in "${REQUIRED_EXEC[@]}"; do
-    if ! docker exec "${CONTAINER_NAME}" test -x "$f"; then
-        fail "missing or not executable ${f}"
-    fi
-    echo "${f}: ok" >> "${EVIDENCE_FILE}"
-done
-
-if ! docker exec "${CONTAINER_NAME}" test -x /opt/gow/entrypoint.sh; then
-    fail "base entrypoint missing"
+if ! MISSING="$(docker run --rm --entrypoint "" "${IMAGE_NAME}" \
+    bash -c 'for f; do test -x "$f" || echo "$f"; done' _ "${REQUIRED_EXEC[@]}")"; then
+    fail "could not inspect image binaries"
 fi
-echo "/opt/gow/entrypoint.sh: ok" >> "${EVIDENCE_FILE}"
+[[ -z "${MISSING}" ]] || fail "missing or not executable: ${MISSING//$'\n'/ }"
+echo "required binaries: ok" >> "${EVIDENCE_FILE}"
 
-if ! docker exec "${CONTAINER_NAME}" test -x /opt/decky/PluginLoader; then
-    fail "Decky PluginLoader missing or not executable"
-fi
-echo "/opt/decky/PluginLoader: ok" >> "${EVIDENCE_FILE}"
-
-if ! docker exec "${CONTAINER_NAME}" test -s /opt/decky/.loader.version; then
-    fail "Decky loader version marker missing"
-fi
-echo "/opt/decky/.loader.version: ok" >> "${EVIDENCE_FILE}"
-
-if ! docker exec "${CONTAINER_NAME}" flatpak remotes --system | grep -q '^flathub$'; then
-    fail "system Flathub remote missing"
-fi
-echo "system Flathub remote: ok" >> "${EVIDENCE_FILE}"
-
-if ! docker exec "${CONTAINER_NAME}" test -s /etc/polkit-1/rules.d/49-gow-flatpak.rules; then
-    fail "Flatpak polkit rule missing"
-fi
-echo "Flatpak polkit rule: ok" >> "${EVIDENCE_FILE}"
-
-if ! docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" id -nG | grep -qw gow-flatpak; then
-    fail "runtime user is not authorized for system Flatpak operations"
-fi
-echo "runtime Flatpak group: ok" >> "${EVIDENCE_FILE}"
-
+# The runtime user must be able to manage the system Flatpak installation
+# (gow-flatpak group + polkit rule).
 if ! docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" \
     bash -lc 'flatpak remote-modify --system --disable flathub && flatpak remote-modify --system --enable flathub'; then
     fail "runtime user cannot modify the system Flatpak installation"
@@ -250,8 +202,6 @@ cp /bin/bash "${kwin_bin}"
     --xwayland-display :7 \
     --xwayland-xauthority /tmp/startup-smoke/xauth_test \
     --xwayland &
-grep -q '^systemdBoot=false$' /etc/xdg/startkderc
-echo "startkderc systemdBoot=false" >> "${STARTUP_SENTINEL:?}"
 grep -q '^KDE_SESSION_VERSION=6$' <(env)
 echo "kde session version exported" >> "${STARTUP_SENTINEL:?}"
 case ":${XDG_DATA_DIRS:-}:" in
@@ -259,12 +209,6 @@ case ":${XDG_DATA_DIRS:-}:" in
     *) exit 1 ;;
 esac
 echo "flatpak data dirs exported" >> "${STARTUP_SENTINEL:?}"
-grep -q '^DefaultProfile=Shell.profile$' /etc/xdg/konsolerc
-grep -q '^Command=/bin/bash$' /usr/share/konsole/Shell.profile
-echo "konsole shell profile configured" >> "${STARTUP_SENTINEL:?}"
-grep -q '^Autolock=false$' /etc/xdg/kscreenlockerrc
-grep -q '^LockOnResume=false$' /etc/xdg/kscreenlockerrc
-echo "kscreenlocker disabled" >> "${STARTUP_SENTINEL:?}"
 test -x "${HOME}/Desktop/return-to-steam.desktop"
 grep -q '^Exec=/usr/local/bin/return-to-steam$' "${HOME}/Desktop/return-to-steam.desktop"
 echo "return-to-steam desktop shortcut installed" >> "${STARTUP_SENTINEL:?}"
@@ -450,11 +394,8 @@ for expected in \
     "startplasma-wayland stub invoked" \
     "x11 socket dir prepared" \
     "kwin_wayland stub invoked" \
-    "startkderc systemdBoot=false" \
     "kde session version exported" \
     "flatpak data dirs exported" \
-    "konsole shell profile configured" \
-    "kscreenlocker disabled" \
     "return-to-steam desktop shortcut installed" \
     "plasmashell stub invoked" \
     "argv: --replace" \

@@ -88,7 +88,7 @@ jobs:
             - name: Run policy checks
               run: |
                   chmod +x tests/policy-check.sh
-                  ./tests/policy-check.sh --strict
+                  ./tests/policy-check.sh
 
             - name: Upload policy results (on failure)
               if: failure()

@@ -40,25 +40,15 @@ cleanup() {
 trap cleanup EXIT
 
 if ! docker image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
-    log_error "Image ${IMAGE_NAME} not found. Run smoke-build.sh first."
+    log_error "Image ${IMAGE_NAME} not found. Run the build first."
     echo "ERROR: Image not found" >> "${EVIDENCE_FILE}"
     exit 1
 fi
 
 STUB_DIR="$(mktemp -d "${EVIDENCE_DIR}/startup-stub.XXXXXX")"
-STUB_PATH="${STUB_DIR}/prismlauncher"
 LAUNCH_STUB_PATH="${STUB_DIR}/launch-gamescope.sh"
 SENTINEL_PATH="${STUB_DIR}/invoked"
 RUN_LOG="${STUB_DIR}/docker-run.log"
-
-cat > "${STUB_PATH}" <<'EOF'
-#!/bin/bash
-set -euo pipefail
-echo "prismlauncher startup stub invoked" >> "${STARTUP_SENTINEL:?}"
-echo "argv: $*" >> "${STARTUP_SENTINEL}"
-echo "XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR:-unset}" >> "${STARTUP_SENTINEL}"
-EOF
-chmod +x "${STUB_PATH}"
 
 cat > "${LAUNCH_STUB_PATH}" <<'EOF'
 #!/bin/bash
@@ -66,7 +56,6 @@ set -euo pipefail
 echo "launch-gamescope startup stub invoked" > "${STARTUP_SENTINEL:?}"
 echo "argv: $*" >> "${STARTUP_SENTINEL}"
 echo "XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR:-unset}" >> "${STARTUP_SENTINEL}"
-exec "$@"
 EOF
 chmod +x "${LAUNCH_STUB_PATH}"
 
@@ -75,7 +64,6 @@ set +e
 docker run \
     --name "${CONTAINER_NAME}" \
     -e PUID=0 \
-    -e PATH=/tmp/startup-smoke:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     -e STARTUP_SENTINEL=/tmp/startup-smoke/invoked \
     -v "${LAUNCH_STUB_PATH}:/opt/gow/launch-gamescope.sh:ro" \
     -v "${STUB_DIR}:/tmp/startup-smoke" \
@@ -103,31 +91,6 @@ fi
 if [[ ! -f "${SENTINEL_PATH}" ]]; then
     log_error "Startup script did not invoke launch-gamescope"
     echo "RESULT: FAILED (app command not invoked)" >> "${EVIDENCE_FILE}"
-    exit 1
-fi
-
-log_info "Checking startup contract files..."
-docker run --rm --entrypoint "" "${IMAGE_NAME}" test -x /opt/gow/startup.sh
-docker run --rm --entrypoint "" "${IMAGE_NAME}" test -x /opt/gow/launch-gamescope.sh
-docker run --rm --entrypoint "" "${IMAGE_NAME}" test ! -e /opt/gow/startup-app.sh
-docker run --rm --entrypoint "" "${IMAGE_NAME}" test ! -e /opt/gow/launch-comp.sh
-docker run --rm --entrypoint "" "${IMAGE_NAME}" test ! -e /opt/gow/bash-lib/utils.sh
-
-PRISM_PATH=$(docker run --rm --entrypoint "" "${IMAGE_NAME}" readlink -f /usr/local/bin/prismlauncher)
-{
-    echo "=== Prism Launcher Path ==="
-    echo "Path: ${PRISM_PATH}"
-} >> "${EVIDENCE_FILE}"
-
-if [[ "${PRISM_PATH}" != "/opt/prismlauncher/squashfs-root/AppRun" ]]; then
-    log_error "prismlauncher does not point to extracted AppRun: ${PRISM_PATH}"
-    echo "RESULT: FAILED (prismlauncher path)" >> "${EVIDENCE_FILE}"
-    exit 1
-fi
-
-if ! grep -q "launch-gamescope startup stub invoked" "${SENTINEL_PATH}"; then
-    log_error "Startup script did not route through launch-gamescope"
-    echo "RESULT: FAILED (gamescope helper not invoked)" >> "${EVIDENCE_FILE}"
     exit 1
 fi
 

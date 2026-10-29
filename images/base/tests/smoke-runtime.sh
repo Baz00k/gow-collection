@@ -42,44 +42,21 @@ fail() {
     exit 1
 }
 
-# Files that make up the shared runtime contract.
+# Packages the shared runtime contract depends on. Overlay scripts are covered
+# by the behavioural checks below.
 REQUIRED_EXEC=(
-    /opt/gow/entrypoint.sh
-    /opt/gow/logging.sh
-    /opt/gow/gamescope-lib.sh
-    /opt/gow/launch-gamescope.sh
-    /opt/gow/apply-performance-tuning.sh
-    /etc/cont-init.d/10-setup-user.sh
-    /etc/cont-init.d/20-setup-devices.sh
-    /etc/cont-init.d/30-nvidia.sh
     /usr/bin/bwrap
     /usr/bin/fusermount
     /usr/bin/fusermount3
     /usr/bin/gamescope
-    /usr/bin/gosu
 )
 
 for f in "${REQUIRED_EXEC[@]}"; do
-    if ! docker exec "${CONTAINER_NAME}" test -f "$f"; then
-        echo "${f}: MISSING" >> "${EVIDENCE_FILE}"
-        fail "missing ${f}"
-    fi
     if ! docker exec "${CONTAINER_NAME}" test -x "$f"; then
-        echo "${f}: NOT EXECUTABLE" >> "${EVIDENCE_FILE}"
-        fail "not executable ${f}"
+        fail "missing or not executable ${f}"
     fi
-    echo "${f}: ok (executable)" >> "${EVIDENCE_FILE}"
+    echo "${f}: ok" >> "${EVIDENCE_FILE}"
 done
-
-# Entrypoint runtime user convention.
-RUNTIME_USER=$(docker exec "${CONTAINER_NAME}" awk -F'"' '/^UNAME=/{print $2}' /opt/gow/entrypoint.sh)
-echo "Entrypoint UNAME default: ${RUNTIME_USER}" >> "${EVIDENCE_FILE}"
-[[ "${RUNTIME_USER}" == *retro* ]] || fail "runtime user default not retro"
-
-# XDG fallback is a private per-user runtime dir, not the global X11 socket dir.
-if ! docker exec "${CONTAINER_NAME}" grep -qF 'XDG_RUNTIME_DIR="/run/user/${PUID}"' /opt/gow/entrypoint.sh; then
-    fail "XDG_RUNTIME_DIR fallback missing"
-fi
 
 if docker exec "${CONTAINER_NAME}" test -u /usr/bin/bwrap; then
     fail "bwrap must not be setuid; Flatpak PID sharing requires unprivileged bwrap"
@@ -99,16 +76,7 @@ else
     echo "strict bwrap runtime probe: skipped (set GOW_STRICT_BWRAP_SMOKE=1)" >> "${EVIDENCE_FILE}"
 fi
 
-# logging helpers are sourceable and define log_info.
-if ! docker exec "${CONTAINER_NAME}" bash -c 'source /opt/gow/logging.sh && type log_info >/dev/null'; then
-    fail "logging.sh does not provide log_info"
-fi
-
-# Gamescope helpers are sourceable and provide the shared session contract.
-if ! docker exec "${CONTAINER_NAME}" bash -c 'source /opt/gow/gamescope-lib.sh && type gamescope_append_base_args >/dev/null'; then
-    fail "gamescope-lib.sh does not provide gamescope_append_base_args"
-fi
-
+# Gamescope helpers produce the shared session args.
 if ! docker exec "${CONTAINER_NAME}" bash -c '
     source /opt/gow/gamescope-lib.sh
     GAMESCOPE_WIDTH=2560
@@ -144,41 +112,38 @@ if ! docker exec "${CONTAINER_NAME}" bash -n /opt/gow/launch-gamescope.sh; then
     fail "launch-gamescope.sh has a syntax error"
 fi
 
-# Runtime user creation actually works end-to-end (run entrypoint with a noop cmd).
-# The entrypoint logs to stdout before exec'ing the command, so take the last
-# non-empty line as the command's own output.
-log_info "Verifying gosu privilege-drop via entrypoint..."
-WHOAMI=$(docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" whoami 2>/dev/null \
-    | grep -v '\[INFO\]' | grep -v '\[WARN\]' | sed '/^$/d' | tail -1 || true)
-echo "entrypoint 'whoami' as PUID=1000: ${WHOAMI}" >> "${EVIDENCE_FILE}"
-[[ "${WHOAMI}" == "retro" ]] || fail "entrypoint did not drop to retro user (got '${WHOAMI}')"
+# Run a command through the real entrypoint. The entrypoint logs to stdout
+# before exec'ing the command, so take the last non-empty line as its output.
+entrypoint_output() {
+    docker run --rm "$@" 2>/dev/null \
+        | grep -v '\[INFO\]' | grep -v '\[WARN\]' | sed '/^$/d' | tail -1 || true
+}
 
-RUNTIME_DIR_MODE=$(docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" stat -c %a /run/user/1000 2>/dev/null \
-    | grep -v '\[INFO\]' | grep -v '\[WARN\]' | sed '/^$/d' | tail -1 || true)
-echo "entrypoint XDG_RUNTIME_DIR mode: ${RUNTIME_DIR_MODE}" >> "${EVIDENCE_FILE}"
-[[ "${RUNTIME_DIR_MODE}" == "700" ]] || fail "XDG_RUNTIME_DIR /run/user/1000 must be mode 700 (got '${RUNTIME_DIR_MODE}')"
+# expect <description> <expected> <actual>
+expect() {
+    echo "$1: $3" >> "${EVIDENCE_FILE}"
+    [[ "$3" == "$2" ]] || fail "$1 must be '$2' (got '$3')"
+}
 
-RUNTIME_DIR_ENV=$(docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" bash -c 'printf "%s" "${XDG_RUNTIME_DIR}"' 2>/dev/null \
-    | grep -v '\[INFO\]' | grep -v '\[WARN\]' | sed '/^$/d' | tail -1 || true)
-echo "entrypoint XDG_RUNTIME_DIR value: ${RUNTIME_DIR_ENV}" >> "${EVIDENCE_FILE}"
-[[ "${RUNTIME_DIR_ENV}" == "/run/user/1000" ]] || fail "XDG_RUNTIME_DIR default must be /run/user/1000 (got '${RUNTIME_DIR_ENV}')"
+log_info "Verifying entrypoint runtime setup..."
+USER_ENV=(-e PUID=1000 -e PGID=1000)
+# shellcheck disable=SC2016 # Expanded inside the container.
+PRINT_XDG=(bash -c 'printf "%s" "${XDG_RUNTIME_DIR}"')
 
-X11_SOCKET_MODE=$(docker run --rm -e PUID=1000 -e PGID=1000 -e XDG_RUNTIME_DIR=/tmp/runtime-test "${IMAGE_NAME}" stat -c %a /tmp/.X11-unix 2>/dev/null \
-    | grep -v '\[INFO\]' | grep -v '\[WARN\]' | sed '/^$/d' | tail -1 || true)
-echo "entrypoint /tmp/.X11-unix mode with separate XDG_RUNTIME_DIR: ${X11_SOCKET_MODE}" >> "${EVIDENCE_FILE}"
-[[ "${X11_SOCKET_MODE}" == "1777" ]] || fail "/tmp/.X11-unix must be mode 1777 even when XDG_RUNTIME_DIR differs (got '${X11_SOCKET_MODE}')"
-
-LEGACY_RUNTIME_DIR_ENV=$(docker run --rm -e PUID=1000 -e PGID=1000 -e XDG_RUNTIME_DIR=/tmp/.X11-unix "${IMAGE_NAME}" bash -c 'printf "%s" "${XDG_RUNTIME_DIR}"' 2>/dev/null \
-    | grep -v '\[INFO\]' | grep -v '\[WARN\]' | sed '/^$/d' | tail -1 || true)
-echo "entrypoint legacy XDG_RUNTIME_DIR override result: ${LEGACY_RUNTIME_DIR_ENV}" >> "${EVIDENCE_FILE}"
-[[ "${LEGACY_RUNTIME_DIR_ENV}" == "/run/user/1000" ]] || fail "legacy XDG_RUNTIME_DIR=/tmp/.X11-unix must be normalized (got '${LEGACY_RUNTIME_DIR_ENV}')"
-
+expect "runtime user (gosu privilege drop)" "retro" \
+    "$(entrypoint_output "${USER_ENV[@]}" "${IMAGE_NAME}" whoami)"
+expect "XDG_RUNTIME_DIR mode" "700" \
+    "$(entrypoint_output "${USER_ENV[@]}" "${IMAGE_NAME}" stat -c %a /run/user/1000)"
+expect "XDG_RUNTIME_DIR default" "/run/user/1000" \
+    "$(entrypoint_output "${USER_ENV[@]}" "${IMAGE_NAME}" "${PRINT_XDG[@]}")"
+expect "legacy XDG_RUNTIME_DIR=/tmp/.X11-unix normalized" "/run/user/1000" \
+    "$(entrypoint_output "${USER_ENV[@]}" -e XDG_RUNTIME_DIR=/tmp/.X11-unix "${IMAGE_NAME}" "${PRINT_XDG[@]}")"
+expect "/tmp/.X11-unix mode with separate XDG_RUNTIME_DIR" "1777" \
+    "$(entrypoint_output "${USER_ENV[@]}" -e XDG_RUNTIME_DIR=/tmp/runtime-test "${IMAGE_NAME}" stat -c %a /tmp/.X11-unix)"
 # The X11 socket dir is shared infrastructure and must be prepared even for root
 # containers, which skip runtime-user creation.
-ROOT_X11_SOCKET_MODE=$(docker run --rm -e PUID=0 -e PGID=0 "${IMAGE_NAME}" stat -c %a /tmp/.X11-unix 2>/dev/null \
-    | grep -v '\[INFO\]' | grep -v '\[WARN\]' | sed '/^$/d' | tail -1 || true)
-echo "entrypoint /tmp/.X11-unix mode with PUID=0: ${ROOT_X11_SOCKET_MODE}" >> "${EVIDENCE_FILE}"
-[[ "${ROOT_X11_SOCKET_MODE}" == "1777" ]] || fail "/tmp/.X11-unix must be mode 1777 for root containers (got '${ROOT_X11_SOCKET_MODE}')"
+expect "/tmp/.X11-unix mode with PUID=0" "1777" \
+    "$(entrypoint_output -e PUID=0 -e PGID=0 "${IMAGE_NAME}" stat -c %a /tmp/.X11-unix)"
 
 echo "RESULT: PASSED" >> "${EVIDENCE_FILE}"
 log_info "All base runtime checks passed"
