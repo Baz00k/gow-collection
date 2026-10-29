@@ -1,44 +1,35 @@
 # Contributing
 
-All image-specific logic lives under `images/<name>/`. Adding an image never requires touching workflow files — CI auto-discovers images via `images/*/build/pins.env`.
+Everything for an image lives in `images/<name>/`. CI discovers images by `images/*/build/pins.env`, so adding one never touches workflow files. Copy an existing image as a starting point.
 
 ## Adding an image
 
-```
-images/<name>/
-├── build/
-│   ├── Dockerfile
-│   ├── pins.env
-│   ├── overlay/          # copied to / in the image (e.g. opt/gow/startup.sh)
-│   └── .dockerignore
-├── tests/
-│   ├── run-smoke.sh
-│   └── smoke-*.sh
-├── update/               # optional: check.sh + apply.sh
-└── README.md
-```
-
-App Dockerfiles declare `ARG BASE_APP_IMAGE` and use a single `FROM ${BASE_APP_IMAGE}`. Shared runtime behavior comes from the base image — keep image READMEs to what's specific to that image plus a Wolf app example. Common runtime and troubleshooting live in `docs/`.
+- `build/`: `Dockerfile`, `pins.env`, `.dockerignore`, and `overlay/` (copied to `/`; at minimum `opt/gow/startup.sh`).
+- `tests/`: `run-smoke.sh`, which runs every `smoke-*.sh`.
+- `update/` (optional): `check.sh` and `apply.sh`.
+- `README.md`: only what is specific to this image, plus a Wolf `[[profiles.apps]]` example. Shared runtime and troubleshooting belong in `docs/`.
 
 ## pins.env
 
-```bash
-# Must pin the base by sha256 digest — floating tags break reproducibility.
-BASE_APP_IMAGE=ghcr.io/<owner>/gow-collection/base:edge@sha256:<digest>
+Every key becomes a Docker build-arg. `BASE_APP_IMAGE` pins the base by digest; each downloaded artifact gets a `*_SHA256` that the Dockerfile checks with `sha256sum -c`.
 
+```bash
+BASE_APP_IMAGE=ghcr.io/<owner>/gow-collection/base:edge@sha256:<digest>
 APP_VERSION=1.2.3
 APP_SHA256=<sha256-of-artifact>
 ```
 
-App update scripts must not modify `BASE_APP_IMAGE`; base-digest propagation is owned by `.github/scripts/propagate-base-digest.sh`.
-
 ## Update scripts
 
-Optional `update/check.sh` and `update/apply.sh` (both executable) communicate with CI via `$GITHUB_OUTPUT` and receive `PINS_FILE` and `IMAGE_DIR`:
+`update.yml` runs `check.sh`, then `apply.sh` if an update is available, passing `PINS_FILE`, `IMAGE_DIR`, and `GITHUB_OUTPUT`. Both must be executable and write to `$GITHUB_OUTPUT`:
 
-- `check.sh` → `update_available=true|false` (+ optional `summary_md` heredoc)
-- `apply.sh` → `applied=true|false` (+ optional `summary_md` heredoc)
+- `check.sh`: `update_available=true|false`
+- `apply.sh`: `applied=true|false`, plus an optional `summary_md<<EOF … EOF` block for the PR body
+
+Update only your image's pins; `BASE_APP_IMAGE` is bumped repo-wide by `.github/scripts/propagate-base-digest.sh`.
+
+Try them locally with `GITHUB_OUTPUT=/dev/null bash images/<name>/update/check.sh`.
 
 ## Before opening a PR
 
-Run `./tests/policy-check.sh` and the image's `tests/run-smoke.sh`.
+`./tests/policy-check.sh` and the image's `tests/run-smoke.sh` both pass.
