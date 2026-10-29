@@ -144,6 +144,45 @@ check_download_verification() {
     fi
 }
 
+check_gamescope_capabilities() {
+    log_info "Checking gamescope capability requirements..."
+
+    local found_violations=0
+
+    while IFS= read -r imgdir; do
+        local name overlay readme launcher
+        name=$(basename "${imgdir}")
+        [[ "${name}" == "base" ]] && continue
+
+        overlay="${imgdir}/build/overlay"
+        readme="${imgdir}/README.md"
+        [[ -d "${overlay}" ]] || continue
+
+        # Only images that actually start the compositor need the capability, either
+        # through the shared launcher or by exec'ing gamescope themselves. Scripts
+        # that merely mention gamescope in a log line do not.
+        mapfile -t launchers < <(grep -rlE 'launch-gamescope\.sh|^[[:space:]]*(exec[[:space:]]+)?(/usr/bin/)?gamescope[[:space:]]' "${overlay}" || true)
+        if [[ "${#launchers[@]}" -eq 0 ]]; then
+            continue
+        fi
+
+        # The base strips the file capability so sessions start without it, and
+        # restores it when the runner grants SYS_NICE. The documented starting
+        # config has to ask for it, or users lose realtime scheduling.
+        if [[ ! -f "${readme}" ]]; then
+            log_error "${name} launches gamescope but has no README.md documenting SYS_NICE in CapAdd"
+            ((found_violations++)) || true
+        elif ! grep -qE '"CapAdd"[^]]*"SYS_NICE"' "${readme}"; then
+            log_error "${readme} must list SYS_NICE in its CapAdd example"
+            ((found_violations++)) || true
+        fi
+    done < <(get_image_dirs)
+
+    if [[ ${found_violations} -eq 0 ]]; then
+        log_pass "Gamescope images document SYS_NICE in their runner config"
+    fi
+}
+
 log_info "Starting policy check..."
 if [[ -n "${IMAGE_DIR}" ]]; then
     log_info "Scanning image directory: ${IMAGE_DIR}"
@@ -155,6 +194,7 @@ echo "" >> "${RESULTS_FILE}"
 check_base_pin
 check_app_base_contract
 check_download_verification
+check_gamescope_capabilities
 
 echo ""
 log_info "Policy check complete"

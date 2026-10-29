@@ -18,6 +18,8 @@ The common Games on Whales runtime contract:
   `/home/deck` symlink, ownership.
 - `/etc/cont-init.d/20-setup-devices.sh` — device group access for `/dev/dri`,
   `/dev/nvidia*`, input devices, etc.
+- `/etc/cont-init.d/25-setup-gamescope.sh` — restores gamescope's `cap_sys_nice`
+  file capability when the runner profile grants `SYS_NICE`.
 - `/etc/cont-init.d/30-nvidia.sh` — NVIDIA driver volume / toolkit integration.
 - `/usr/bin/bwrap` — non-setuid bubblewrap for Flatpak sandboxing. Wolf's runner
   profile must allow unprivileged user namespaces; Flatpak PID-sharing features

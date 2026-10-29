@@ -144,6 +144,69 @@ if ! docker exec "${CONTAINER_NAME}" bash -n /opt/gow/launch-gamescope.sh; then
     fail "launch-gamescope.sh has a syntax error"
 fi
 
+# Fedora ships gamescope with the file capability cap_sys_nice=ep. The kernel
+# refuses to exec a file capability the container's bounding set lacks, so the
+# base image strips it and a runtime hook restores it when the runner grants
+# SYS_NICE. The shipped image must have no file capability...
+GAMESCOPE_CAPS=$(docker exec "${CONTAINER_NAME}" getcap /usr/bin/gamescope 2>/dev/null || true)
+echo "gamescope file capabilities in image: ${GAMESCOPE_CAPS:-none}" >> "${EVIDENCE_FILE}"
+if [[ -n "${GAMESCOPE_CAPS}" ]]; then
+    fail "gamescope still carries a file capability (${GAMESCOPE_CAPS})"
+fi
+
+# ...the compositor must exec under Docker's default bounding set, as the runtime
+# user, through the normal entrypoint (the path that used to fail with "Operation
+# not permitted")...
+NO_CAP_PROBE=$(docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" \
+    bash -c 'getcap /usr/bin/gamescope; exec /usr/bin/gamescope --version' 2>&1 || true)
+echo "gamescope without SYS_NICE: $(grep -o 'gamescope version.*' <<< "${NO_CAP_PROBE}" | tail -1)" >> "${EVIDENCE_FILE}"
+if ! grep -q 'gamescope version' <<< "${NO_CAP_PROBE}"; then
+    fail "gamescope does not exec without SYS_NICE"
+fi
+if ! grep -qF '[gamescope] CAP_SYS_NICE not granted' <<< "${NO_CAP_PROBE}"; then
+    fail "startup did not report the missing SYS_NICE capability"
+fi
+
+# ...and the runtime hook must restore the capability when the profile grants it,
+# because a non-root gamescope only gets realtime scheduling through the file
+# capability. Both probes run the binary as the runtime user, not as root.
+PROBE_SCRIPT='id -u; getcap /usr/bin/gamescope; exec /usr/bin/gamescope --version'
+
+set +e
+NO_CAP_PROBE=$(docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" \
+    bash -c "${PROBE_SCRIPT}" 2>&1)
+NO_CAP_EXIT=$?
+set -e
+echo "gamescope without SYS_NICE: exit ${NO_CAP_EXIT}, $(grep -o 'gamescope version.*' <<< "${NO_CAP_PROBE}" | tail -1)" >> "${EVIDENCE_FILE}"
+if [[ ${NO_CAP_EXIT} -ne 0 ]] || ! grep -qx '1000' <<< "${NO_CAP_PROBE}"; then
+    fail "gamescope probe without SYS_NICE did not run as the runtime user (exit ${NO_CAP_EXIT})"
+fi
+if ! grep -q 'gamescope version' <<< "${NO_CAP_PROBE}"; then
+    fail "gamescope does not exec without SYS_NICE"
+fi
+if ! grep -qF '[gamescope] CAP_SYS_NICE not granted' <<< "${NO_CAP_PROBE}"; then
+    fail "startup did not report the missing SYS_NICE capability"
+fi
+
+set +e
+CAP_PROBE=$(docker run --rm --cap-add SYS_NICE -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" \
+    bash -c "${PROBE_SCRIPT}" 2>&1)
+CAP_EXIT=$?
+set -e
+echo "gamescope with SYS_NICE: exit ${CAP_EXIT}, $(grep -o 'cap_sys_nice=ep' <<< "${CAP_PROBE}" | head -1)" >> "${EVIDENCE_FILE}"
+if [[ ${CAP_EXIT} -ne 0 ]] || ! grep -qx '1000' <<< "${CAP_PROBE}"; then
+    fail "gamescope probe with SYS_NICE did not run as the runtime user (exit ${CAP_EXIT})"
+fi
+if ! grep -q 'cap_sys_nice=ep' <<< "${CAP_PROBE}"; then
+    fail "startup did not restore gamescope's cap_sys_nice=ep file capability"
+fi
+if ! grep -q 'gamescope version' <<< "${CAP_PROBE}"; then
+    fail "gamescope does not exec as the runtime user with SYS_NICE granted"
+fi
+if ! grep -qF '[gamescope] CAP_SYS_NICE granted' <<< "${CAP_PROBE}"; then
+    fail "startup did not report the granted SYS_NICE capability"
+fi
+
 # Runtime user creation actually works end-to-end (run entrypoint with a noop cmd).
 # The entrypoint logs to stdout before exec'ing the command, so take the last
 # non-empty line as the command's own output.
