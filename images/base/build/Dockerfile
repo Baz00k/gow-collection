@@ -52,7 +52,7 @@ packages=(
     # Hardware discovery
     pciutils
 
-    # setcap/getcap for normalizing packaged file capabilities
+    # setcap/capsh for the gamescope file capability
     libcap
 
     # Flatpak sandbox helper
@@ -69,21 +69,10 @@ dnf clean all
 rm -rf /var/cache/dnf
 _INSTALL_PACKAGES
 
-# -----------------------------------------------------------------------------
-# gamescope file capability
-# -----------------------------------------------------------------------------
-# Fedora ships /usr/bin/gamescope with the file capability cap_sys_nice=ep so a
-# non-root gamescope can request realtime scheduling. The kernel refuses to exec
-# a file capability that the container's capability bounding set does not
-# contain, and a runner profile that does not grant SYS_NICE therefore died with
-# "/usr/bin/gamescope: Operation not permitted" before the app started.
-#
-# Strip it so the compositor always starts, and let
-# /etc/cont-init.d/25-setup-gamescope.sh put it back when the runner profile does
-# grant SYS_NICE (the documented starting configuration for every app image).
-# Without the capability gamescope falls back to regular-priority threads.
-RUN setcap -r /usr/bin/gamescope && \
-    test -z "$(getcap /usr/bin/gamescope)"
+# Fedora ships gamescope with cap_sys_nice=ep, which fails to exec ("Operation
+# not permitted") when the runner does not grant SYS_NICE.
+# /etc/cont-init.d/25-setup-gamescope.sh restores it when SYS_NICE is granted.
+RUN setcap -r /usr/bin/gamescope
 
 # -----------------------------------------------------------------------------
 # gosu — privilege dropping tool

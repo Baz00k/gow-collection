@@ -72,22 +72,6 @@ Most GUI images launch through gamescope. Configure resolution here:
 | `GAMESCOPE_MODE`        | `-b`           | Gamescope mode, such as `-b` or `-f`               |
 | `GAMESCOPE_EXTRA_ARGS`  | empty          | Extra gamescope arguments                          |
 
-### Realtime scheduling
-
-gamescope asks for realtime scheduling through the `cap_sys_nice` file capability
-that Fedora packages onto its binary. The images strip that capability so a
-session still starts when the runner profile does not grant it, and restore it at
-startup when the profile does. Every image's README lists `SYS_NICE` in its
-`CapAdd` for that reason.
-
-Without the capability gamescope logs:
-
-```
-No CAP_SYS_NICE, falling back to regular-priority compute and threads.
-```
-
-and runs at regular priority.
-
 ## Host Game Setting
 
 Some games need a higher memory map limit. If a game crashes on launch, set this on the host:
