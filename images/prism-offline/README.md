@@ -24,7 +24,7 @@ base_create_json = """
 {
   "HostConfig": {
     "IpcMode": "host",
-    "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN"],
+    "CapAdd": ["SYS_NICE", "NET_RAW", "MKNOD", "NET_ADMIN"],
     "Privileged": false,
     "DeviceCgroupRules": ["c 13:* rwm", "c 244:* rwm"]
   }
