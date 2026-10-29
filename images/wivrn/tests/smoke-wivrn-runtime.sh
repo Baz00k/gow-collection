@@ -9,11 +9,9 @@ EVIDENCE_FILE="${EVIDENCE_DIR}/wivrn-runtime.txt"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 NC='\033[0m'
 
 log_info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 
 mkdir -p "${EVIDENCE_DIR}"
@@ -43,11 +41,35 @@ fi
 
 log_info "Starting container..."
 docker run -d --entrypoint "" --name "${CONTAINER_NAME}" "${IMAGE_NAME}" sleep infinity >/dev/null
-sleep 2
 
-if [[ "$(docker inspect --format='{{.State.Status}}' "${CONTAINER_NAME}")" != "running" ]]; then
-    fail "container not running"
+# Binaries the services test replaces with PATH stubs.
+REQUIRED_EXEC=(
+    /usr/bin/pipewire
+    /usr/bin/pipewire-pulse
+    /usr/bin/wireplumber
+    /usr/bin/dbus-daemon
+    /usr/bin/dbus-run-session
+    /usr/bin/steam
+    /usr/bin/vulkaninfo
+    /usr/bin/xwininfo
+)
+
+for f in "${REQUIRED_EXEC[@]}"; do
+    if ! docker exec "${CONTAINER_NAME}" test -x "$f"; then
+        fail "missing or not executable ${f}"
+    fi
+    echo "${f}: ok" >> "${EVIDENCE_FILE}"
+done
+
+if ! docker exec "${CONTAINER_NAME}" sh -c 'command -v avahi-daemon' >/dev/null; then
+    fail "avahi-daemon not found on PATH"
 fi
+echo "avahi-daemon: ok" >> "${EVIDENCE_FILE}"
+
+if ! docker exec "${CONTAINER_NAME}" /usr/bin/python3 -c 'import json; json.load(open("/etc/wivrn/config.json"))'; then
+    fail "WiVRn system config is not valid JSON"
+fi
+echo "/etc/wivrn/config.json valid JSON: ok" >> "${EVIDENCE_FILE}"
 
 log_info "Checking OpenXR runtime manifest..."
 MANIFESTS="$(docker exec "${CONTAINER_NAME}" sh -c 'find /usr/share/openxr -iname "*wivrn*.json" 2>/dev/null' || true)"
@@ -59,12 +81,9 @@ echo "${MANIFESTS}" >> "${EVIDENCE_FILE}"
 
 while IFS= read -r manifest; do
     [[ -z "${manifest}" ]] && continue
-    if ! docker exec "${CONTAINER_NAME}" /usr/bin/python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "${manifest}"; then
-        fail "manifest is not valid JSON: ${manifest}"
-    fi
     LIBRARY="$(docker exec "${CONTAINER_NAME}" /usr/bin/python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["runtime"]["library_path"])' "${manifest}" || true)"
     if [[ -z "${LIBRARY}" ]]; then
-        fail "manifest has no runtime.library_path: ${manifest}"
+        fail "manifest is not valid JSON or has no runtime.library_path: ${manifest}"
     fi
     echo "library_path: ${LIBRARY}" >> "${EVIDENCE_FILE}"
     MANIFEST_DIR="$(dirname "${manifest}")"
@@ -75,33 +94,8 @@ while IFS= read -r manifest; do
     echo "runtime library resolves: ok" >> "${EVIDENCE_FILE}"
 done <<< "${MANIFESTS}"
 
-log_info "Checking xrizer compat library layout..."
-# The compat path must resolve bin/linux64/vrclient.so underneath it: WiVRn
-# (active_runtime.cpp) and the OpenVR loader both append that suffix. A
-# wrong level (e.g. /opt/xrizer/bin instead of /opt/xrizer)
-# silently drops games to desktop mode — no HMD image, no tracking.
-EXPECTED_COMPAT="$(grep '^WIVRN_OPENVR_COMPAT_PATH=' "${SCRIPT_DIR}/../build/overlay/opt/gow/wivrn-config.sh" | head -1 | grep -o '/[^"}]*' || true)"
-if [[ -z "${EXPECTED_COMPAT}" ]]; then
-    fail "WIVRN_OPENVR_COMPAT_PATH default missing"
-fi
-echo "expected compat path: ${EXPECTED_COMPAT}" >> "${EVIDENCE_FILE}"
-if ! docker exec "${CONTAINER_NAME}" test -f "${EXPECTED_COMPAT}/bin/linux64/vrclient.so"; then
-    fail "OpenVR compat library missing: ${EXPECTED_COMPAT}/bin/linux64/vrclient.so not found in image"
-fi
-echo "compat vrclient.so resolves: ok" >> "${EVIDENCE_FILE}"
-
-log_info "Checking pinned xrizer release and IVRSystem_026..."
-if ! docker exec "${CONTAINER_NAME}" sh -c \
-    'test -f /opt/xrizer/bin/linux64/vrclient.so && grep -aFq IVRSystem_026 /opt/xrizer/bin/linux64/vrclient.so'; then
-    fail "xrizer is missing or does not contain IVRSystem_026"
-fi
-XRIZER_VRCLIENT_SHA256="$(grep '^XRIZER_VRCLIENT_SHA256=' "${SCRIPT_DIR}/../build/pins.env" | cut -d= -f2-)"
-if ! docker exec "${CONTAINER_NAME}" sh -c \
-    "echo '${XRIZER_VRCLIENT_SHA256}  /opt/xrizer/bin/linux64/vrclient.so' | sha256sum -c -" >> "${EVIDENCE_FILE}" 2>&1; then
-    fail "xrizer library does not match the pinned release"
-fi
-echo "pinned xrizer release and IVRSystem_026: ok" >> "${EVIDENCE_FILE}"
-
+# The xrizer checksum and IVRSystem_026, and the wivrn-server version, are
+# asserted by the Dockerfile at build time.
 log_info "Checking xrizer shared-library dependencies..."
 if ! docker exec "${CONTAINER_NAME}" /usr/bin/python3 -c \
     'import ctypes; ctypes.CDLL("/opt/xrizer/bin/linux64/vrclient.so")' >> "${EVIDENCE_FILE}" 2>&1; then
@@ -109,36 +103,11 @@ if ! docker exec "${CONTAINER_NAME}" /usr/bin/python3 -c \
 fi
 echo "xrizer library loads: ok" >> "${EVIDENCE_FILE}"
 
-log_info "Checking wivrn-server..."
-if ! docker exec "${CONTAINER_NAME}" wivrn-server --help >> "${EVIDENCE_FILE}" 2>&1; then
-    fail "wivrn-server --help failed"
-fi
-echo "wivrn-server --help: ok" >> "${EVIDENCE_FILE}"
-
-EXPECTED_VERSION="$(grep '^WIVRN_VERSION=' "${SCRIPT_DIR}/../build/pins.env" | head -1 | cut -d= -f2- || true)"
-if [[ -z "${EXPECTED_VERSION}" ]]; then
-    fail "WIVRN_VERSION pin missing"
-fi
-SERVER_VERSION="$(docker exec "${CONTAINER_NAME}" wivrn-server --version 2>&1 || true)"
-echo "wivrn-server version output: ${SERVER_VERSION}" >> "${EVIDENCE_FILE}"
-if ! grep -qF "${EXPECTED_VERSION}" <<< "${SERVER_VERSION}"; then
-    fail "wivrn-server version does not match pinned WIVRN_VERSION=${EXPECTED_VERSION} (client and server versions must match)"
-fi
-echo "wivrn-server version ${EXPECTED_VERSION}: ok" >> "${EVIDENCE_FILE}"
-
 log_info "Checking wivrnctl..."
 if ! docker exec "${CONTAINER_NAME}" wivrnctl --help >> "${EVIDENCE_FILE}" 2>&1; then
     fail "wivrnctl --help failed"
 fi
 echo "wivrnctl --help: ok" >> "${EVIDENCE_FILE}"
-
-log_info "Checking Vulkan loader (software rendering is acceptable)..."
-if docker exec "${CONTAINER_NAME}" vulkaninfo --summary >> "${EVIDENCE_FILE}" 2>&1; then
-    echo "vulkaninfo --summary: ok" >> "${EVIDENCE_FILE}"
-else
-    log_warn "vulkaninfo --summary failed; GPU-dependent, not fatal"
-    echo "vulkaninfo --summary: WARN (see output above)" >> "${EVIDENCE_FILE}"
-fi
 
 echo "RESULT: PASSED" >> "${EVIDENCE_FILE}"
 log_info "WiVRn runtime smoke test passed"

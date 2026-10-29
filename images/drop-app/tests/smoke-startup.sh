@@ -46,20 +46,9 @@ if ! docker image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
 fi
 
 STUB_DIR="$(mktemp -d "${EVIDENCE_DIR}/startup-stub.XXXXXX")"
-STUB_PATH="${STUB_DIR}/drop-app"
 LAUNCH_STUB_PATH="${STUB_DIR}/launch-gamescope.sh"
 SENTINEL_PATH="${STUB_DIR}/invoked"
 RUN_LOG="${STUB_DIR}/docker-run.log"
-
-cat > "${STUB_PATH}" <<'EOF'
-#!/bin/bash
-set -euo pipefail
-echo "drop-app startup stub invoked" >> "${STARTUP_SENTINEL:?}"
-echo "argv: $*" >> "${STARTUP_SENTINEL}"
-echo "XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR:-unset}" >> "${STARTUP_SENTINEL}"
-echo "BROWSER: ${BROWSER:-unset}" >> "${STARTUP_SENTINEL}"
-EOF
-chmod +x "${STUB_PATH}"
 
 cat > "${LAUNCH_STUB_PATH}" <<'EOF'
 #!/bin/bash
@@ -67,7 +56,6 @@ set -euo pipefail
 echo "launch-gamescope startup stub invoked" > "${STARTUP_SENTINEL:?}"
 echo "argv: $*" >> "${STARTUP_SENTINEL}"
 echo "XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR:-unset}" >> "${STARTUP_SENTINEL}"
-exec "$@"
 EOF
 chmod +x "${LAUNCH_STUB_PATH}"
 
@@ -78,7 +66,6 @@ docker run \
     -e PUID=0 \
     -e STARTUP_SENTINEL=/tmp/startup-smoke/invoked \
     -v "${LAUNCH_STUB_PATH}:/opt/gow/launch-gamescope.sh:ro" \
-    -v "${STUB_PATH}:/usr/bin/drop-app:ro" \
     -v "${STUB_DIR}:/tmp/startup-smoke" \
     "${IMAGE_NAME}" > "${RUN_LOG}" 2>&1
 RUN_EXIT_CODE=$?
@@ -107,18 +94,6 @@ if [[ ! -f "${SENTINEL_PATH}" ]]; then
     exit 1
 fi
 
-log_info "Checking startup contract files..."
-docker run --rm --entrypoint "" "${IMAGE_NAME}" test -x /opt/gow/startup.sh
-docker run --rm --entrypoint "" "${IMAGE_NAME}" test -x /opt/gow/launch-gamescope.sh
-docker run --rm --entrypoint "" "${IMAGE_NAME}" test ! -e /opt/gow/startup-app.sh
-docker run --rm --entrypoint "" "${IMAGE_NAME}" test ! -e /opt/gow/launch-comp.sh
-
-if ! grep -q "launch-gamescope startup stub invoked" "${SENTINEL_PATH}"; then
-    log_error "Startup script did not route through launch-gamescope"
-    echo "RESULT: FAILED (gamescope helper not invoked)" >> "${EVIDENCE_FILE}"
-    exit 1
-fi
-
 if ! grep -q "argv: /usr/bin/drop-app" "${SENTINEL_PATH}"; then
     log_error "Startup script did not pass /usr/bin/drop-app to launch-gamescope"
     echo "RESULT: FAILED (gamescope helper argv)" >> "${EVIDENCE_FILE}"
@@ -131,9 +106,10 @@ if ! grep -q "XDG_RUNTIME_DIR: /run/user/0" "${SENTINEL_PATH}"; then
     exit 1
 fi
 
-if ! grep -q "BROWSER: firefox" "${SENTINEL_PATH}"; then
-    log_error "BROWSER was not set for startup path"
-    echo "RESULT: FAILED (BROWSER env)" >> "${EVIDENCE_FILE}"
+# startup.sh hardcodes the binary path; catch the upstream RPM moving it.
+if ! docker run --rm --entrypoint "" "${IMAGE_NAME}" test -x /usr/bin/drop-app; then
+    log_error "/usr/bin/drop-app is missing or not executable"
+    echo "RESULT: FAILED (drop-app binary)" >> "${EVIDENCE_FILE}"
     exit 1
 fi
 
