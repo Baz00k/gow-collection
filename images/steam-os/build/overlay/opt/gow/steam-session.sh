@@ -43,4 +43,10 @@ start_window_tagger() {
 update_activation_environment
 /usr/bin/ibus-daemon -d -r --panel=disable --emoji-extension=disable || true
 start_window_tagger
+
+# An empty WAYLAND_DISPLAY still counts as set for games: pressure-vessel
+# passes it in as wayland-0 without a socket, and Proton builds that prefer
+# Wayland then pick winewayland and never show a window. Like before gamescope
+# ran Steam, games must see it unset and use X11.
+unset WAYLAND_DISPLAY
 exec /usr/bin/steam "$@"

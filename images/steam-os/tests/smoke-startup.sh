@@ -76,6 +76,8 @@ set -euo pipefail
 echo "gamescope stub invoked" >> "${STARTUP_SENTINEL:?}"
 echo "gamescope argv: $*" >> "${STARTUP_SENTINEL:?}"
 echo "gamescope ENABLE_GAMESCOPE_WSI=${ENABLE_GAMESCOPE_WSI-unset}" >> "${STARTUP_SENTINEL:?}"
+# Real gamescope gives its child an empty WAYLAND_DISPLAY.
+export WAYLAND_DISPLAY=
 while [[ "$#" -gt 0 ]]; do
     if [[ "$1" == "--" ]]; then
         shift
@@ -144,6 +146,7 @@ set -euo pipefail
     echo "steam dbus: ${DBUS_SESSION_BUS_ADDRESS:-}"
     echo "steam ENABLE_GAMESCOPE_WSI=${ENABLE_GAMESCOPE_WSI-unset}"
     echo "steam QT_IM_MODULE=${QT_IM_MODULE-unset}"
+    echo "steam WAYLAND_DISPLAY=${WAYLAND_DISPLAY-unset}"
 } >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/steam"
@@ -300,7 +303,8 @@ for expected in \
     "steam dbus: unix:path=/tmp/startup-smoke/session-bus" \
     "argv: -gamepadui -steamos3 -steampal -steamdeck" \
     "steam ENABLE_GAMESCOPE_WSI=1" \
-    "steam QT_IM_MODULE=steam"; do
+    "steam QT_IM_MODULE=steam" \
+    "steam WAYLAND_DISPLAY=unset"; do
     if ! grep -qxF "${expected}" "${SENTINEL_PATH}"; then
         fail "missing startup evidence: ${expected}"
     fi
