@@ -7,30 +7,18 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
-GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
+PIN_UPDATES="${PIN_UPDATES:-/dev/stdout}"
 
 DROP_APP_REPO="${DROP_APP_REPO:-Drop-OSS/drop}"
 UMU_LAUNCHER_REPO="${UMU_LAUNCHER_REPO:-Open-Wine-Components/umu-launcher}"
 
-inplace() {
-    sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"
-}
-
 abort() { echo "ERROR: $1" >&2; exit 1; }
+
+# Report a new value; update.yml writes it to pins.env once this script succeeds.
+pin() { printf '%s=%s\n' "$1" "$2" >> "$PIN_UPDATES"; }
 
 get_pin() {
     grep "^$1=" "$PINS_FILE" | head -1 | cut -d'=' -f2- || echo ""
-}
-
-set_pin() {
-    local key="$1" value="$2" after="${3:-}"
-    if grep -q "^${key}=" "$PINS_FILE"; then
-        inplace "s|^${key}=.*|${key}=${value}|" "$PINS_FILE"
-    elif [[ -n "$after" ]] && grep -q "^${after}=" "$PINS_FILE"; then
-        inplace "/^${after}=/a ${key}=${value}" "$PINS_FILE"
-    else
-        printf '%s=%s\n' "${key}" "${value}" >> "$PINS_FILE"
-    fi
 }
 
 get_current_drop_tag() {
@@ -100,10 +88,8 @@ resolve_digest() {
 
 [[ ! -f "$PINS_FILE" ]] && abort "pins.env not found at $PINS_FILE"
 
-summary=""
-
-# Phase 1: work out every update and validate it before touching pins.env, so a
-# failure part-way through never leaves the file half updated.
+# Phase 1: work out and validate every update before reporting any, so a
+# failure part-way through reports nothing.
 
 drop_tag=""
 drop_version=""
@@ -164,37 +150,16 @@ if [[ -n "$latest_umu" ]]; then
     fi
 fi
 
-# Phase 2: write the validated updates.
-applied=false
-
+# Phase 2: report the validated updates.
 if [[ -n "$drop_tag" ]]; then
-    set_pin DROP_APP_VERSION "$drop_version"
-    set_pin DROP_APP_TAG "$drop_tag" DROP_APP_VERSION
-    set_pin DROP_APP_RPM_X86_64_URL "$drop_url"
-    set_pin DROP_APP_RPM_X86_64_SHA256 "$drop_sha256"
-    applied=true
-    summary+="### Drop App\n\nUpdated from ${current_drop} to ${drop_tag} (client ${drop_version}).\n\n"
+    pin DROP_APP_VERSION "$drop_version"
+    pin DROP_APP_TAG "$drop_tag"
+    pin DROP_APP_RPM_X86_64_URL "$drop_url"
+    pin DROP_APP_RPM_X86_64_SHA256 "$drop_sha256"
 fi
 
 if [[ -n "$umu_version" ]]; then
-    set_pin UMU_LAUNCHER_VERSION "$umu_version"
-    set_pin UMU_LAUNCHER_RPM_X86_64_URL "$umu_url"
-    set_pin UMU_LAUNCHER_RPM_X86_64_SHA256 "$umu_sha256"
-    applied=true
-    if [[ "$current_umu" == "$umu_version" ]]; then
-        summary+="### UMU Launcher\n\nRegenerated ${umu_version} pin for flavour ${umu_flavour}.\n\n"
-    else
-        summary+="### UMU Launcher\n\nUpdated from ${current_umu} to ${umu_version} (${umu_flavour}).\n\n"
-    fi
-fi
-
-if [[ "$applied" == "true" ]]; then
-    echo "Updated $PINS_FILE"
-    cat "$PINS_FILE"
-    echo "applied=true" >> "$GITHUB_OUTPUT"
-    echo -e "summary_md<<EOF\n${summary%\\n}EOF" >> "$GITHUB_OUTPUT"
-else
-    echo "No updates to apply"
-    echo "applied=false" >> "$GITHUB_OUTPUT"
-    echo "summary_md=" >> "$GITHUB_OUTPUT"
+    pin UMU_LAUNCHER_VERSION "$umu_version"
+    pin UMU_LAUNCHER_RPM_X86_64_URL "$umu_url"
+    pin UMU_LAUNCHER_RPM_X86_64_SHA256 "$umu_sha256"
 fi

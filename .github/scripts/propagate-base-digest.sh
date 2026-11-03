@@ -12,10 +12,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
 source "${REPO_ROOT}/images/base/update/lib/base-digest.sh"
-
-inplace() {
-    sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"
-}
+source "${REPO_ROOT}/.github/scripts/lib/pins.sh"
 
 BASE_IMAGE="${REGISTRY_BASE_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-baz00k}/gow-collection/base}"
 BASE_IMAGE="${BASE_IMAGE,,}"
@@ -43,7 +40,7 @@ for pins in "${REPO_ROOT}"/images/*/build/pins.env; do
     image_dir=$(dirname "$(dirname "$pins")")
     name=$(basename "$image_dir")
     echo "Repinning ${name}: ${current} -> ${new_base_ref}"
-    inplace "s|^BASE_APP_IMAGE=.*|BASE_APP_IMAGE=${new_base_ref}|" "$pins"
+    set_pin BASE_APP_IMAGE "${new_base_ref}" "$pins"
     changed=true
     repinned+=("$name")
 done

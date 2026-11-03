@@ -1,37 +1,93 @@
-name: Auto-merge Automated PRs
+name: Auto-merge Dependabot PRs
 
-# Enables GitHub's native auto-merge for PRs labeled `automated` (e.g. Dependabot
-# action bumps). It only flips the auto-merge switch — branch protection's
-# required `ci-gate` check decides if/when the PR actually merges.
+# Enables GitHub's native auto-merge for Dependabot's GitHub Actions bumps;
+# branch protection's required `ci-gate` check decides if/when they merge.
+# update.yml enables auto-merge on its own PRs after validating them, so this
+# workflow only handles Dependabot.
 #
-# Deliberately minimal: no PR code is checked out or executed, no status polling,
-# no scanning of other PRs. update.yml enables auto-merge on its own PRs directly,
-# so this workflow mainly covers Dependabot.
+# A label is not authorization. Auto-merge is enabled only when the PR comes
+# from Dependabot on a branch in this repo AND every changed line in the diff is
+# an action's pinned commit SHA (plus its version comment), with the action
+# itself unchanged. The diff is read through the API: no PR code is checked out
+# or run. Every new push is re-checked, and auto-merge is turned off if it fails.
 
 on:
     pull_request_target:
-        types: [labeled]
+        types: [opened, reopened, synchronize, labeled]
 
-permissions:
-    contents: write
-    pull-requests: write
+permissions: {}
 
 jobs:
     enable-auto-merge:
         name: enable native auto-merge
-        if: github.event.label.name == 'automated'
+        if: >-
+            github.event.pull_request.user.login == 'dependabot[bot]' &&
+            github.event.pull_request.head.repo.full_name == github.repository &&
+            contains(github.event.pull_request.labels.*.name, 'automated')
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: read
         steps:
+            - name: Check the diff only bumps action SHAs
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+                  CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+              run: |
+                  set -euo pipefail
+                  files=$(gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/files" | jq -s 'add')
+
+                  count=$(jq length <<<"$files")
+                  [[ "$count" -eq "$CHANGED_FILES" && "$count" -le 20 ]] || { echo "::error::unexpected file count ${count}"; exit 1; }
+
+                  # Each file: an existing workflow, modified in place, with a patch.
+                  bad=$(jq -r '.[] | select((.filename | test("^\\.github/workflows/[A-Za-z0-9._-]+\\.ya?ml$") | not)
+                                            or .status != "modified" or (.patch == null)) | .filename' <<<"$files")
+                  [[ -z "$bad" ]] || { echo "::error::not allowed: ${bad}"; exit 1; }
+
+                  # Every changed line is `uses: owner/repo[/path]@<40-hex>` with an
+                  # optional `# vX.Y.Z` comment, and the same actions are removed as added.
+                  uses_re='^[-+][[:space:]]*(- )?uses: ([A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+)@[0-9a-f]{40}( # v?[0-9A-Za-z._-]+)?$'
+                  removed=() added=()
+                  while IFS= read -r line; do
+                    [[ "$line" =~ $uses_re ]] || { echo "::error::not an action SHA bump: ${line}"; exit 1; }
+                    if [[ "$line" == -* ]]; then removed+=("${BASH_REMATCH[2]}"); else added+=("${BASH_REMATCH[2]}"); fi
+                  done < <(jq -r '.[].patch' <<<"$files" | grep -E '^[-+]')
+
+                  [[ ${#added[@]} -gt 0 ]] || { echo "::error::no changes"; exit 1; }
+                  if [[ "$(printf '%s\n' "${removed[@]}" | sort)" != "$(printf '%s\n' "${added[@]}" | sort)" ]]; then
+                    echo "::error::actions were added, removed or swapped"
+                    exit 1
+                  fi
+                  echo "${#added[@]} action SHA bumps"
+
             - name: Generate GitHub App token
               id: app-token
-              uses: actions/create-github-app-token@v3
+              if: always()
+              uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
               with:
                   app-id: ${{ secrets.GOW_UPDATER_APP_ID }}
                   private-key: ${{ secrets.GOW_UPDATER_PRIVATE_KEY }}
+                  permission-contents: write
+                  permission-pull-requests: write
 
             - name: Enable auto-merge
+              if: success()
               env:
                   GH_TOKEN: ${{ steps.app-token.outputs.token }}
+                  REPO: ${{ github.repository }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
               run: |
-                  gh pr merge "${{ github.event.pull_request.number }}" \
-                    --repo "${{ github.repository }}" --auto --squash --delete-branch
+                  gh pr merge "$PR_NUMBER" --repo "$REPO" --auto --squash --delete-branch \
+                    --match-head-commit "$HEAD_SHA"
+
+            - name: Disable auto-merge
+              if: failure() && steps.app-token.outcome == 'success'
+              env:
+                  GH_TOKEN: ${{ steps.app-token.outputs.token }}
+                  REPO: ${{ github.repository }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+              run: gh pr merge "$PR_NUMBER" --repo "$REPO" --disable-auto || true

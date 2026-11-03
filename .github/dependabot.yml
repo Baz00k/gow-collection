@@ -7,10 +7,22 @@ updates:
           day: monday
           time: "06:15"
           timezone: Etc/UTC
+      # Actions are pinned to commit SHAs and these PRs auto-merge, so wait a
+      # week before adopting a release: hijacked tags are usually caught by then.
+      cooldown:
+          default-days: 7
       groups:
           github-actions:
               patterns:
                   - "*"
+              update-types:
+                  - minor
+                  - patch
+          github-actions-major:
+              patterns:
+                  - "*"
+              update-types:
+                  - major
       labels:
           - dependencies
           - automated

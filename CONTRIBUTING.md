@@ -21,14 +21,16 @@ APP_SHA256=<sha256-of-artifact>
 
 ## Update scripts
 
-`update.yml` runs `check.sh`, then `apply.sh` if an update is available, passing `PINS_FILE`, `IMAGE_DIR`, and `GITHUB_OUTPUT`. Both must be executable and write to `$GITHUB_OUTPUT`:
+`update.yml` runs `check.sh`, then `apply.sh` if an update is available, passing `PINS_FILE`, `IMAGE_DIR`, `GITHUB_OUTPUT`, and `PIN_UPDATES`. Both must be executable:
 
-- `check.sh`: `update_available=true|false`
-- `apply.sh`: `applied=true|false`, plus an optional `summary_md<<EOF … EOF` block for the PR body
+- `check.sh`: writes `update_available=true|false` to `$GITHUB_OUTPUT`.
+- `apply.sh`: appends one `KEY=VALUE` line to `$PIN_UPDATES` per changed pin, and never edits `pins.env` itself. If it fails, nothing is written.
 
 Update only your image's pins; `BASE_APP_IMAGE` is bumped repo-wide by `.github/scripts/propagate-base-digest.sh`.
 
-Try them locally with `GITHUB_OUTPUT=/dev/null bash images/<name>/update/check.sh`.
+Update scripts handle upstream data and their results auto-merge, so `update.yml` writes the reported values literally, only to keys that already exist, and `.github/scripts/validate-pin-changes.sh` then rejects anything other than changed values of `*_VERSION`/`*_TAG`, `*_SHA256`, `*_DIGEST`, and `*_URL` keys. A URL must keep its host, and on github.com its owner/repo. Adding keys, changing a source repo, or moving a download elsewhere is a reviewed change. The PR body is built from the validated changes, not from script output.
+
+Try them locally with `GITHUB_OUTPUT=/dev/null bash images/<name>/update/check.sh`; `apply.sh` prints its updates when `PIN_UPDATES` is unset.
 
 ## Before opening a PR
 
