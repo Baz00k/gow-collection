@@ -30,6 +30,10 @@ New to Wolf? See the [Wolf documentation](https://games-on-whales.github.io/wolf
 - [Common runtime](docs/common-runtime.md) - shared env vars (`PUID`, `PGID`, `GOW_DEBUG`, `GAMESCOPE_*`), host tuning, and image tags.
 - [Troubleshooting](docs/troubleshooting.md) - permission, GPU, startup, and game-crash issues.
 
+## Related Projects
+
+- [Wolf UI Next](https://github.com/Baz00k/wolf-ui-next) - a modern, lightweight Wolf launcher and a faster successor to the original Wolf UI, built for TVs, handhelds, and desktops.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add or update images.
