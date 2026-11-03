@@ -54,6 +54,7 @@ jobs:
         if: env.LANE == 'deps'
         run: |
           set -euo pipefail
+          source .github/scripts/lib/pins.sh
           for check_script in images/*/update/check.sh; do
             [[ -x "$check_script" ]] || continue
             image_dir=$(dirname "$(dirname "$check_script")")
@@ -69,8 +70,14 @@ jobs:
             echo "::endgroup::"
             [[ "$available" == "true" ]] || { echo "${name}: up to date"; continue; }
 
+            # apply.sh only reports new values; they are written here, literally.
             echo "::group::apply ${name}"
-            GITHUB_OUTPUT=/dev/null PINS_FILE="${image_dir}/build/pins.env" IMAGE_DIR="$image_dir" bash "$apply_script"
+            pins="${image_dir}/build/pins.env"
+            updates=$(mktemp)
+            PIN_UPDATES="$updates" PINS_FILE="$pins" IMAGE_DIR="$image_dir" bash "$apply_script"
+            git diff --quiet -- "$pins" || { echo "::error::${name}: apply.sh must not edit pins.env"; exit 1; }
+            set_pins "$updates" "$pins"
+            rm -f "$updates"
             echo "::endgroup::"
           done
 

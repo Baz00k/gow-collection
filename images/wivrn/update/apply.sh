@@ -6,11 +6,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
-GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
-
-source "${SCRIPT_DIR}/../../../.github/scripts/lib/pins.sh"
+PIN_UPDATES="${PIN_UPDATES:-/dev/stdout}"
 
 abort() { echo "ERROR: $1" >&2; exit 1; }
+
+# Report a new value; update.yml writes it to pins.env once this script succeeds.
+pin() { printf '%s=%s\n' "$1" "$2" >> "$PIN_UPDATES"; }
 
 get_pin() {
     grep "^$1=" "$PINS_FILE" | head -1 | cut -d'=' -f2- || echo ""
@@ -48,9 +49,6 @@ fetch_file_sha256() {
 
 [[ ! -f "$PINS_FILE" ]] && abort "pins.env not found at $PINS_FILE"
 
-applied=false
-summary=""
-
 # --- WiVRn server ---
 wivrn_repo=$(get_wivrn_repo)
 current_wivrn=$(get_pin WIVRN_VERSION)
@@ -63,13 +61,11 @@ if [[ -n "$latest_wivrn" && "$current_wivrn" != "$latest_wivrn" ]]; then
     wivrn_sha=$(fetch_file_sha256 "$wivrn_url" /tmp/wivrn.tar.gz)
     echo "WiVRn tarball SHA256: $wivrn_sha"
 
-    set_pin WIVRN_VERSION "${latest_wivrn}"
-    set_pin WIVRN_TARBALL_URL "${wivrn_url}"
-    set_pin WIVRN_TARBALL_SHA256 "${wivrn_sha}"
+    pin WIVRN_VERSION "${latest_wivrn}"
+    pin WIVRN_TARBALL_URL "${wivrn_url}"
+    pin WIVRN_TARBALL_SHA256 "${wivrn_sha}"
 
     rm -f /tmp/wivrn.tar.gz
-    applied=true
-    summary+="### WiVRn\n\nUpdated from v${current_wivrn} to v${latest_wivrn}.\n\n"
 fi
 
 # --- xrizer ---
@@ -87,23 +83,10 @@ if [[ -n "$latest_xrizer" && "$current_xrizer" != "$latest_xrizer" ]]; then
     xrizer_vrclient_sha=$(unzip -p /tmp/xrizer.zip "xrizer-v${latest_xrizer}/bin/linux64/vrclient.so" | sha256sum | cut -d' ' -f1)
     echo "xrizer vrclient.so SHA256: $xrizer_vrclient_sha"
 
-    set_pin XRIZER_VERSION "${latest_xrizer}"
-    set_pin XRIZER_ZIP_URL "${xrizer_url}"
-    set_pin XRIZER_ZIP_SHA256 "${xrizer_sha}"
-    set_pin XRIZER_VRCLIENT_SHA256 "${xrizer_vrclient_sha}"
+    pin XRIZER_VERSION "${latest_xrizer}"
+    pin XRIZER_ZIP_URL "${xrizer_url}"
+    pin XRIZER_ZIP_SHA256 "${xrizer_sha}"
+    pin XRIZER_VRCLIENT_SHA256 "${xrizer_vrclient_sha}"
 
     rm -f /tmp/xrizer.zip
-    applied=true
-    summary+="### xrizer\n\nUpdated from v${current_xrizer} to v${latest_xrizer}.\n\n"
-fi
-
-if [[ "$applied" == "true" ]]; then
-    echo "Updated $PINS_FILE"
-    cat "$PINS_FILE"
-    echo "applied=true" >> "$GITHUB_OUTPUT"
-    echo -e "summary_md<<EOF\n${summary%\\n}EOF" >> "$GITHUB_OUTPUT"
-else
-    echo "No updates to apply"
-    echo "applied=false" >> "$GITHUB_OUTPUT"
-    echo "summary_md=" >> "$GITHUB_OUTPUT"
 fi

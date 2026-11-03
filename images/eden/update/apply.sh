@@ -10,9 +10,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
-GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
-
-source "${SCRIPT_DIR}/../../../.github/scripts/lib/pins.sh"
+PIN_UPDATES="${PIN_UPDATES:-/dev/stdout}"
 
 EDEN_API_URL="${EDEN_API_URL:-https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases?limit=30}"
 STABLE_TAG_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
@@ -21,6 +19,9 @@ STABLE_TAG_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
 EDEN_LINUX_VARIANT="${EDEN_LINUX_VARIANT:-amd64-clang-pgo}"
 
 abort() { echo "ERROR: $1" >&2; exit 1; }
+
+# Report a new value; update.yml writes it to pins.env once this script succeeds.
+pin() { printf '%s=%s\n' "$1" "$2" >> "$PIN_UPDATES"; }
 
 get_pin() {
     grep "^$1=" "$PINS_FILE" | head -1 | cut -d'=' -f2- || echo ""
@@ -79,9 +80,6 @@ fetch_appimage_sha256() {
 
 [[ ! -f "$PINS_FILE" ]] && abort "pins.env not found at $PINS_FILE"
 
-applied=false
-summary=""
-
 current_eden=$(get_pin EDEN_VERSION)
 releases_json=$(fetch_releases)
 latest_tag=$(select_stable_tag "$releases_json")
@@ -104,23 +102,10 @@ if [[ "$current_eden" != "$latest_eden" ]]; then
     [[ -n "$appimage_sha" ]] || abort "downloaded artifact produced no checksum"
     echo "SHA256: $appimage_sha"
 
-    set_pin EDEN_VERSION "${latest_eden}"
-    set_pin EDEN_APPIMAGE_URL "${appimage_url}"
-    set_pin EDEN_APPIMAGE_SHA256 "${appimage_sha}"
+    pin EDEN_VERSION "${latest_eden}"
+    pin EDEN_APPIMAGE_URL "${appimage_url}"
+    pin EDEN_APPIMAGE_SHA256 "${appimage_sha}"
 
-    applied=true
-    summary+="### Eden\n\nUpdated from v${current_eden} to v${latest_eden}.\n\n"
 else
     echo "Eden already at v${current_eden}"
-fi
-
-if [[ "$applied" == "true" ]]; then
-    echo "Updated $PINS_FILE"
-    cat "$PINS_FILE"
-    echo "applied=true" >> "$GITHUB_OUTPUT"
-    echo -e "summary_md<<EOF\n${summary%\\n}EOF" >> "$GITHUB_OUTPUT"
-else
-    echo "No updates to apply"
-    echo "applied=false" >> "$GITHUB_OUTPUT"
-    echo "summary_md=" >> "$GITHUB_OUTPUT"
 fi

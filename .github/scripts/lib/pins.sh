@@ -9,6 +9,7 @@
 # Usage:
 #   source .github/scripts/lib/pins.sh
 #   set_pin KEY VALUE [FILE]      # FILE defaults to $PINS_FILE
+#   set_pins UPDATES FILE         # UPDATES holds KEY=VALUE lines from apply.sh
 #
 # The key must already appear exactly once; adding keys is a reviewed change,
 # not something an update run does. Values may not contain whitespace or
@@ -45,4 +46,16 @@ set_pin() {
     fi
     chmod --reference="$file" "$tmp"
     mv "$tmp" "$file"
+}
+
+set_pins() {
+    local updates="$1" file="$2" line
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" != *=* ]]; then
+            echo "ERROR: expected KEY=VALUE, got '${line}'" >&2
+            return 1
+        fi
+        set_pin "${line%%=*}" "${line#*=}" "$file" || return 1
+    done < "$updates"
 }
