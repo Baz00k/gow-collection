@@ -170,7 +170,17 @@ jobs:
           git add -- 'images/*/build/pins.env'
           git commit -q -m "$title"
           head=$(git rev-parse HEAD)
-          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/${branch}"
+
+          # Every push re-runs CI. If the branch already has exactly this tree
+          # (same pins on the same main), keep its commit and only refresh the PR.
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+          if git fetch -q --depth=1 "$remote" "refs/heads/${branch}" 2>/dev/null &&
+             [[ "$(git rev-parse 'FETCH_HEAD^{tree}')" == "$(git rev-parse 'HEAD^{tree}')" ]]; then
+            head=$(git rev-parse FETCH_HEAD)
+            echo "${branch} already has these changes at ${head}; not pushing"
+          else
+            git push -q --force "$remote" "HEAD:refs/heads/${branch}"
+          fi
 
           pr=$(gh pr list --repo "$REPO" --head "$branch" --state open --json number --jq '.[0].number // empty')
           if [[ -n "$pr" ]]; then
