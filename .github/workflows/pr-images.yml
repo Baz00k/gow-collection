@@ -1,0 +1,129 @@
+name: PR Images
+
+# Publishes the images a PR's CI run built and tested, so a PR can be pulled
+# and tried on real hardware before merge:
+#
+#   ghcr.io/<owner>/gow-collection/<image>:pr-<n>            (latest push)
+#   ghcr.io/<owner>/gow-collection/<image>:pr-<n>-<sha7>     (one commit)
+#
+# CI builds PR code with a read-only token; this workflow runs from the default
+# branch with packages:write and never checks out or runs PR code. It only loads
+# the image archives CI uploaded and retags them (.github/scripts/publish-pr-images.sh).
+# pr-images-cleanup.yml deletes the tags when the PR closes.
+#
+# Not part of ci-gate: a workflow_run cannot gate the run that triggered it.
+
+on:
+    workflow_run:
+        workflows: [CI]
+        types: [completed]
+
+permissions: {}
+
+jobs:
+    publish:
+        name: publish PR images
+        if: >-
+            github.event.workflow_run.event == 'pull_request' &&
+            github.event.workflow_run.conclusion == 'success'
+        runs-on: ubuntu-latest
+        permissions:
+            actions: read
+            contents: read
+            packages: write
+            pull-requests: write
+        concurrency:
+            group: pr-images-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+            cancel-in-progress: true
+        steps:
+            - name: Resolve pull request
+              id: pr
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  RUN_ID: ${{ github.event.workflow_run.id }}
+                  HEAD_OWNER: ${{ github.event.workflow_run.head_repository.owner.login }}
+                  HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+                  HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+                  HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+              run: |
+                  set -euo pipefail
+                  # workflow_run.pull_requests is empty for fork PRs, so look the PR
+                  # up by its head. Only an open PR still at the built commit counts;
+                  # anything else was superseded or closed.
+                  numbers=$(gh api -X GET "repos/${REPO}/pulls" -f state=open -f head="${HEAD_OWNER}:${HEAD_BRANCH}" \
+                    | jq -r --arg sha "$HEAD_SHA" --arg repo "$HEAD_REPO" \
+                      '.[] | select(.head.sha == $sha and .head.repo.full_name == $repo) | .number')
+                  if [[ $(wc -w <<<"$numbers") -ne 1 ]]; then
+                    echo "::notice::No single open PR at ${HEAD_SHA}; skipping"
+                    exit 0
+                  fi
+
+                  images=$(gh api --paginate "repos/${REPO}/actions/runs/${RUN_ID}/artifacts" \
+                    --jq '.artifacts[] | select(.name | startswith("docker-image-")) | .name' | wc -l)
+                  if [[ "$images" -eq 0 ]]; then
+                    echo "::notice::CI run ${RUN_ID} built no images; skipping"
+                    exit 0
+                  fi
+
+                  echo "number=${numbers}" >> "$GITHUB_OUTPUT"
+
+            - name: Checkout repository
+              if: steps.pr.outputs.number != ''
+              uses: actions/checkout@v7
+
+            - name: Download image artifacts
+              if: steps.pr.outputs.number != ''
+              uses: actions/download-artifact@v8
+              with:
+                  pattern: docker-image-*
+                  path: ${{ runner.temp }}/pr-images
+                  run-id: ${{ github.event.workflow_run.id }}
+                  github-token: ${{ github.token }}
+
+            - name: Push images
+              if: steps.pr.outputs.number != ''
+              env:
+                  GITHUB_TOKEN: ${{ github.token }}
+                  PR_NUMBER: ${{ steps.pr.outputs.number }}
+                  HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+                  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/gow-collection
+                  SUMMARY_FILE: ${{ runner.temp }}/rows.md
+              run: |
+                  set -euo pipefail
+                  echo "${GITHUB_TOKEN}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+                  bash .github/scripts/publish-pr-images.sh "${RUNNER_TEMP}/pr-images"
+
+            - name: Comment on PR
+              if: steps.pr.outputs.number != ''
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  PR_NUMBER: ${{ steps.pr.outputs.number }}
+                  HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+                  RUN_URL: ${{ github.event.workflow_run.html_url }}
+              run: |
+                  set -euo pipefail
+                  marker="<!-- pr-images -->"
+                  {
+                    echo "$marker"
+                    echo "### Test images"
+                    echo
+                    echo "Built from ${HEAD_SHA} by [CI](${RUN_URL}). The \`pr-${PR_NUMBER}\` tag follows the latest push; \`pr-${PR_NUMBER}-${HEAD_SHA:0:7}\` stays on this commit."
+                    echo
+                    echo "| Image | Tag | Digest |"
+                    echo "| ----- | --- | ------ |"
+                    cat "${RUNNER_TEMP}/rows.md"
+                    echo
+                    echo "These tags are deleted when the PR closes."
+                  } > "${RUNNER_TEMP}/comment.md"
+
+                  # Keep one comment per PR, updated on every push.
+                  existing=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+                    | jq -rs --arg m "$marker" '[.[][] | select(.user.login == "github-actions[bot]" and (.body | startswith($m)))][0].id // empty')
+                  if [[ -n "$existing" ]]; then
+                    gh api -X PATCH "repos/${REPO}/issues/comments/${existing}" -F body=@"${RUNNER_TEMP}/comment.md" > /dev/null
+                  else
+                    gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" -F body=@"${RUNNER_TEMP}/comment.md" > /dev/null
+                  fi
+                  cat "${RUNNER_TEMP}/comment.md" >> "$GITHUB_STEP_SUMMARY"

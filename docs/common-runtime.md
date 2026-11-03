@@ -102,6 +102,7 @@ runner profile and the filesystem being mounted.
 | -------------- | ----------------------------------- |
 | `edge`         | Latest successful build from `main` |
 | `sha-<commit>` | Image built from a specific commit  |
+| `pr-<n>`       | Latest build of open pull request n |
 | `vX.Y.Z`       | Release tags, when published        |
 
 For rollback, pull a specific digest from GHCR:
