@@ -7,6 +7,7 @@
 ```toml
 [[profiles.apps]]
 title = "Eden"
+icon_png_path = "https://raw.githubusercontent.com/Baz00k/gow-collection/main/images/eden/assets/icon.png"
 start_virtual_compositor = true
 
 [profiles.apps.runner]
