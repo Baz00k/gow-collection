@@ -60,7 +60,11 @@ tag_broken_windows() {
     done < <("${XWININFO_BIN}" -root -tree 2>/dev/null || true)
 }
 
-if [[ -z "${DISPLAY:-}" ]]; then
+# Game windows live on the game Xwayland; gamescope sets STEAM_GAME_DISPLAY_0
+# to the only display when it runs a single one.
+export DISPLAY="${STEAM_GAME_DISPLAY_0:-${DISPLAY:-}}"
+
+if [[ -z "${DISPLAY}" ]]; then
     log_warn "Steam game window tagger disabled: DISPLAY is not set"
     exit 0
 fi
