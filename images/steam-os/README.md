@@ -58,8 +58,7 @@ base_create_json = """
 The container starts in the Steam gaming session. Steam's `Switch to Desktop` action switches to KDE Plasma.
 Use the `Return to Steam` desktop launcher in Plasma to switch back to Steam.
 
-The Steam session uses gamescope's Steam integration mode, with Steam launched by gamescope so it gets gamescope's environment.
-In-game vsync is paced by gamescope's Vulkan layer at the stream's refresh rate. Set `ENABLE_GAMESCOPE_WSI=0` only to debug that layer.
+The Steam session uses gamescope's Steam integration mode.
 The Plasma session runs as a nested KDE Wayland desktop on the Wolf compositor.
 Proton games use X11 in both sessions. To try Wine's Wayland driver for a game in desktop mode, set its launch options to `PROTON_ENABLE_WAYLAND=1 %command%`.
 
@@ -84,20 +83,13 @@ After installing another launcher or game, add it to Steam as a non-Steam game i
 | `GAMESCOPE_FORCE_WINDOWS_FULLSCREEN` | `off`                                       | `on` adds gamescope's `--force-windows-fullscreen` workaround       |
 | `STEAM_WINDOW_TAGGER`                | `on`                                        | `off` disables tagging broken non-Steam game windows in gaming mode |
 | `STEAM_STARTUP_FLAGS`                | `-gamepadui -steamos3 -steampal -steamdeck` | Flags passed to Steam                                               |
-| `STEAM_DYNAMIC_VRS`                  | `auto`                                      | `auto`, `on`, or `off`; see [Dynamic VRS](#dynamic-vrs)             |
+| `STEAM_DYNAMIC_VRS`                  | `auto`                                      | Lets Steam lower shading rate; `auto` enables it on AMD RADV only   |
 
 Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
 
 `STEAM_WINDOW_TAGGER=on` starts a small gaming-mode-only helper that works around non-Steam launchers whose game windows keep `steam_app_0` instead of the active Steam AppId.
 Without that AppId, gamescope's Steam mode can leave the game behind Steam's loading screen.
 Set `STEAM_WINDOW_TAGGER=off` if the workaround causes problems or you want the unmodified Steam/gamescope behavior.
-
-## Dynamic VRS
-
-On AMD GPUs, Steam's performance menu can switch games to half-rate shading through Mesa RADV, as on a Steam Deck.
-`STEAM_DYNAMIC_VRS=auto` enables this only when every GPU render node in the container uses `amdgpu` and no Vulkan driver override selects a driver other than RADV.
-NVIDIA, mixed-GPU, and AMDVLK setups stay off. Use `on` or `off` to override detection.
-`STEAM_USE_DYNAMIC_VRS` and `RADV_FORCE_VRS_CONFIG_FILE`, if you set them yourself, are always kept.
 
 ## MangoHud
 
