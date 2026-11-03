@@ -47,30 +47,61 @@ launch_session() {
     SESSION_PGID="${SESSION_PID}"
 }
 
+session_group_alive() {
+    [[ -n "${SESSION_PGID}" ]] && kill -0 -- "-${SESSION_PGID}" 2>/dev/null
+}
+
+wait_for_session_group_exit() {
+    local timeout_ticks="$1" tick
+
+    for ((tick = 0; tick < timeout_ticks; tick++)); do
+        session_group_alive || return 0
+        sleep 0.25
+    done
+
+    ! session_group_alive
+}
+
+# Ask Steam to quit on its own first, so it can sync and save. Bounded so a
+# hung Steam cannot block a session switch.
+request_steam_shutdown() {
+    timeout -k 2 10 /usr/bin/steam -shutdown >/dev/null 2>&1 || true
+}
+
+terminate_session_group() {
+    session_group_alive || return 0
+
+    kill -TERM -- "-${SESSION_PGID}" 2>/dev/null || true
+    if ! wait_for_session_group_exit 20; then
+        log_warn "Session ${CURRENT_SESSION} did not stop cleanly; forcing shutdown"
+        kill -KILL -- "-${SESSION_PGID}" 2>/dev/null || true
+    fi
+}
+
 stop_session() {
-    if [[ -z "${SESSION_PID}" ]] || ! kill -0 "${SESSION_PID}" 2>/dev/null; then
+    if ! session_group_alive; then
         return 0
     fi
 
     log_info "Stopping SteamOS session: ${CURRENT_SESSION}"
 
-    if [[ "${CURRENT_SESSION}" == "gamescope" ]]; then
-        /usr/bin/steam -shutdown >/dev/null 2>&1 || true
+    if [[ "${CURRENT_SESSION}" == "gamescope" ]] && kill -0 "${SESSION_PID}" 2>/dev/null; then
+        request_steam_shutdown
+        wait_for_session_group_exit 40 || true
     fi
 
-    kill -TERM -- "-${SESSION_PGID}" 2>/dev/null || true
-
-    for _ in {1..20}; do
-        if ! kill -0 "${SESSION_PID}" 2>/dev/null; then
-            wait "${SESSION_PID}" 2>/dev/null || true
-            return 0
-        fi
-        sleep 0.25
-    done
-
-    log_warn "Session ${CURRENT_SESSION} did not stop cleanly; forcing shutdown"
-    kill -KILL -- "-${SESSION_PGID}" 2>/dev/null || true
+    terminate_session_group
     wait "${SESSION_PID}" 2>/dev/null || true
+}
+
+# The session leader exited on its own; stop anything it left behind in its
+# process group before forgetting the group.
+reap_finished_session() {
+    wait "${SESSION_PID}" 2>/dev/null || true
+    if session_group_alive; then
+        log_warn "Session ${CURRENT_SESSION} exited with processes left behind; stopping them"
+        terminate_session_group
+    fi
 }
 
 read_switch_request() {
@@ -117,7 +148,7 @@ while [[ "${STOP_REQUESTED}" -eq 0 ]]; do
         continue
     fi
 
-    wait "${SESSION_PID}" 2>/dev/null || true
+    reap_finished_session
     SESSION_PID=""
     SESSION_PGID=""
     STOP_REQUESTED=1

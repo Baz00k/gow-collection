@@ -39,5 +39,5 @@ fi
 
 if [[ "${target}" == "plasma" ]]; then
     log_info "[steamos-session-select] Requesting Steam shutdown for desktop switch"
-    /usr/bin/steam -shutdown || true
+    timeout -k 2 10 /usr/bin/steam -shutdown || true
 fi

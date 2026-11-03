@@ -196,7 +196,7 @@ GAMESCOPE_ARGS=()
 gamescope_require_runtime_dir
 gamescope_append_base_args GAMESCOPE_ARGS
 gamescope_append_extra_args GAMESCOPE_ARGS
-GAMESCOPE_ARGS+=(-e --steam --mangoapp)
+GAMESCOPE_ARGS+=(-e --mangoapp)
 
 if [[ "${#STEAM_ARGS[@]}" -gt 0 ]]; then
     log_info "Launching Steam with flags: ${STEAM_STARTUP_FLAGS}"
