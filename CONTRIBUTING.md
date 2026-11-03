@@ -24,7 +24,7 @@ APP_SHA256=<sha256-of-artifact>
 `update.yml` runs `check.sh`, then `apply.sh` if an update is available, passing `PINS_FILE`, `IMAGE_DIR`, and `GITHUB_OUTPUT`. Both must be executable and write to `$GITHUB_OUTPUT`:
 
 - `check.sh`: `update_available=true|false`
-- `apply.sh`: `applied=true|false`, plus an optional `summary_md<<EOF … EOF` block for the PR body
+- `apply.sh`: `applied=true|false`. The PR body is built from the validated pin changes, not from script output.
 
 Update only your image's pins; `BASE_APP_IMAGE` is bumped repo-wide by `.github/scripts/propagate-base-digest.sh`.
 
