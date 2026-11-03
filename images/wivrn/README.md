@@ -13,6 +13,7 @@ The container needs host networking so the headset can discover it over mDNS
 ```toml
 [[profiles.apps]]
 title = "WiVRn"
+icon_png_path = "https://raw.githubusercontent.com/Baz00k/gow-collection/main/images/wivrn/assets/icon.png"
 start_virtual_compositor = true
 
 [profiles.apps.runner]

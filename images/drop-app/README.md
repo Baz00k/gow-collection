@@ -12,7 +12,7 @@ The desktop client used to live in its own [Drop-OSS/drop-app](https://github.co
 ```toml
 [[profiles.apps]]
 title = "Drop"
-icon_png_path = "https://raw.githubusercontent.com/Drop-OSS/drop/develop/desktop/src-tauri/icons/128x128.png"
+icon_png_path = "https://raw.githubusercontent.com/Baz00k/gow-collection/main/images/drop-app/assets/icon.png"
 start_virtual_compositor = true
 
 [profiles.apps.runner]

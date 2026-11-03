@@ -7,7 +7,7 @@ Offline-capable Prism Launcher image for Games on Whales / Wolf.
 ```toml
 [[profiles.apps]]
 title = "Prism Launcher"
-icon_png_path = "https://raw.githubusercontent.com/PrismLauncher/PrismLauncher/develop/program_info/org.prismlauncher.PrismLauncher.png"
+icon_png_path = "https://raw.githubusercontent.com/Baz00k/gow-collection/main/images/prism-offline/assets/icon.png"
 start_virtual_compositor = true
 
 [profiles.apps.runner]
