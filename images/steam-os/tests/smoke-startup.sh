@@ -237,6 +237,7 @@ echo "argv: $*" >> "${STARTUP_SENTINEL:?}"
 echo "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" >> "${STARTUP_SENTINEL:?}"
 echo "DISPLAY=${DISPLAY:-}" >> "${STARTUP_SENTINEL:?}"
 echo "XAUTHORITY=${XAUTHORITY:-}" >> "${STARTUP_SENTINEL:?}"
+echo "PROTON_ENABLE_WAYLAND=${PROTON_ENABLE_WAYLAND-unset}" >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/plasmashell"
 
@@ -401,7 +402,8 @@ for expected in \
     "argv: --replace" \
     "WAYLAND_DISPLAY=wayland-6" \
     "DISPLAY=:7" \
-    "XAUTHORITY=/tmp/startup-smoke/xauth_test"; do
+    "XAUTHORITY=/tmp/startup-smoke/xauth_test" \
+    "PROTON_ENABLE_WAYLAND=0"; do
     if ! grep -qF "${expected}" "${PLASMA_SENTINEL_PATH}"; then
         fail "missing plasma startup evidence: ${expected}"
     fi

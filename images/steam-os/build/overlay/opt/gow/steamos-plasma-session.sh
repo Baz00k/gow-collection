@@ -11,6 +11,9 @@ export XDG_SESSION_TYPE=wayland
 export KDE_FULL_SESSION=true
 export KDE_SESSION_VERSION=6
 export XDG_DATA_DIRS="${HOME}/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+# Proton builds that default to Wine's Wayland driver break some games under
+# KWin. Keep Proton on X11 here, as in gaming mode; games can opt back in.
+export PROTON_ENABLE_WAYLAND="${PROTON_ENABLE_WAYLAND:-0}"
 unset KWIN_WAYLAND_NO_XWAYLAND
 
 mkdir -p \
