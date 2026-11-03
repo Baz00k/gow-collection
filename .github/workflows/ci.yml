@@ -12,6 +12,10 @@ name: CI
 # changes we validate all apps against the freshly-built base in one job, but
 # we do NOT publish apps from a base change — their committed pins are bumped
 # afterwards by the update workflow (base-digest propagation).
+#
+# PR runs only build and test, with a read-only token. They upload the tested
+# images as `docker-image-*` artifacts, which pr-images.yml publishes as pr-<n>
+# tags from the default branch.
 
 on:
     pull_request:
@@ -107,8 +111,6 @@ jobs:
         needs: [detect, policy]
         if: needs.detect.outputs.base_changed == 'true'
         runs-on: ubuntu-latest
-        outputs:
-            published_base_ref: ${{ steps.publish.outputs.published_base_ref }}
         steps:
             - name: Checkout repository
               uses: actions/checkout@v7
@@ -161,7 +163,33 @@ jobs:
                     chmod +x "${dir}/tests/run-smoke.sh"
                     IMAGE_NAME="${app_image}" "${dir}/tests/run-smoke.sh"
                     echo "::endgroup::"
+                    echo "${app_image}" >> /tmp/app-images.txt
                   done
+
+            # PRs hand base + every app to pr-images.yml for publishing; main only
+            # publishes the base (apps are repinned afterwards, see header).
+            - name: Save validated images
+              if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+              env:
+                  EVENT_NAME: ${{ github.event_name }}
+              run: |
+                  set -euo pipefail
+                  images=("gow-ci/base:${GITHUB_SHA}")
+                  if [[ "$EVENT_NAME" == "pull_request" ]]; then
+                    mapfile -t -O 1 images < /tmp/app-images.txt
+                  fi
+                  # One archive, so layers shared with the base are stored once.
+                  docker save "${images[@]}" | zstd -T0 -3 -o /tmp/images.tar.zst
+
+            - name: Upload image artifact
+              if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+              uses: actions/upload-artifact@v7
+              with:
+                  name: docker-image-graph
+                  path: /tmp/images.tar.zst
+                  retention-days: 1
+                  compression-level: 0
+                  if-no-files-found: error
 
             - name: Upload smoke evidence (on failure)
               if: failure()
@@ -172,9 +200,27 @@ jobs:
                   retention-days: 7
                   if-no-files-found: warn
 
-            - name: Publish base (main only)
+    # Publishes the exact base that validate-base-graph tested, so the build job
+    # never holds a registry write token.
+    publish-base:
+        name: publish base
+        needs: [validate-base-graph]
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        outputs:
+            published_base_ref: ${{ steps.publish.outputs.published_base_ref }}
+        steps:
+            - name: Download image artifact
+              uses: actions/download-artifact@v8
+              with:
+                  name: docker-image-graph
+                  path: /tmp
+
+            - name: Push validated base
               id: publish
-              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
@@ -183,30 +229,20 @@ jobs:
                   BASE_IMAGE="${BASE_IMAGE,,}"   # GHCR repos are lowercase
                   echo "${GITHUB_TOKEN}" | docker login "${REGISTRY}" -u "${{ github.actor }}" --password-stdin
 
-                  mapfile -t BASE_ARGS < <(bash .github/scripts/pins-to-build-args.sh images/base)
-                  BASE_BUILD_ARGS=()
-                  for arg in "${BASE_ARGS[@]}"; do
-                    BASE_BUILD_ARGS+=(--build-arg "$arg")
-                  done
-                  docker build \
-                    "${BASE_BUILD_ARGS[@]}" \
-                    -t "${BASE_IMAGE}:edge" \
-                    -t "${BASE_IMAGE}:sha-${GITHUB_SHA}" \
-                    images/base/build
+                  zstd -dc /tmp/images.tar.zst | docker load
+                  docker tag "gow-ci/base:${GITHUB_SHA}" "${BASE_IMAGE}:edge"
+                  docker tag "gow-ci/base:${GITHUB_SHA}" "${BASE_IMAGE}:sha-${GITHUB_SHA}"
                   docker push "${BASE_IMAGE}:edge"
                   docker push "${BASE_IMAGE}:sha-${GITHUB_SHA}"
 
                   digest=$(docker inspect --format='{{index .RepoDigests 0}}' "${BASE_IMAGE}:edge" | cut -d'@' -f2)
                   echo "published_base_ref=${BASE_IMAGE}:edge@${digest}" >> "$GITHUB_OUTPUT"
                   echo "::notice::Published base ${BASE_IMAGE}:edge@${digest}"
-        permissions:
-            contents: read
-            packages: write
 
     # --- After base publishes on main: trigger dependent repin via update.yml ---
     trigger-base-propagation:
         name: trigger base digest propagation
-        needs: [detect, validate-base-graph]
+        needs: [detect, publish-base]
         if: >-
             github.event_name == 'push' && github.ref == 'refs/heads/main' &&
             needs.detect.outputs.base_changed == 'true'
@@ -224,7 +260,7 @@ jobs:
               run: |
                   gh api "repos/${{ github.repository }}/dispatches" \
                     -f event_type=base-digest-published \
-                    -F "client_payload[base_ref]=${{ needs.validate-base-graph.outputs.published_base_ref }}" \
+                    -F "client_payload[base_ref]=${{ needs.publish-base.outputs.published_base_ref }}" \
                     -F "client_payload[source_sha]=${{ github.sha }}"
 
     # --- Normal app-change path (matrix) ---------------------------------------
@@ -348,6 +384,7 @@ jobs:
             - detect
             - policy
             - validate-base-graph
+            - publish-base
             - trigger-base-propagation
             - build-apps
             - smoke-apps
@@ -362,6 +399,7 @@ jobs:
                   BASE_CHANGED: ${{ needs.detect.outputs.base_changed }}
                   HAS_APPS: ${{ needs.detect.outputs.has_app_changes }}
                   VALIDATE_BASE: ${{ needs.validate-base-graph.result }}
+                  PUBLISH_BASE: ${{ needs.publish-base.result }}
                   TRIGGER_PROP: ${{ needs.trigger-base-propagation.result }}
                   BUILD_APPS: ${{ needs.build-apps.result }}
                   SMOKE_APPS: ${{ needs.smoke-apps.result }}
@@ -395,6 +433,7 @@ jobs:
                   if [[ "$BASE_CHANGED" == "true" ]]; then
                     require "validate-base-graph" "$VALIDATE_BASE"
                     if [[ "$IS_MAIN_PUSH" == "true" ]]; then
+                      require "publish-base" "$PUBLISH_BASE"
                       require "trigger-base-propagation" "$TRIGGER_PROP"
                     fi
                   fi

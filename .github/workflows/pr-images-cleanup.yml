@@ -1,0 +1,62 @@
+name: PR Images Cleanup
+
+# Deletes the pr-<n> image versions pr-images.yml published once the PR closes.
+# pull_request_target so the token can write packages for fork PRs too; no PR
+# code is checked out or run, only the PR number is used.
+
+on:
+    pull_request_target:
+        types: [closed]
+
+permissions: {}
+
+jobs:
+    cleanup:
+        name: delete PR images
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        steps:
+            - name: Delete pr-${{ github.event.pull_request.number }} versions
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  OWNER: ${{ github.repository_owner }}
+                  OWNER_TYPE: ${{ github.event.repository.owner.type }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+                  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+              run: |
+                  set -euo pipefail
+                  scope=users
+                  [[ "$OWNER_TYPE" == "Organization" ]] && scope=orgs
+                  owner="${OWNER,,}"
+
+                  # Images that exist on the default branch or were added by the PR.
+                  names=$( {
+                    echo base
+                    for ref in "$DEFAULT_BRANCH" "refs/pull/${PR_NUMBER}/head"; do
+                      gh api "repos/${REPO}/contents/images?ref=${ref}" --jq '.[] | select(.type == "dir") | .name' || true
+                    done
+                  } | sort -u)
+
+                  # Only versions whose every tag is pr-<n> or pr-<n>-<sha7>.
+                  filter="[.[] | select((.metadata.container.tags | length) > 0 and
+                    all(.metadata.container.tags[]; test(\"^pr-${PR_NUMBER}(-[0-9a-f]{7})?\$\"))) | .id] | .[]"
+
+                  for name in $names; do
+                    [[ "$name" =~ ^[a-z0-9][a-z0-9-]*$ ]] || continue
+                    pkg="gow-collection%2F${name}"
+                    if ! ids=$(gh api --paginate "${scope}/${owner}/packages/container/${pkg}/versions" --jq "$filter" 2>/dev/null); then
+                      echo "${name}: no package"
+                      continue
+                    fi
+                    for id in $ids; do
+                      if gh api -X DELETE "${scope}/${owner}/packages/container/${pkg}/versions/${id}" > /dev/null; then
+                        echo "${name}: deleted version ${id}"
+                      else
+                        # GHCR refuses to delete a package's last version.
+                        echo "::warning::${name}: could not delete version ${id}"
+                      fi
+                    done
+                  done
