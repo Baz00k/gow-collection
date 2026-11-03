@@ -10,7 +10,7 @@
 #   IMAGE_PREFIX   registry path, e.g. ghcr.io/<owner>/gow-collection
 #   SUMMARY_FILE   markdown table rows are appended here (default /dev/null)
 #
-# The archives come from an untrusted PR build (forks included), so this only
+# The archives come from a PR build that ran unreviewed code, so this only
 # loads and retags them: nothing inside is run, and the only thing taken from an
 # archive is an image name that must match `gow-ci/<name>:<sha>`. Destinations
 # are always `pr-<n>` tags, never `edge` or `sha-*`.

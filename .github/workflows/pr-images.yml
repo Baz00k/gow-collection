@@ -7,7 +7,8 @@ name: PR Images
 #   ghcr.io/<owner>/gow-collection/<image>:pr-<n>-<sha7>     (one commit)
 #
 # CI builds PR code with a read-only token; this workflow runs from the default
-# branch with packages:write and never checks out or runs PR code. It only loads
+# branch with packages:write and never checks out or runs PR code. Fork PRs are
+# not published; their images stay downloadable as CI artifacts. It only loads
 # the image archives CI uploaded and retags them (.github/scripts/publish-pr-images.sh).
 # pr-images-cleanup.yml deletes the tags when the PR closes.
 #
@@ -23,9 +24,13 @@ permissions: {}
 jobs:
     publish:
         name: publish PR images
+        # Only PRs from branches in this repo (the owner's and the update bots').
+        # Fork archives would be built by anyone, and this job holds a package
+        # write token that GHCR does not scope to pr-* tags.
         if: >-
             github.event.workflow_run.event == 'pull_request' &&
-            github.event.workflow_run.conclusion == 'success'
+            github.event.workflow_run.conclusion == 'success' &&
+            github.event.workflow_run.head_repository.full_name == github.repository
         runs-on: ubuntu-latest
         permissions:
             actions: read
@@ -48,9 +53,8 @@ jobs:
                   HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
               run: |
                   set -euo pipefail
-                  # workflow_run.pull_requests is empty for fork PRs, so look the PR
-                  # up by its head. Only an open PR still at the built commit counts;
-                  # anything else was superseded or closed.
+                  # Look the PR up by its head: only an open PR still at the built
+                  # commit counts; anything else was superseded or closed.
                   numbers=$(gh api -X GET "repos/${REPO}/pulls" -f state=open -f head="${HEAD_OWNER}:${HEAD_BRANCH}" \
                     | jq -r --arg sha "$HEAD_SHA" --arg repo "$HEAD_REPO" \
                       '.[] | select(.head.sha == $sha and .head.repo.full_name == $repo) | .number')
@@ -70,11 +74,11 @@ jobs:
 
             - name: Checkout repository
               if: steps.pr.outputs.number != ''
-              uses: actions/checkout@v7
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
             - name: Download image artifacts
               if: steps.pr.outputs.number != ''
-              uses: actions/download-artifact@v8
+              uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               with:
                   pattern: docker-image-*
                   path: ${{ runner.temp }}/pr-images

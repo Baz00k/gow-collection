@@ -1,7 +1,7 @@
 name: PR Images Cleanup
 
 # Deletes the pr-<n> image versions pr-images.yml published once the PR closes.
-# pull_request_target so the token can write packages for fork PRs too; no PR
+# pull_request_target so the token can write packages; no PR
 # code is checked out or run, only the PR number is used.
 
 on:
