@@ -60,6 +60,7 @@ Use the `Return to Steam` desktop launcher in Plasma to switch back to Steam.
 
 The Steam session uses gamescope's Steam integration mode.
 The Plasma session runs as a nested KDE Wayland desktop on the Wolf compositor.
+Proton games use X11 in both sessions. To try Wine's Wayland driver for a game in desktop mode, set its launch options to `PROTON_ENABLE_WAYLAND=1 %command%`.
 
 ## Installing Apps
 
