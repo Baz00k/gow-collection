@@ -8,9 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
-inplace() {
-    sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"
-}
+source "${SCRIPT_DIR}/../../../.github/scripts/lib/pins.sh"
 
 abort() { echo "ERROR: $1" >&2; exit 1; }
 
@@ -65,9 +63,9 @@ if [[ -n "$latest_wivrn" && "$current_wivrn" != "$latest_wivrn" ]]; then
     wivrn_sha=$(fetch_file_sha256 "$wivrn_url" /tmp/wivrn.tar.gz)
     echo "WiVRn tarball SHA256: $wivrn_sha"
 
-    inplace "s|^WIVRN_VERSION=.*|WIVRN_VERSION=${latest_wivrn}|" "$PINS_FILE"
-    inplace "s|^WIVRN_TARBALL_URL=.*|WIVRN_TARBALL_URL=${wivrn_url}|" "$PINS_FILE"
-    inplace "s|^WIVRN_TARBALL_SHA256=.*|WIVRN_TARBALL_SHA256=${wivrn_sha}|" "$PINS_FILE"
+    set_pin WIVRN_VERSION "${latest_wivrn}"
+    set_pin WIVRN_TARBALL_URL "${wivrn_url}"
+    set_pin WIVRN_TARBALL_SHA256 "${wivrn_sha}"
 
     rm -f /tmp/wivrn.tar.gz
     applied=true
@@ -89,10 +87,10 @@ if [[ -n "$latest_xrizer" && "$current_xrizer" != "$latest_xrizer" ]]; then
     xrizer_vrclient_sha=$(unzip -p /tmp/xrizer.zip "xrizer-v${latest_xrizer}/bin/linux64/vrclient.so" | sha256sum | cut -d' ' -f1)
     echo "xrizer vrclient.so SHA256: $xrizer_vrclient_sha"
 
-    inplace "s|^XRIZER_VERSION=.*|XRIZER_VERSION=${latest_xrizer}|" "$PINS_FILE"
-    inplace "s|^XRIZER_ZIP_URL=.*|XRIZER_ZIP_URL=${xrizer_url}|" "$PINS_FILE"
-    inplace "s|^XRIZER_ZIP_SHA256=.*|XRIZER_ZIP_SHA256=${xrizer_sha}|" "$PINS_FILE"
-    inplace "s|^XRIZER_VRCLIENT_SHA256=.*|XRIZER_VRCLIENT_SHA256=${xrizer_vrclient_sha}|" "$PINS_FILE"
+    set_pin XRIZER_VERSION "${latest_xrizer}"
+    set_pin XRIZER_ZIP_URL "${xrizer_url}"
+    set_pin XRIZER_ZIP_SHA256 "${xrizer_sha}"
+    set_pin XRIZER_VRCLIENT_SHA256 "${xrizer_vrclient_sha}"
 
     rm -f /tmp/xrizer.zip
     applied=true

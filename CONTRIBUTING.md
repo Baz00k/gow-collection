@@ -28,6 +28,11 @@ APP_SHA256=<sha256-of-artifact>
 
 Update only your image's pins; `BASE_APP_IMAGE` is bumped repo-wide by `.github/scripts/propagate-base-digest.sh`.
 
+Update scripts handle upstream data and their results auto-merge, so:
+
+- Write pins only with `set_pin KEY VALUE` from `.github/scripts/lib/pins.sh`, never through `sed`/`awk` programs, `eval`, or `source`. It only replaces keys that already exist.
+- Before the PR is opened, `.github/scripts/validate-pin-changes.sh` rejects anything other than changed values of `*_VERSION`/`*_TAG`, `*_SHA256`, `*_DIGEST`, and `*_URL` keys. A URL must keep its host, and on github.com its owner/repo. Adding keys, changing a source repo, or moving a download elsewhere is a reviewed change.
+
 Try them locally with `GITHUB_OUTPUT=/dev/null bash images/<name>/update/check.sh`.
 
 ## Before opening a PR

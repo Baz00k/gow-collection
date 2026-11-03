@@ -8,11 +8,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
-PRISM_REPO="${PRISM_REPO:-Diegiwg/PrismLauncher-Cracked}"
+source "${SCRIPT_DIR}/../../../.github/scripts/lib/pins.sh"
 
-inplace() {
-    sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"
-}
+PRISM_REPO="${PRISM_REPO:-Diegiwg/PrismLauncher-Cracked}"
 
 abort() { echo "ERROR: $1" >&2; exit 1; }
 
@@ -53,9 +51,9 @@ if [[ -n "$latest_prism" && "$current_prism" != "$latest_prism" ]]; then
     x86_64_sha=$(fetch_appimage_sha256 "$x86_64_url" /tmp/PrismLauncher-x86_64.AppImage)
     echo "x86_64 SHA256: $x86_64_sha"
     
-    inplace "s|^PRISM_LAUNCHER_VERSION=.*|PRISM_LAUNCHER_VERSION=${latest_prism}|" "$PINS_FILE"
-    inplace "s|^PRISM_LAUNCHER_APPIMAGE_X86_64_URL=.*|PRISM_LAUNCHER_APPIMAGE_X86_64_URL=${x86_64_url}|" "$PINS_FILE"
-    inplace "s|^PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256=.*|PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256=${x86_64_sha}|" "$PINS_FILE"
+    set_pin PRISM_LAUNCHER_VERSION "${latest_prism}"
+    set_pin PRISM_LAUNCHER_APPIMAGE_X86_64_URL "${x86_64_url}"
+    set_pin PRISM_LAUNCHER_APPIMAGE_X86_64_SHA256 "${x86_64_sha}"
     
     rm -f /tmp/PrismLauncher-x86_64.AppImage
     applied=true

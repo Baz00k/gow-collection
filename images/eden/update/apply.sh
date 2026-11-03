@@ -12,15 +12,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
+source "${SCRIPT_DIR}/../../../.github/scripts/lib/pins.sh"
+
 EDEN_API_URL="${EDEN_API_URL:-https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases?limit=30}"
 STABLE_TAG_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
 # amd64 + PGO: upstream's recommended generic Linux artifact. Switch to
 # "legacy-clang-pgo" for pre-Haswell/pre-Ryzen CPUs.
 EDEN_LINUX_VARIANT="${EDEN_LINUX_VARIANT:-amd64-clang-pgo}"
-
-inplace() {
-    sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"
-}
 
 abort() { echo "ERROR: $1" >&2; exit 1; }
 
@@ -106,9 +104,9 @@ if [[ "$current_eden" != "$latest_eden" ]]; then
     [[ -n "$appimage_sha" ]] || abort "downloaded artifact produced no checksum"
     echo "SHA256: $appimage_sha"
 
-    inplace "s|^EDEN_VERSION=.*|EDEN_VERSION=${latest_eden}|" "$PINS_FILE"
-    inplace "s|^EDEN_APPIMAGE_URL=.*|EDEN_APPIMAGE_URL=${appimage_url}|" "$PINS_FILE"
-    inplace "s|^EDEN_APPIMAGE_SHA256=.*|EDEN_APPIMAGE_SHA256=${appimage_sha}|" "$PINS_FILE"
+    set_pin EDEN_VERSION "${latest_eden}"
+    set_pin EDEN_APPIMAGE_URL "${appimage_url}"
+    set_pin EDEN_APPIMAGE_SHA256 "${appimage_sha}"
 
     applied=true
     summary+="### Eden\n\nUpdated from v${current_eden} to v${latest_eden}.\n\n"

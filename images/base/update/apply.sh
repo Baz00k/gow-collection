@@ -8,11 +8,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
-source "${SCRIPT_DIR}/lib/base-digest.sh"
+source "${SCRIPT_DIR}/../../../.github/scripts/lib/pins.sh"
 
-inplace() {
-    sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"
-}
+source "${SCRIPT_DIR}/lib/base-digest.sh"
 
 abort() { echo "ERROR: $1" >&2; exit 1; }
 
@@ -32,7 +30,7 @@ latest_digest=$(fetch_remote_digest "$base_image" || true)
 
 if [[ -n "$latest_digest" && "$current_digest" != "$latest_digest" ]]; then
     echo "Updating Fedora base digest: ${current_digest:-none} -> ${latest_digest}"
-    inplace "s|^BASE_IMAGE_DIGEST=.*|BASE_IMAGE_DIGEST=${latest_digest}|" "$PINS_FILE"
+    set_pin BASE_IMAGE_DIGEST "${latest_digest}"
     applied=true
     summary+="### Fedora Base\n\nUpdated digest to \`${latest_digest}\`.\n\n"
 fi

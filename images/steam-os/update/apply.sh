@@ -8,9 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
-inplace() {
-    sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"
-}
+source "${SCRIPT_DIR}/../../../.github/scripts/lib/pins.sh"
 
 abort() { echo "ERROR: $1" >&2; exit 1; }
 
@@ -53,9 +51,9 @@ if [[ -n "$latest_decky" && "$current_decky" != "$latest_decky" ]]; then
     decky_sha=$(fetch_file_sha256 "$decky_url" /tmp/PluginLoader)
     echo "PluginLoader SHA256: $decky_sha"
 
-    inplace "s|^DECKY_LOADER_VERSION=.*|DECKY_LOADER_VERSION=${latest_decky}|" "$PINS_FILE"
-    inplace "s|^DECKY_LOADER_URL=.*|DECKY_LOADER_URL=${decky_url}|" "$PINS_FILE"
-    inplace "s|^DECKY_LOADER_SHA256=.*|DECKY_LOADER_SHA256=${decky_sha}|" "$PINS_FILE"
+    set_pin DECKY_LOADER_VERSION "${latest_decky}"
+    set_pin DECKY_LOADER_URL "${decky_url}"
+    set_pin DECKY_LOADER_SHA256 "${decky_sha}"
 
     rm -f /tmp/PluginLoader
     applied=true

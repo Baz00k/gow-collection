@@ -9,28 +9,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINS_FILE="${PINS_FILE:-${SCRIPT_DIR}/../build/pins.env}"
 GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
 
+source "${SCRIPT_DIR}/../../../.github/scripts/lib/pins.sh"
+
 DROP_APP_REPO="${DROP_APP_REPO:-Drop-OSS/drop}"
 UMU_LAUNCHER_REPO="${UMU_LAUNCHER_REPO:-Open-Wine-Components/umu-launcher}"
-
-inplace() {
-    sed "$1" "$2" > "${2}.tmp" && mv "${2}.tmp" "$2"
-}
 
 abort() { echo "ERROR: $1" >&2; exit 1; }
 
 get_pin() {
     grep "^$1=" "$PINS_FILE" | head -1 | cut -d'=' -f2- || echo ""
-}
-
-set_pin() {
-    local key="$1" value="$2" after="${3:-}"
-    if grep -q "^${key}=" "$PINS_FILE"; then
-        inplace "s|^${key}=.*|${key}=${value}|" "$PINS_FILE"
-    elif [[ -n "$after" ]] && grep -q "^${after}=" "$PINS_FILE"; then
-        inplace "/^${after}=/a ${key}=${value}" "$PINS_FILE"
-    else
-        printf '%s=%s\n' "${key}" "${value}" >> "$PINS_FILE"
-    fi
 }
 
 get_current_drop_tag() {
@@ -169,7 +156,7 @@ applied=false
 
 if [[ -n "$drop_tag" ]]; then
     set_pin DROP_APP_VERSION "$drop_version"
-    set_pin DROP_APP_TAG "$drop_tag" DROP_APP_VERSION
+    set_pin DROP_APP_TAG "$drop_tag"
     set_pin DROP_APP_RPM_X86_64_URL "$drop_url"
     set_pin DROP_APP_RPM_X86_64_SHA256 "$drop_sha256"
     applied=true
