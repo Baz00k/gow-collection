@@ -83,26 +83,6 @@ steamos_setup_dynamic_vrs() {
     log_info "Dynamic VRS enabled: RADV_FORCE_VRS_CONFIG_FILE=${RADV_FORCE_VRS_CONFIG_FILE}"
 }
 
-steamos_setup_mangohud_config() {
-    if [[ -n "${MANGOHUD_CONFIGFILE:-}" ]]; then
-        export MANGOHUD_CONFIGFILE
-        log_info "Using provided MangoHud config: ${MANGOHUD_CONFIGFILE}"
-        return 0
-    fi
-
-    MANGOHUD_CONFIGFILE="$(mktemp /tmp/mangohud.XXXXXXXX)"
-    cat > "${MANGOHUD_CONFIGFILE}" <<'EOF'
-fps
-gpu_stats
-cpu_stats
-frametime
-position=top-right
-no_display
-EOF
-    export MANGOHUD_CONFIGFILE
-    log_info "MangoHud config: ${MANGOHUD_CONFIGFILE}"
-}
-
 steamos_export_gaming_env() {
     # Steam's on-screen keyboard as the input method.
     export QT_IM_MODULE=steam
@@ -113,6 +93,5 @@ steamos_export_gaming_env() {
     # A user-provided value, even an empty one, replaces the default whole.
     export WINEDLLOVERRIDES="${WINEDLLOVERRIDES-dxgi=n}"
 
-    steamos_setup_mangohud_config
     steamos_setup_dynamic_vrs
 }
