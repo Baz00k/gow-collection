@@ -7,9 +7,13 @@
 #   - apps never depend on other apps.
 #
 # So:
-#   - base changed            -> validate base + ALL apps in one run
-#   - only apps changed       -> build just those apps
-#   - workflow/global changed -> build everything (base graph validation)
+#   - base build inputs changed -> validate base + ALL apps in one run
+#   - only app build inputs changed -> build just those apps
+#   - workflow/global changed   -> build everything (base graph validation)
+#
+# An image's build inputs are its `build/` context and its `tests/`. Everything
+# else in `images/<name>/` (README.md, LEGAL.md, assets/, update/) ships no
+# image content, so a docs-only change builds nothing.
 #
 # Inputs (env):
 #   EVENT_NAME   github.event_name
@@ -97,17 +101,23 @@ if echo "$CHANGED" | grep -qE '^(\.github/workflows/ci\.yml|\.github/scripts/|te
     exit 0
 fi
 
-# Any change under images/base means validate the whole graph.
-if echo "$CHANGED" | grep -qE '^images/base/'; then
-    echo "Planning: base changed - validate base + all apps" >&2
+# Any change to base's build inputs or smoke tests means validate the whole graph.
+if echo "$CHANGED" | grep -qE '^images/base/(build|tests)/'; then
+    echo "Planning: base build inputs changed - validate base + all apps" >&2
     emit true "$(all_app_dirs)"
     exit 0
 fi
 
-# Otherwise: only the directly-changed apps.
-CHANGED_APPS=$(echo "$CHANGED" | grep -oE '^images/[^/]+' | sort -u | grep -v '^images/base$' || true)
+# Otherwise: only the apps whose build inputs or smoke tests changed.
+CHANGED_APPS=$(echo "$CHANGED" \
+    | grep -oE '^images/[^/]+/(build|tests)/' \
+    | cut -d/ -f2 \
+    | sed 's|^|images/|' \
+    | sort -u \
+    | grep -v '^images/base$' \
+    || true)
 if [[ -z "$CHANGED_APPS" ]]; then
-    echo "Planning: no image changes" >&2
+    echo "Planning: no image build inputs changed" >&2
     emit false ""
     exit 0
 fi

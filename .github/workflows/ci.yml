@@ -13,6 +13,9 @@ name: CI
 # we do NOT publish apps from a base change — their committed pins are bumped
 # afterwards by the update workflow (base-digest propagation).
 #
+# Only an image's `build/` context and `tests/` are build inputs. Docs under
+# `images/<name>/` (README.md, LEGAL.md, assets/, update/) rebuild nothing.
+#
 # PR runs only build and test, with a read-only token. They upload the tested
 # images as `docker-image-*` artifacts, which pr-images.yml publishes as pr-<n>
 # tags from the default branch.
