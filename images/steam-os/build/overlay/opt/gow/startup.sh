@@ -6,6 +6,8 @@ source /opt/gow/logging.sh
 log_info "SteamOS startup.sh"
 
 export HOME="${HOME:-$(getent passwd "$(whoami)" | cut -d: -f6)}"
-mkdir -p "${HOME}/.steam/ubuntu12_32/steam-runtime"
+
+# Workaround for steam-for-linux#6492; ~/.steam/ubuntu12_32 is the pre-2019 layout.
+mkdir -p "${HOME}/.local/share/Steam/ubuntu12_32/steam-runtime"
 
 exec /opt/gow/steamos-session-supervisor.sh
