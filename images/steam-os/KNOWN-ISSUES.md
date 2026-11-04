@@ -6,10 +6,12 @@ Problems you may run into with the [SteamOS image](README.md), and what to do ab
 
 ### Steam's UI is laggy
 
+Menus and the overlay stutter while games run fine.
 In desktop mode, open Steam, go to Settings, and enable GPU accelerated rendering in web views.
 
 ### Game uses only a few CPU threads
 
+Low FPS while the GPU is underused and only a few CPU cores are busy.
 Add `gamemoderun %command%` to the game's Steam launch options.
 
 ### MangoHud stats freeze or look wrong
@@ -34,7 +36,7 @@ Add non-Steam games to Steam and launch them from gaming mode.
 
 ### Trying Wine's Wayland driver
 
-Proton games use X11 in both sessions, and some games crash on Wine's Wayland driver.
+Proton games use X11 in both gaming and desktop mode, and some games crash on Wine's Wayland driver.
 To try it for a game, set its launch options to `PROTON_ENABLE_WAYLAND=1 %command%`.
 
 ### Plasma behaves differently from a Steam Deck
