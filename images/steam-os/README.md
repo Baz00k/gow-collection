@@ -84,7 +84,6 @@ After installing another launcher or game, add it to Steam as a non-Steam game i
 | `STEAMOS_SESSION`                    | `gamescope`                                 | Initial session: `gamescope` or `plasma`                            |
 | `GAMESCOPE_FORCE_GRAB_CURSOR`        | `on`                                        | `off` stops gaming mode from always capturing the mouse             |
 | `GAMESCOPE_FORCE_WINDOWS_FULLSCREEN` | `off`                                       | `on` adds gamescope's `--force-windows-fullscreen` workaround       |
-| `STEAM_WINDOW_TAGGER`                | `on`                                        | `off` disables tagging broken non-Steam game windows in gaming mode |
 | `STEAM_STARTUP_FLAGS`                | `-gamepadui -steamos3 -steampal -steamdeck` | Flags passed to Steam                                               |
 | `STEAM_DYNAMIC_VRS`                  | `auto`                                      | Lets Steam lower shading rate; `auto` enables it on AMD RADV only   |
 

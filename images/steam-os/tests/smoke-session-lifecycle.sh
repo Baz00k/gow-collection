@@ -118,7 +118,7 @@ wait_for_container_exit() {
 echo "--- switch to desktop ---" >> "${EVIDENCE_FILE}"
 : > "${SENTINEL}"
 rm -f "${STUB_DIR}/shutdown"
-CONTAINER="$(docker run -d -e PUID=0 -e STEAM_WINDOW_TAGGER=off "${STUB_MOUNTS[@]}" "${IMAGE_NAME}")"
+CONTAINER="$(docker run -d -e PUID=0 "${STUB_MOUNTS[@]}" "${IMAGE_NAME}")"
 wait_for_event "steam running" || fail "Steam did not start"
 # Write to the supervisor directly: steamos-session-select also runs
 # "steam -shutdown" and would hide a missing request from the supervisor.
@@ -134,7 +134,7 @@ CONTAINER=""
 
 echo "--- leftover processes after Steam exits ---" >> "${EVIDENCE_FILE}"
 : > "${SENTINEL}"
-CONTAINER="$(docker run -d -e PUID=0 -e STEAM_WINDOW_TAGGER=off -e LIFECYCLE_LEAVE_SURVIVOR=1 "${STUB_MOUNTS[@]}" "${IMAGE_NAME}")"
+CONTAINER="$(docker run -d -e PUID=0 -e LIFECYCLE_LEAVE_SURVIVOR=1 "${STUB_MOUNTS[@]}" "${IMAGE_NAME}")"
 wait_for_container_exit
 grep -qxF "survivor terminated" "${SENTINEL}" || fail "supervisor did not terminate the leftover process"
 
