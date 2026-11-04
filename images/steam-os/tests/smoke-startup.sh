@@ -73,24 +73,20 @@ DISABLED_RUN_LOG="${STUB_DIR}/docker-run-disabled.log"
 cat > "${STUB_DIR}/gamescope" <<'EOF'
 #!/bin/bash
 set -euo pipefail
-echo "gamescope stub invoked" > "${STARTUP_SENTINEL:?}"
+echo "gamescope stub invoked" >> "${STARTUP_SENTINEL:?}"
 echo "gamescope argv: $*" >> "${STARTUP_SENTINEL:?}"
+echo "gamescope ENABLE_GAMESCOPE_WSI=${ENABLE_GAMESCOPE_WSI-unset}" >> "${STARTUP_SENTINEL:?}"
+# Real gamescope gives its child an empty WAYLAND_DISPLAY.
+export WAYLAND_DISPLAY=
 while [[ "$#" -gt 0 ]]; do
-    if [[ "$1" == "-R" ]]; then
-        socket="$2"
-        shift 2
-        continue
-    fi
     if [[ "$1" == "--" ]]; then
         shift
         exec "$@"
     fi
     shift
 done
-printf ':42 gamescope-0\n' > "${socket:?}"
-while true; do
-    sleep 1
-done
+echo "gamescope stub got no child command" >> "${STARTUP_SENTINEL:?}"
+exit 1
 EOF
 chmod +x "${STUB_DIR}/gamescope"
 
@@ -144,9 +140,14 @@ chmod +x "${STUB_DIR}/dbus-update-activation-environment"
 cat > "${STUB_DIR}/steam" <<'EOF'
 #!/bin/bash
 set -euo pipefail
-echo "steam stub invoked" >> "${STARTUP_SENTINEL:?}"
-echo "argv: $*" >> "${STARTUP_SENTINEL}"
-echo "steam dbus: ${DBUS_SESSION_BUS_ADDRESS:-}" >> "${STARTUP_SENTINEL}"
+{
+    echo "steam stub invoked"
+    echo "argv: $*"
+    echo "steam dbus: ${DBUS_SESSION_BUS_ADDRESS:-}"
+    echo "steam ENABLE_GAMESCOPE_WSI=${ENABLE_GAMESCOPE_WSI-unset}"
+    echo "steam QT_IM_MODULE=${QT_IM_MODULE-unset}"
+    echo "steam WAYLAND_DISPLAY=${WAYLAND_DISPLAY-unset}"
+} >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/steam"
 
@@ -238,6 +239,7 @@ echo "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" >> "${STARTUP_SENTINEL:?}"
 echo "DISPLAY=${DISPLAY:-}" >> "${STARTUP_SENTINEL:?}"
 echo "XAUTHORITY=${XAUTHORITY:-}" >> "${STARTUP_SENTINEL:?}"
 echo "PROTON_ENABLE_WAYLAND=${PROTON_ENABLE_WAYLAND-unset}" >> "${STARTUP_SENTINEL:?}"
+echo "plasma QT_IM_MODULE=${QT_IM_MODULE-unset}" >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/plasmashell"
 
@@ -260,6 +262,7 @@ docker run \
     -v "${STUB_DIR}/gamescope:/usr/bin/gamescope:ro" \
     -v "${STUB_DIR}/ibus-daemon:/usr/bin/ibus-daemon:ro" \
     -v "${STUB_DIR}/dbus-run-session:/usr/bin/dbus-run-session:ro" \
+    -v "${STUB_DIR}/dbus-update-activation-environment:/usr/bin/dbus-update-activation-environment:ro" \
     -v "${STUB_DIR}/steam:/usr/bin/steam:ro" \
     -v "${STUB_DIR}/firefox:/usr/bin/firefox:ro" \
     -v "${STUB_DIR}/steam-game-window-tagger.sh:/opt/gow/steam-game-window-tagger.sh:ro" \
@@ -283,17 +286,26 @@ if [[ ${RUN_EXIT_CODE} -ne 0 ]]; then
     fail "default startup path failed"
 fi
 
+# Substring checks: the stats pipe path in the gamescope argv is random.
 for expected in \
-    "gamescope stub invoked" \
-    "gamescope argv: --backend wayland -b -w 1920 -h 1080 -W 1920 -H 1080 --adaptive-sync --immediate-flips -e --steam --mangoapp" \
-    "ibus-daemon stub invoked" \
+    "gamescope argv: --backend wayland -b -w 1920 -h 1080 -W 1920 -H 1080 --force-grab-cursor --adaptive-sync --immediate-flips -e --mangoapp -T " \
+    " -- /opt/gow/steam-session.sh -gamepadui -steamos3 -steampal -steamdeck"; do
+    if ! grep -qF "${expected}" "${SENTINEL_PATH}"; then
+        fail "missing startup evidence: ${expected}"
+    fi
+done
+
+for expected in \
+    "gamescope ENABLE_GAMESCOPE_WSI=unset" \
+    "dbus env argv: DISPLAY WAYLAND_DISPLAY GAMESCOPE_WAYLAND_DISPLAY XDG_RUNTIME_DIR" \
     "ibus dbus: unix:path=/tmp/startup-smoke/session-bus" \
     "steam-game-window-tagger stub invoked" \
-    "dbus-run-session stub invoked" \
-    "steam stub invoked" \
     "steam dbus: unix:path=/tmp/startup-smoke/session-bus" \
-    "argv: -gamepadui -steamos3 -steampal -steamdeck"; do
-    if ! grep -qF "${expected}" "${SENTINEL_PATH}"; then
+    "argv: -gamepadui -steamos3 -steampal -steamdeck" \
+    "steam ENABLE_GAMESCOPE_WSI=1" \
+    "steam QT_IM_MODULE=steam" \
+    "steam WAYLAND_DISPLAY=unset"; do
+    if ! grep -qxF "${expected}" "${SENTINEL_PATH}"; then
         fail "missing startup evidence: ${expected}"
     fi
 done
@@ -333,20 +345,11 @@ if [[ ${DISABLED_RUN_EXIT_CODE} -ne 0 ]]; then
     fail "startup path with disabled window tagger failed"
 fi
 
-for expected in \
-    "gamescope stub invoked" \
-    "ibus-daemon stub invoked" \
-    "dbus-run-session stub invoked" \
-    "steam stub invoked"; do
-    if ! grep -qF "${expected}" "${DISABLED_SENTINEL_PATH}"; then
-        fail "missing disabled-window-tagger startup evidence: ${expected}"
-    fi
-done
-if grep -qF "steam-game-window-tagger stub invoked" "${DISABLED_SENTINEL_PATH}"; then
-    fail "Steam game window tagger started despite STEAM_WINDOW_TAGGER=off"
+if ! grep -qxF "steam stub invoked" "${DISABLED_SENTINEL_PATH}"; then
+    fail "Steam did not start with the window tagger disabled"
 fi
-if ! grep -qF "Steam game window tagger disabled by STEAM_WINDOW_TAGGER=off" "${DISABLED_RUN_LOG}"; then
-    fail "missing disabled window tagger log evidence"
+if grep -qxF "steam-game-window-tagger stub invoked" "${DISABLED_SENTINEL_PATH}"; then
+    fail "Steam game window tagger started despite STEAM_WINDOW_TAGGER=off"
 fi
 
 log_info "Exercising Plasma startup path..."
@@ -404,10 +407,15 @@ for expected in \
     "DISPLAY=:7" \
     "XAUTHORITY=/tmp/startup-smoke/xauth_test" \
     "PROTON_ENABLE_WAYLAND=0"; do
-    if ! grep -qF "${expected}" "${PLASMA_SENTINEL_PATH}"; then
+    if ! grep -qxF "${expected}" "${PLASMA_SENTINEL_PATH}"; then
         fail "missing plasma startup evidence: ${expected}"
     fi
 done
+
+# Gaming-only environment must not leak into the desktop session.
+if ! grep -qxF "plasma QT_IM_MODULE=unset" "${PLASMA_SENTINEL_PATH}"; then
+    fail "gaming environment leaked into plasma"
+fi
 
 echo "RESULT: PASSED" >> "${EVIDENCE_FILE}"
 log_info "SteamOS startup smoke test passed"

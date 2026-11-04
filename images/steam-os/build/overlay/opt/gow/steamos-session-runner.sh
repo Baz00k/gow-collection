@@ -7,52 +7,32 @@ source /opt/gow/logging.sh
 source /opt/gow/gamescope-lib.sh
 
 SESSION="${1:-gamescope}"
-if [[ -z "${STEAM_STARTUP_FLAGS:-}" ]]; then
-    log_error "STEAM_STARTUP_FLAGS is not set; Steam session init did not run"
-    exit 1
-fi
-read -r -a STEAM_ARGS <<< "${STEAM_STARTUP_FLAGS}"
-
-start_window_tagger() {
-    case "${STEAM_WINDOW_TAGGER:-on}" in
-        1|true|yes|on)
-            ;;
-        0|false|no|off)
-            log_info "Steam game window tagger disabled by STEAM_WINDOW_TAGGER=${STEAM_WINDOW_TAGGER}"
-            return 0
-            ;;
-        *)
-            log_warn "STEAM_WINDOW_TAGGER: unknown value '${STEAM_WINDOW_TAGGER}', defaulting to on"
-            ;;
-    esac
-
-    /opt/gow/steam-game-window-tagger.sh &
-}
 
 append_steam_gamescope_args() {
     local -n args_ref="$1"
+
+    # Nested gamescope only sends relative mouse motion while a game locks the
+    # pointer itself. Otherwise games that read raw input (Wine's included) get
+    # absolute positions as motion: menus stick and the camera spins.
+    if GAMESCOPE_FORCE_GRAB_CURSOR="${GAMESCOPE_FORCE_GRAB_CURSOR:-on}" \
+        gamescope_env_flag_enabled GAMESCOPE_FORCE_GRAB_CURSOR; then
+        args_ref+=(--force-grab-cursor)
+    fi
 
     if gamescope_env_flag_enabled GAMESCOPE_FORCE_WINDOWS_FULLSCREEN; then
         args_ref+=(--force-windows-fullscreen)
     fi
 }
 
-start_gamescope_compositor() {
-    local -a gamescope_args=()
-    local tmpdir socket stats sessionlink lockfile
-
-    gamescope_require_runtime_dir
-    gamescope_append_base_args gamescope_args
-    append_steam_gamescope_args gamescope_args
-    gamescope_append_extra_args gamescope_args
+claim_gamescope_stats_session() {
+    local tmpdir stats sessionlink lockfile
 
     tmpdir="$(mktemp -p "${XDG_RUNTIME_DIR}" -d -t gamescope.XXXXXXX)"
-    socket="${tmpdir}/startup.socket"
     stats="${tmpdir}/stats.pipe"
-
+    mkfifo -- "${stats}"
     export GAMESCOPE_STATS="${stats}"
-    mkfifo -- "${stats}" "${socket}"
 
+    # fd 9 holds the lock for as long as the exec'd session runs.
     sessionlink="${XDG_RUNTIME_DIR}/gamescope-stats"
     lockfile="${sessionlink}.lck"
     exec 9>"${lockfile}"
@@ -61,25 +41,38 @@ start_gamescope_compositor() {
     else
         log_warn "Could not claim global gamescope stats session"
     fi
+}
 
-    /usr/bin/gamescope "${gamescope_args[@]}" -e --steam --mangoapp -R "${socket}" -T "${stats}" &
+# Steam runs as gamescope's primary child: gamescope hands it DISPLAY, the
+# Steam integration environment, and ENABLE_GAMESCOPE_WSI, and the session
+# ends when either of them exits.
+start_gamescope_session() {
+    local -a gamescope_args=()
+    local -a steam_args=()
 
-    if read -r -t 5 DISPLAY GAMESCOPE_WAYLAND_DISPLAY <> "${socket}"; then
-        export DISPLAY GAMESCOPE_WAYLAND_DISPLAY
-        log_info "Gamescope started for Steam session: DISPLAY=${DISPLAY}"
-        return 0
-    fi
+    read -r -a steam_args <<< "${STEAM_STARTUP_FLAGS:--gamepadui -steamos3 -steampal -steamdeck}"
+    log_info "Steam startup flags: ${steam_args[*]}"
 
-    log_error "gamescope did not become ready for Steam session"
-    exit 1
+    gamescope_require_runtime_dir
+    gamescope_append_base_args gamescope_args
+    append_steam_gamescope_args gamescope_args
+    gamescope_append_extra_args gamescope_args
+
+    claim_gamescope_stats_session
+
+    # shellcheck source=/dev/null
+    source /opt/gow/steamos-gaming-env.sh
+    steamos_export_gaming_env
+
+    log_info "Starting gamescope with Steam"
+    exec dbus-run-session -- /usr/bin/gamescope "${gamescope_args[@]}" \
+        -e --mangoapp -T "${GAMESCOPE_STATS}" \
+        -- /opt/gow/steam-session.sh "${steam_args[@]}"
 }
 
 case "${SESSION}" in
     gamescope)
-        start_gamescope_compositor
-        start_window_tagger
-        unset WAYLAND_DISPLAY
-        exec dbus-run-session -- /opt/gow/steam-session.sh "${STEAM_ARGS[@]}"
+        start_gamescope_session
         ;;
     plasma)
         exec /opt/gow/steamos-plasma-session.sh

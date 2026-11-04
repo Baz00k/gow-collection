@@ -60,7 +60,6 @@ Use the `Return to Steam` desktop launcher in Plasma to switch back to Steam.
 
 The Steam session uses gamescope's Steam integration mode.
 The Plasma session runs as a nested KDE Wayland desktop on the Wolf compositor.
-Proton games use X11 in both sessions. To try Wine's Wayland driver for a game in desktop mode, set its launch options to `PROTON_ENABLE_WAYLAND=1 %command%`.
 
 ## Installing Apps
 
@@ -80,15 +79,13 @@ After installing another launcher or game, add it to Steam as a non-Steam game i
 | Variable                             | Default                                     | Description                                                         |
 | ------------------------------------ | ------------------------------------------- | ------------------------------------------------------------------- |
 | `STEAMOS_SESSION`                    | `gamescope`                                 | Initial session: `gamescope` or `plasma`                            |
+| `GAMESCOPE_FORCE_GRAB_CURSOR`        | `on`                                        | `off` stops gaming mode from always capturing the mouse             |
 | `GAMESCOPE_FORCE_WINDOWS_FULLSCREEN` | `off`                                       | `on` adds gamescope's `--force-windows-fullscreen` workaround       |
 | `STEAM_WINDOW_TAGGER`                | `on`                                        | `off` disables tagging broken non-Steam game windows in gaming mode |
 | `STEAM_STARTUP_FLAGS`                | `-gamepadui -steamos3 -steampal -steamdeck` | Flags passed to Steam                                               |
+| `STEAM_DYNAMIC_VRS`                  | `auto`                                      | Lets Steam lower shading rate; `auto` enables it on AMD RADV only   |
 
 Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
-
-`STEAM_WINDOW_TAGGER=on` starts a small gaming-mode-only helper that works around non-Steam launchers whose game windows keep `steam_app_0` instead of the active Steam AppId.
-Without that AppId, gamescope's Steam mode can leave the game behind Steam's loading screen.
-Set `STEAM_WINDOW_TAGGER=off` if the workaround causes problems or you want the unmodified Steam/gamescope behavior.
 
 ## MangoHud
 
@@ -98,17 +95,11 @@ Set `STEAM_WINDOW_TAGGER=off` if the workaround causes problems or you want the 
 | `Right Shift + F11` | Change position (corners/center) |
 | `Right Shift + F10` | Toggle preset verbosity          |
 
-MangoHud runs as MangoApp through gamescope. FPS stats may freeze or show wrong values even when the game is running normally.
+MangoHud runs as MangoApp through gamescope.
 
-## Caveats
+## Known Issues
 
-- Steam's UI can be laggy in GamepadUI/Gaming Mode unless Steam GPU acceleration is enabled. Enable it from desktop mode: switch to KDE Plasma, open Steam, go to Settings, and enable GPU accelerated rendering in web views.
-- Gaming performance in desktop mode can be noticeably worse than in Gaming Mode for some games. Add non-Steam games to Steam and launch them from Gaming Mode.
-- Some games only use a few CPU threads unless launched through GameMode. Add `gamemoderun %command%` to the game's Steam launch options if needed.
-- KDE Plasma runs nested inside Wolf's compositor. Some desktop compositor behavior may differ from a physical Steam Deck.
-- Flatpak app installs depend on the container permissions and namespace support provided by the Wolf runner configuration.
-- SteamOS update, BIOS update, and hardware power-management commands are compatibility stubs, not real host firmware or OS controls.
-- Gamescope can lose keyboard modifier state in nested Wayland sessions. Affected games detect Left Shift or Control while rebinding, but do not see the modifier held during gameplay. This is tracked upstream in [gamescope #2032](https://github.com/ValveSoftware/gamescope/issues/2032) and the underlying nested-modifier issue [gamescope #266](https://github.com/ValveSoftware/gamescope/issues/266). The same symptom was previously reported to Wolf in [wolf #217](https://github.com/games-on-whales/wolf/issues/217).
+See [known issues](KNOWN-ISSUES.md) for laggy UI, mouse and input problems, desktop mode differences, and their workarounds.
 
 ## Existing Steam Data
 
