@@ -11,6 +11,14 @@ SESSION="${1:-gamescope}"
 append_steam_gamescope_args() {
     local -n args_ref="$1"
 
+    # Nested gamescope only sends relative mouse motion while a game locks the
+    # pointer itself. Otherwise games that read raw input (Wine's included) get
+    # absolute positions as motion: menus stick and the camera spins.
+    if GAMESCOPE_FORCE_GRAB_CURSOR="${GAMESCOPE_FORCE_GRAB_CURSOR:-on}" \
+        gamescope_env_flag_enabled GAMESCOPE_FORCE_GRAB_CURSOR; then
+        args_ref+=(--force-grab-cursor)
+    fi
+
     if gamescope_env_flag_enabled GAMESCOPE_FORCE_WINDOWS_FULLSCREEN; then
         args_ref+=(--force-windows-fullscreen)
     fi

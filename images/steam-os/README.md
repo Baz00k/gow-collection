@@ -80,6 +80,7 @@ After installing another launcher or game, add it to Steam as a non-Steam game i
 | Variable                             | Default                                     | Description                                                         |
 | ------------------------------------ | ------------------------------------------- | ------------------------------------------------------------------- |
 | `STEAMOS_SESSION`                    | `gamescope`                                 | Initial session: `gamescope` or `plasma`                            |
+| `GAMESCOPE_FORCE_GRAB_CURSOR`        | `on`                                        | `off` stops gaming mode from always capturing the mouse             |
 | `GAMESCOPE_FORCE_WINDOWS_FULLSCREEN` | `off`                                       | `on` adds gamescope's `--force-windows-fullscreen` workaround       |
 | `STEAM_WINDOW_TAGGER`                | `on`                                        | `off` disables tagging broken non-Steam game windows in gaming mode |
 | `STEAM_STARTUP_FLAGS`                | `-gamepadui -steamos3 -steampal -steamdeck` | Flags passed to Steam                                               |
@@ -90,6 +91,9 @@ Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are docu
 `STEAM_WINDOW_TAGGER=on` starts a small gaming-mode-only helper that works around non-Steam launchers whose game windows keep `steam_app_0` instead of the active Steam AppId.
 Without that AppId, gamescope's Steam mode can leave the game behind Steam's loading screen.
 Set `STEAM_WINDOW_TAGGER=off` if the workaround causes problems or you want the unmodified Steam/gamescope behavior.
+
+`GAMESCOPE_FORCE_GRAB_CURSOR=on` keeps the mouse captured in gaming mode so games get real mouse movement.
+With it off, games that read raw mouse input, like The Witcher 3 and Cyberpunk 2077, ignore the mouse in menus and spin the camera in game.
 
 ## MangoHud
 

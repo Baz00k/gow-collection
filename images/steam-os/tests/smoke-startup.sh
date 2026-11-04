@@ -288,7 +288,7 @@ fi
 
 # Substring checks: the stats pipe path in the gamescope argv is random.
 for expected in \
-    "gamescope argv: --backend wayland -b -w 1920 -h 1080 -W 1920 -H 1080 --adaptive-sync --immediate-flips -e --mangoapp -T " \
+    "gamescope argv: --backend wayland -b -w 1920 -h 1080 -W 1920 -H 1080 --force-grab-cursor --adaptive-sync --immediate-flips -e --mangoapp -T " \
     " -- /opt/gow/steam-session.sh -gamepadui -steamos3 -steampal -steamdeck"; do
     if ! grep -qF "${expected}" "${SENTINEL_PATH}"; then
         fail "missing startup evidence: ${expected}"
