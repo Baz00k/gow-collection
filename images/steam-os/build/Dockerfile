@@ -49,7 +49,6 @@ packages=(
     # General desktop integration helpers used by Steam, Flatpak, and launchers
     file
     lsb-release
-    xwininfo
     xdg-user-dirs
     xdg-utils
     xz

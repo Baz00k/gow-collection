@@ -43,7 +43,6 @@ fi
 # Binaries the startup runs below stub out or never reach.
 REQUIRED_EXEC=(
     /usr/bin/firefox
-    /usr/bin/xwininfo
 )
 
 if ! MISSING="$(docker run --rm --entrypoint "" "${IMAGE_NAME}" \
@@ -67,8 +66,6 @@ RUN_LOG="${STUB_DIR}/docker-run.log"
 PLASMA_SENTINEL_PATH="${STUB_DIR}/plasma-invoked"
 PLASMA_RUN_LOG="${STUB_DIR}/docker-run-plasma.log"
 X11_SOCKET_DIR="${STUB_DIR}/x11-unix"
-DISABLED_SENTINEL_PATH="${STUB_DIR}/disabled-invoked"
-DISABLED_RUN_LOG="${STUB_DIR}/docker-run-disabled.log"
 
 cat > "${STUB_DIR}/gamescope" <<'EOF'
 #!/bin/bash
@@ -150,16 +147,6 @@ set -euo pipefail
 } >> "${STARTUP_SENTINEL:?}"
 EOF
 chmod +x "${STUB_DIR}/steam"
-
-cat > "${STUB_DIR}/steam-game-window-tagger.sh" <<'EOF'
-#!/bin/bash
-set -euo pipefail
-echo "steam-game-window-tagger stub invoked" >> "${STARTUP_SENTINEL:?}"
-while true; do
-    sleep 1
-done
-EOF
-chmod +x "${STUB_DIR}/steam-game-window-tagger.sh"
 
 cat > "${STUB_DIR}/startplasma-wayland" <<'EOF'
 #!/bin/bash
@@ -265,7 +252,6 @@ docker run \
     -v "${STUB_DIR}/dbus-update-activation-environment:/usr/bin/dbus-update-activation-environment:ro" \
     -v "${STUB_DIR}/steam:/usr/bin/steam:ro" \
     -v "${STUB_DIR}/firefox:/usr/bin/firefox:ro" \
-    -v "${STUB_DIR}/steam-game-window-tagger.sh:/opt/gow/steam-game-window-tagger.sh:ro" \
     -v "${STUB_DIR}:/tmp/startup-smoke" \
     "${IMAGE_NAME}" > "${RUN_LOG}" 2>&1
 RUN_EXIT_CODE=$?
@@ -299,7 +285,6 @@ for expected in \
     "gamescope ENABLE_GAMESCOPE_WSI=unset" \
     "dbus env argv: DISPLAY WAYLAND_DISPLAY GAMESCOPE_WAYLAND_DISPLAY XDG_RUNTIME_DIR" \
     "ibus dbus: unix:path=/tmp/startup-smoke/session-bus" \
-    "steam-game-window-tagger stub invoked" \
     "steam dbus: unix:path=/tmp/startup-smoke/session-bus" \
     "argv: -gamepadui -steamos3 -steampal -steamdeck" \
     "steam ENABLE_GAMESCOPE_WSI=1" \
@@ -309,48 +294,6 @@ for expected in \
         fail "missing startup evidence: ${expected}"
     fi
 done
-
-log_info "Exercising Steam startup with window tagger disabled..."
-rm -f "${DISABLED_SENTINEL_PATH}"
-set +e
-docker run \
-    --rm \
-    -e PUID=0 \
-    -e STARTUP_SENTINEL=/tmp/startup-smoke/disabled-invoked \
-    -e STEAM_STARTUP_FLAGS="-gamepadui -steamos3 -steampal -steamdeck" \
-    -e STEAM_WINDOW_TAGGER=off \
-    -e PATH=/tmp/startup-smoke:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-    -v "${STUB_DIR}/gamescope:/usr/bin/gamescope:ro" \
-    -v "${STUB_DIR}/ibus-daemon:/usr/bin/ibus-daemon:ro" \
-    -v "${STUB_DIR}/dbus-run-session:/usr/bin/dbus-run-session:ro" \
-    -v "${STUB_DIR}/steam:/usr/bin/steam:ro" \
-    -v "${STUB_DIR}/steam-game-window-tagger.sh:/opt/gow/steam-game-window-tagger.sh:ro" \
-    -v "${STUB_DIR}:/tmp/startup-smoke" \
-    "${IMAGE_NAME}" > "${DISABLED_RUN_LOG}" 2>&1
-DISABLED_RUN_EXIT_CODE=$?
-set -e
-
-{
-    echo "=== disabled window tagger startup output ==="
-    cat "${DISABLED_RUN_LOG}"
-    echo "=== disabled window tagger stub output ==="
-    if [[ -f "${DISABLED_SENTINEL_PATH}" ]]; then
-        cat "${DISABLED_SENTINEL_PATH}"
-    else
-        echo "startup stubs were not invoked"
-    fi
-} >> "${EVIDENCE_FILE}"
-
-if [[ ${DISABLED_RUN_EXIT_CODE} -ne 0 ]]; then
-    fail "startup path with disabled window tagger failed"
-fi
-
-if ! grep -qxF "steam stub invoked" "${DISABLED_SENTINEL_PATH}"; then
-    fail "Steam did not start with the window tagger disabled"
-fi
-if grep -qxF "steam-game-window-tagger stub invoked" "${DISABLED_SENTINEL_PATH}"; then
-    fail "Steam game window tagger started despite STEAM_WINDOW_TAGGER=off"
-fi
 
 log_info "Exercising Plasma startup path..."
 rm -f "${PLASMA_SENTINEL_PATH}"

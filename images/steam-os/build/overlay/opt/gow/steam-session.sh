@@ -24,25 +24,8 @@ update_activation_environment() {
         XDG_RUNTIME_DIR || log_warn "dbus-update-activation-environment failed"
 }
 
-start_window_tagger() {
-    case "${STEAM_WINDOW_TAGGER:-on}" in
-        1|true|yes|on)
-            ;;
-        0|false|no|off)
-            log_info "Steam game window tagger disabled by STEAM_WINDOW_TAGGER=${STEAM_WINDOW_TAGGER}"
-            return 0
-            ;;
-        *)
-            log_warn "STEAM_WINDOW_TAGGER: unknown value '${STEAM_WINDOW_TAGGER}', defaulting to on"
-            ;;
-    esac
-
-    /opt/gow/steam-game-window-tagger.sh &
-}
-
 update_activation_environment
 /usr/bin/ibus-daemon -d -r --panel=disable --emoji-extension=disable || true
-start_window_tagger
 
 # An empty WAYLAND_DISPLAY still counts as set for games: pressure-vessel
 # passes it in as wayland-0 without a socket, and Proton builds that prefer
