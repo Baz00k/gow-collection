@@ -45,6 +45,9 @@ packages=(
     dbus-daemon
     ibus
     NetworkManager
+    # Docker owns eth0, so NM only reports "online" (which Discover requires)
+    # after an HTTP connectivity check succeeds.
+    NetworkManager-config-connectivity-fedora
 
     # General desktop integration helpers used by Steam, Flatpak, and launchers
     file
@@ -82,6 +85,10 @@ packages=(
 )
 
 dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
+
+# Firmware updates can't work in a container; the fwupd backend only makes
+# Discover show "Update Issue" errors.
+rm -f /usr/lib64/qt6/plugins/discover/fwupd-backend.so
 
 dnf clean all
 rm -rf /var/cache/dnf
