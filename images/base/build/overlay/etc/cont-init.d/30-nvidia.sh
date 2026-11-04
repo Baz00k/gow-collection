@@ -14,6 +14,28 @@ finish_nvidia_init() {
     return 0 2>/dev/null || exit 0
 }
 
+# The toolkit injects driver libs at host-specific paths, so resolve
+# libnvidia-allocator.so.1 via ldconfig (falling back to known paths) instead
+# of assuming this image's /usr/lib64.
+resolve_nvidia_allocator() {
+    local allocator path
+    allocator=$(ldconfig -p 2>/dev/null \
+        | awk '/libnvidia-allocator\.so\.1$/{print $NF; exit}' || true)
+    if [ -n "${allocator}" ]; then
+        printf '%s' "${allocator}"
+        return 0
+    fi
+
+    for path in /usr/lib64 /usr/lib/x86_64-linux-gnu /usr/lib; do
+        if [ -e "${path}/libnvidia-allocator.so.1" ]; then
+            printf '%s' "${path}/libnvidia-allocator.so.1"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 if [ -d "${NVIDIA_DIR}/lib" ] || [ -d "${NVIDIA_DIR}/lib32" ]; then
     log_info "NVIDIA driver volume detected at ${NVIDIA_DIR}"
     log_info "Setting LD_LIBRARY_PATH for NVIDIA libraries"
@@ -46,13 +68,14 @@ if [ -d "${NVIDIA_DIR}/lib" ] || [ -d "${NVIDIA_DIR}/lib32" ]; then
         mkdir -p /usr/lib64/gbm/
         cp "${NVIDIA_DIR}"/lib/gbm/* /usr/lib64/gbm/
     fi
-elif [ -e /usr/lib64/libnvidia-allocator.so.1 ]; then
-    log_info "NVIDIA toolkit libraries detected"
+elif nvidia_allocator=$(resolve_nvidia_allocator); then
+    log_info "NVIDIA toolkit libraries detected (${nvidia_allocator})"
 
     if [ ! -e /usr/lib64/gbm/nvidia-drm_gbm.so ]; then
         log_info "Creating NVIDIA GBM backend symlink"
         mkdir -p /usr/lib64/gbm
-        ln -sv ../libnvidia-allocator.so.1 /usr/lib64/gbm/nvidia-drm_gbm.so
+        # Absolute: the allocator may not sit next to the gbm dir.
+        ln -sv "${nvidia_allocator}" /usr/lib64/gbm/nvidia-drm_gbm.so
     fi
 
     if [ ! -f /usr/share/glvnd/egl_vendor.d/10_nvidia.json ]; then
