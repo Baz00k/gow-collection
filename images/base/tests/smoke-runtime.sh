@@ -128,6 +128,31 @@ grep -q 'gamescope version' <<< "${NO_CAP_PROBE}" || fail "gamescope does not ex
 grep -q 'gamescope version' <<< "${CAP_PROBE}" || fail "gamescope does not exec with SYS_NICE"
 grep -q 'cap_sys_nice=ep' <<< "${CAP_PROBE}" || fail "cap_sys_nice was not restored with SYS_NICE"
 
+# Detection must resolve the allocator, not assume /usr/lib64. Stub ldconfig
+# so this runs without an NVIDIA host.
+if ! docker exec "${CONTAINER_NAME}" bash -c '
+    set -euo pipefail
+    fake=/tmp/fake-nvidia
+    mkdir -p "${fake}/bin" "${fake}/lib"
+    touch "${fake}/lib/libnvidia-allocator.so.1"
+    cat > "${fake}/bin/ldconfig" <<EOF
+#!/bin/bash
+if [ "\${1:-}" = "-p" ]; then
+    echo "libnvidia-allocator.so.1 (libc6,x86-64) => ${fake}/lib/libnvidia-allocator.so.1"
+fi
+exit 0
+EOF
+    chmod +x "${fake}/bin/ldconfig"
+    rm -f /usr/lib64/gbm/nvidia-drm_gbm.so
+    PATH="${fake}/bin:${PATH}" bash /etc/cont-init.d/30-nvidia.sh
+    test "$(readlink /usr/lib64/gbm/nvidia-drm_gbm.so)" = "${fake}/lib/libnvidia-allocator.so.1"
+    test -f /usr/share/glvnd/egl_vendor.d/10_nvidia.json
+    test -f /usr/share/vulkan/icd.d/nvidia_icd.json
+'; then
+    fail "nvidia setup did not follow a resolved toolkit allocator (non-/usr/lib64 layout)"
+fi
+echo "nvidia toolkit detection via ldconfig: ok" >> "${EVIDENCE_FILE}"
+
 # Run a command through the real entrypoint. The entrypoint logs to stdout
 # before exec'ing the command, so take the last non-empty line as its output.
 entrypoint_output() {
