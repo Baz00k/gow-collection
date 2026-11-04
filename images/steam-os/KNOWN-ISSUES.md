@@ -28,11 +28,6 @@ Some games only use a few CPU threads unless launched through GameMode. Add `gam
 
 MangoHud runs as MangoApp through gamescope. FPS stats may freeze or show wrong values even when the game is running normally.
 
-### Modifier keys are not held during gameplay
-
-Gamescope can lose keyboard modifier state in nested Wayland sessions. Affected games detect Left Shift or Control while rebinding, but do not see the modifier held during gameplay.
-This is tracked upstream in [gamescope #2032](https://github.com/ValveSoftware/gamescope/issues/2032) and the underlying nested-modifier issue [gamescope #266](https://github.com/ValveSoftware/gamescope/issues/266). The same symptom was previously reported to Wolf in [wolf #217](https://github.com/games-on-whales/wolf/issues/217).
-
 ## Desktop Mode
 
 ### Games run worse than in gaming mode
