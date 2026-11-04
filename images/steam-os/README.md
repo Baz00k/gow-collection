@@ -91,13 +91,8 @@ Shared variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are docu
 
 ## MangoHud
 
-| Shortcut            | Function                         |
-| ------------------- | -------------------------------- |
-| `Right Shift + F12` | Toggle overlay on/off            |
-| `Right Shift + F11` | Change position (corners/center) |
-| `Right Shift + F10` | Toggle preset verbosity          |
-
 MangoHud runs as MangoApp through gamescope.
+Turn it on and pick its level with the Performance overlay in Steam's Quick Access menu, as on SteamOS.
 
 ## Known Issues
 
