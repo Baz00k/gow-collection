@@ -42,6 +42,9 @@ base_create_json = """
 """
 ```
 
+For faster Proton games, add `"/dev/ntsync:/dev/ntsync"` to `devices` if your host has `/dev/ntsync` (Linux 6.14 or newer).
+Leave it out otherwise: Docker won't start the container with a device the host doesn't have.
+
 ## Features
 
 - SteamOS/GamepadUI session through gamescope by default.
