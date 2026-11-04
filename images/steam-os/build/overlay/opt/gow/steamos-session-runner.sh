@@ -11,6 +11,11 @@ SESSION="${1:-gamescope}"
 append_steam_gamescope_args() {
     local -n args_ref="$1"
 
+    # Like SteamOS: the Steam UI gets one Xwayland and games get another
+    # (STEAM_GAME_DISPLAY_0). GAMESCOPE_EXTRA_ARGS comes later and can
+    # override it with --xwayland-count 1.
+    args_ref+=(--xwayland-count 2)
+
     # Nested gamescope only sends relative mouse motion while a game locks the
     # pointer itself. Otherwise games that read raw input (Wine's included) get
     # absolute positions as motion: menus stick and the camera spins.
