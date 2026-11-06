@@ -23,6 +23,10 @@ MangoHud runs as MangoApp through gamescope, so FPS stats can freeze or show wro
 Flatpak launchers such as Heroic start games outside Steam's process tree, so Steam can't match the window to its shortcut. umu tags it, but only on gamescope's separate game display.
 Don't pass `--xwayland-count 1` in `GAMESCOPE_EXTRA_ARGS`.
 
+### Games launch at 1920x1080
+
+Steam shows "Native (1920x1080)" when Developer > "Enable Native Resolution on External Displays" is off. The image turns it on; keep it on.
+
 ### Mouse spins the camera or does nothing in menus
 
 Gamescope runs nested inside Wolf and must grab the cursor to pass raw mouse input to games.
