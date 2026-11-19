@@ -52,9 +52,6 @@ packages=(
     # Hardware discovery
     pciutils
 
-    # setcap/capsh for the gamescope file capability
-    libcap
-
     # Flatpak sandbox helper
     bubblewrap
 
@@ -68,12 +65,6 @@ dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
 dnf clean all
 rm -rf /var/cache/dnf
 _INSTALL_PACKAGES
-
-# gamescope used to ship with cap_sys_nice=ep, which fails to exec ("Operation
-# not permitted") when the runner does not grant SYS_NICE. Fedora 44 gamescope
-# 3.16.31+ no longer sets it (rhbz#2531752), so the strip is conditional.
-# /etc/cont-init.d/25-setup-gamescope.sh restores it when SYS_NICE is granted.
-RUN if getcap /usr/bin/gamescope | grep -q .; then setcap -r /usr/bin/gamescope; fi
 
 # -----------------------------------------------------------------------------
 # gosu — privilege dropping tool

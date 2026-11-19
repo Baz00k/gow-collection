@@ -112,24 +112,22 @@ if ! docker exec "${CONTAINER_NAME}" bash -n /opt/gow/launch-gamescope.sh; then
     fail "launch-gamescope.sh has a syntax error"
 fi
 
-# gamescope must exec as the runtime user without SYS_NICE, and get its
-# cap_sys_nice file capability back when the runner grants it.
+# gamescope must exec as the runtime user with or without SYS_NICE, and must
+# not carry file capabilities: the loader ignores LD_PRELOAD for such binaries,
+# which breaks the Steam overlay and Steam Input (rhbz#2531752).
 gamescope_probe() {
     docker run --rm -e PUID=1000 -e PGID=1000 "$@" "${IMAGE_NAME}" \
         bash -c 'getcap /usr/bin/gamescope; gamescope --version' 2>&1 || true
 }
-NO_CAP_PROBE=$(gamescope_probe)
-CAP_PROBE=$(gamescope_probe --cap-add SYS_NICE)
-{
-    echo "gamescope without SYS_NICE: ${NO_CAP_PROBE##*$'\n'}"
-    echo "gamescope with SYS_NICE: ${CAP_PROBE##*$'\n'}"
-} >> "${EVIDENCE_FILE}"
-grep -q 'gamescope version' <<< "${NO_CAP_PROBE}" || fail "gamescope does not exec without SYS_NICE"
-if grep -q 'cap_sys_nice' <<< "${NO_CAP_PROBE}"; then
-    fail "gamescope still carries cap_sys_nice; the Dockerfile strip regressed"
-fi
-grep -q 'gamescope version' <<< "${CAP_PROBE}" || fail "gamescope does not exec with SYS_NICE"
-grep -q 'cap_sys_nice=ep' <<< "${CAP_PROBE}" || fail "cap_sys_nice was not restored with SYS_NICE"
+for cap_args in "" "--cap-add SYS_NICE"; do
+    # shellcheck disable=SC2086 # cap_args is intentionally word-split
+    probe=$(gamescope_probe ${cap_args})
+    echo "gamescope with '${cap_args:-default caps}': ${probe##*$'\n'}" >> "${EVIDENCE_FILE}"
+    grep -q 'gamescope version' <<< "${probe}" || fail "gamescope does not exec with '${cap_args:-default caps}'"
+    if grep -q '^/usr/bin/gamescope' <<< "${probe}"; then
+        fail "gamescope carries file capabilities with '${cap_args:-default caps}'"
+    fi
+done
 
 # Detection must resolve the allocator, not assume /usr/lib64. Stub ldconfig
 # so this runs without an NVIDIA host.
