@@ -125,6 +125,9 @@ CAP_PROBE=$(gamescope_probe --cap-add SYS_NICE)
     echo "gamescope with SYS_NICE: ${CAP_PROBE##*$'\n'}"
 } >> "${EVIDENCE_FILE}"
 grep -q 'gamescope version' <<< "${NO_CAP_PROBE}" || fail "gamescope does not exec without SYS_NICE"
+if grep -q 'cap_sys_nice' <<< "${NO_CAP_PROBE}"; then
+    fail "gamescope still carries cap_sys_nice; the Dockerfile strip regressed"
+fi
 grep -q 'gamescope version' <<< "${CAP_PROBE}" || fail "gamescope does not exec with SYS_NICE"
 grep -q 'cap_sys_nice=ep' <<< "${CAP_PROBE}" || fail "cap_sys_nice was not restored with SYS_NICE"
 
