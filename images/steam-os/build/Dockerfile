@@ -78,6 +78,7 @@ packages=(
     # Fonts
     dejavu-fonts-all
     google-noto-fonts-common
+    google-noto-sans-cjk-vf-fonts
 
     # Scripting utilities used by Steam-specific init and helper scripts
     jq
