@@ -90,11 +90,9 @@ packages=(
 dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
 
 # terra-gamescope ships cap_sys_nice=eip, which fails to exec ("Operation not
-# permitted") when the runner does not grant SYS_NICE. Fedora's build ships
-# none, so only strip what is there. 25-setup-gamescope.sh restores it.
-if getcap /usr/bin/gamescope | grep -q cap_sys_nice; then
-    setcap -r /usr/bin/gamescope
-fi
+# permitted") when the runner does not grant SYS_NICE. 25-setup-gamescope.sh
+# restores it. setcap fails if the package stops shipping it: drop this then.
+setcap -r /usr/bin/gamescope
 
 dnf clean all
 rm -rf /var/cache/dnf
