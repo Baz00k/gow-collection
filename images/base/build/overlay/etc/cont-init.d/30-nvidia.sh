@@ -1,12 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-log_info()  { echo -e "${GREEN}[INFO]${NC} [nvidia] $*"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC} [nvidia] $*"; }
+# shellcheck source=/dev/null
+source /opt/gow/logging.sh
 
 NVIDIA_DIR="/usr/nvidia"
 
