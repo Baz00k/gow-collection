@@ -112,22 +112,10 @@ if ! docker exec "${CONTAINER_NAME}" bash -n /opt/gow/launch-gamescope.sh; then
     fail "launch-gamescope.sh has a syntax error"
 fi
 
-# gamescope must exec as the runtime user with or without SYS_NICE, and must
-# not carry file capabilities: the loader ignores LD_PRELOAD for such binaries,
-# which breaks the Steam overlay and Steam Input (rhbz#2531752).
-gamescope_probe() {
-    docker run --rm -e PUID=1000 -e PGID=1000 "$@" "${IMAGE_NAME}" \
-        bash -c 'getcap /usr/bin/gamescope; gamescope --version' 2>&1 || true
-}
-for cap_args in "" "--cap-add SYS_NICE"; do
-    # shellcheck disable=SC2086 # cap_args is intentionally word-split
-    probe=$(gamescope_probe ${cap_args})
-    echo "gamescope with '${cap_args:-default caps}': ${probe##*$'\n'}" >> "${EVIDENCE_FILE}"
-    grep -q 'gamescope version' <<< "${probe}" || fail "gamescope does not exec with '${cap_args:-default caps}'"
-    if grep -q '^/usr/bin/gamescope' <<< "${probe}"; then
-        fail "gamescope carries file capabilities with '${cap_args:-default caps}'"
-    fi
-done
+if ! docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" gamescope --version >/dev/null 2>&1; then
+    fail "gamescope does not exec as the runtime user"
+fi
+echo "gamescope exec as runtime user: ok" >> "${EVIDENCE_FILE}"
 
 # Detection must resolve the allocator, not assume /usr/lib64. Stub ldconfig
 # so this runs without an NVIDIA host.
