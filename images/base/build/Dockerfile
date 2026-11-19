@@ -69,11 +69,6 @@ dnf clean all
 rm -rf /var/cache/dnf
 _INSTALL_PACKAGES
 
-# Fedora ships gamescope with cap_sys_nice=ep, which fails to exec ("Operation
-# not permitted") when the runner does not grant SYS_NICE.
-# /etc/cont-init.d/25-setup-gamescope.sh restores it when SYS_NICE is granted.
-RUN setcap -r /usr/bin/gamescope
-
 # -----------------------------------------------------------------------------
 # gosu — privilege dropping tool
 # -----------------------------------------------------------------------------
