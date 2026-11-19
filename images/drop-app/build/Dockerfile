@@ -24,7 +24,7 @@ packages=(
     # Browser fallback and URL opener support for external auth/help flows
     firefox
 
-    # UMU launcher (Terra), used by the client to start Windows games through Proton
+    # UMU launcher, used by the client to start Windows games through Proton
     umu-launcher
 )
 

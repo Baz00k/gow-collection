@@ -16,7 +16,7 @@ RUN <<'_INSTALL_PACKAGES' bash
 set -eux
 
 packages=(
-    # Gaming overlays/performance helpers (MangoHud from Terra)
+    # Gaming overlays/performance helpers
     gamemode
     terra-mangohud.x86_64
     terra-mangohud.i686
@@ -68,7 +68,6 @@ packages=(
 
 dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
 
-# Steam client from Terra, never RPM Fusion's: fails if Terra drops it.
 dnf install -y --setopt=install_weak_deps=False --from-repo=terra steam
 
 # Firmware updates can't work in a container; the fwupd backend only makes

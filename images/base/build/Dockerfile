@@ -19,12 +19,7 @@ FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}
 # -----------------------------------------------------------------------------
 # Terra repositories
 # -----------------------------------------------------------------------------
-# Terra (Fyra Labs) ships gaming packages ahead of Fedora, as Bazzite uses it:
-# terra-gamescope and Valve's patched Xwayland (terra-extras), patched Mesa
-# (terra-mesa). The signing key is pinned; packages follow the live repos.
-# Shipped priorities: terra-mesa (80) replaces Fedora's Mesa, terra-extras
-# (150) only provides terra-* names we install explicitly. Do not raise terra's
-# priority: at 1 it replaces unrelated Fedora packages (e.g. libwacom).
+# Keep the shipped priorities: at 1, terra replaces unrelated Fedora packages.
 ARG TERRA_GPG_KEY_URL
 ARG TERRA_GPG_KEY_SHA256
 
@@ -58,13 +53,13 @@ packages=(
     util-linux
     neovim
 
-    # Graphics and compositor stack shared by downstream app images (Terra)
+    # Graphics and compositor stack shared by downstream app images
     terra-gamescope
     terra-xorg-x11-server-Xwayland
     fontconfig
     glibc-langpack-en
 
-    # Mesa/Vulkan runtime drivers and loaders (Mesa from terra-mesa)
+    # Mesa/Vulkan runtime drivers and loaders
     mesa-dri-drivers
     mesa-vulkan-drivers
     mesa-va-drivers
@@ -89,9 +84,7 @@ packages=(
 
 dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
 
-# terra-gamescope ships cap_sys_nice=eip, which fails to exec ("Operation not
-# permitted") when the runner does not grant SYS_NICE. 25-setup-gamescope.sh
-# restores it. setcap fails if the package stops shipping it: drop this then.
+# 25-setup-gamescope.sh adds cap_sys_nice back when the runner grants SYS_NICE.
 setcap -r /usr/bin/gamescope
 
 dnf clean all

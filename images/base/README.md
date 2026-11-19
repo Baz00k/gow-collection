@@ -33,12 +33,6 @@ App images add their own packages, a `startup.sh`, and any app-specific
 
 The entrypoint does not force gamescope; images choose their own session in `startup.sh`.
 
-## Terra Packages
-
-gamescope, Xwayland and Mesa come from [Terra](https://github.com/terrapkg/packages), the Fedora repo Bazzite uses for gaming packages: `terra-gamescope` and Valve's patched Xwayland from `terra-extras`, Mesa from `terra-mesa`. The repos stay enabled, so app images can install Terra packages by name (`terra-mangohud`, `umu-launcher`).
-
-Only the signing key is pinned (`TERRA_GPG_KEY_*`). Terra keeps just the latest build of each package, so builds take whatever is current. Keep Terra's shipped repo priorities: at priority 1 it replaces unrelated Fedora packages.
-
 ## Why A Rolling Fedora Tag Plus Tracked Digest
 
 `pins.env` keeps the human-facing Fedora tag (`registry.fedoraproject.org/fedora:44`)
