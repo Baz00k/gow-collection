@@ -24,7 +24,9 @@ chown "${PUID}:${PGID}" \
     "${UHOME}/.local/share" \
     "${UHOME}/.local/share/Steam"
 
-if [ -d "${UHOME}/.steam/steam" ] && [ ! -L "${UHOME}/.steam/steam" ]; then
+# An empty legacy directory is fine: the steam wrapper replaces it with the symlink.
+if [ -d "${UHOME}/.steam/steam" ] && [ ! -L "${UHOME}/.steam/steam" ] \
+    && [ -n "$(ls -A "${UHOME}/.steam/steam")" ]; then
     log_error "Legacy ~/.steam/steam directory detected; automatic migration is disabled"
     log_error "Move ~/.steam/steam/* into ~/.local/share/Steam/ manually, then remove ~/.steam/steam so the symlink can be recreated"
     fail_init
