@@ -50,6 +50,13 @@ ln -sf "${UHOME}" /home/deck
 log_info "Ensuring XDG_RUNTIME_DIR exists at ${XDG_RUNTIME_DIR}"
 install -d -m 700 -o "${PUID}" -g "${PGID}" "${XDG_RUNTIME_DIR}"
 
-log_info "Setting runtime ownership for ${UHOME} and ${XDG_RUNTIME_DIR}"
-chown -R "${PUID}:${PGID}" "${UHOME}" "${XDG_RUNTIME_DIR}"
+# The home can hold a large Steam library, so re-own it recursively only when
+# its top-level owner is wrong: a fresh root-owned mount or a changed PUID/PGID.
+if [ "$(stat -c '%u:%g' "${UHOME}")" != "${PUID}:${PGID}" ]; then
+    log_info "Setting runtime ownership for ${UHOME} (recursive)"
+    chown -R "${PUID}:${PGID}" "${UHOME}"
+fi
+
+log_info "Setting runtime ownership for ${XDG_RUNTIME_DIR}"
+chown -R "${PUID}:${PGID}" "${XDG_RUNTIME_DIR}"
 chmod 700 "${XDG_RUNTIME_DIR}"
