@@ -39,10 +39,11 @@ RUN <<'_INSTALL_PACKAGES' bash
 set -eux
 
 packages=(
-    # Steam client and gaming overlays/performance helpers
+    # Steam client and gaming overlays/performance helpers (MangoHud from Terra)
     steam
     gamemode
-    mangohud
+    terra-mangohud.x86_64
+    terra-mangohud.i686
 
     # PipeWire audio stack: this container replaces Wolf's PulseAudio with
     # PipeWire + WirePlumber so WiVRn can route VR audio to the headset

@@ -3,7 +3,7 @@ set -euo pipefail
 
 source /opt/gow/logging.sh
 
-# gamescope ships without file capabilities, because with cap_sys_nice it
+# The image strips gamescope's file capability, because with cap_sys_nice it
 # cannot exec when the runner does not grant SYS_NICE. When the runner does
 # grant it, add the capability so gamescope raises its CPU priority and asks
 # for realtime GPU queues. It drops LD_PRELOAD only for itself, which is fine

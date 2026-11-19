@@ -35,10 +35,11 @@ RUN <<'_INSTALL_PACKAGES' bash
 set -eux
 
 packages=(
-    # Steam client and gaming overlays/performance helpers
+    # Steam client and gaming overlays/performance helpers (MangoHud from Terra)
     steam
     gamemode
-    mangohud
+    terra-mangohud.x86_64
+    terra-mangohud.i686
 
     # Desktop services Steam and KDE expect to be available at runtime
     bluez
