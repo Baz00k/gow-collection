@@ -37,9 +37,7 @@ run-name: "ci: ${{ github.event_name }} ${{ github.ref_name }}"
 permissions:
     contents: read
 
-# Never cancel main: a cancelled run would leave its images unpublished.
-# GitHub still drops older *pending* main runs, so detect diffs from the last
-# successful main run instead of the push's `before`, which picks them up.
+# Cancelling a main run would leave its images unpublished.
 concurrency:
     group: ci-${{ github.ref }}
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -78,9 +76,7 @@ jobs:
                     export BASE_REF="origin/${{ github.base_ref }}"
                     export HEAD_REF="HEAD"
                   elif [[ "${{ github.event_name }}" == "push" ]]; then
-                    # Diff from the last main commit whose CI fully succeeded, so
-                    # changes from failed or dropped runs are built again.
-                    # No successful run yet => empty BASE_REF => build everything.
+                    # Diff from the last successful run, so dropped or failed runs are rebuilt.
                     BASE_REF=$(gh run list --repo "${{ github.repository }}" \
                       --workflow ci.yml --branch main --event push --status success \
                       --limit 1 --json headSha --jq '.[0].headSha // ""')
