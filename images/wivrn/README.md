@@ -37,7 +37,7 @@ base_create_json = """
     "MaskedPaths": [],
     "ReadonlyPaths": [],
     "Ulimits": [
-      {"Name":"nofile", "Hard":10240, "Soft":10240},
+      {"Name":"nofile", "Hard":524288, "Soft":524288},
       {"Name":"memlock", "Hard":-1, "Soft":-1},
       {"Name":"rtprio", "Hard":99, "Soft":99}
     ],
