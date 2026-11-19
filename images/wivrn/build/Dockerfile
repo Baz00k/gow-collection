@@ -19,7 +19,7 @@ ARG XRIZER_VRCLIENT_SHA256
 # -----------------------------------------------------------------------------
 # RPM Fusion Setup
 # -----------------------------------------------------------------------------
-# Steam is in RPM Fusion nonfree repository. Must enable both free and nonfree.
+# ffmpeg and x264 come from RPM Fusion.
 # hadolint ignore=DL3041
 RUN curl -fsSL -o /tmp/rpmfusion-free-release.rpm "${RPMFUSION_FREE_URL}" && \
     curl -fsSL -o /tmp/rpmfusion-nonfree-release.rpm "${RPMFUSION_NONFREE_URL}" && \
@@ -39,10 +39,10 @@ RUN <<'_INSTALL_PACKAGES' bash
 set -eux
 
 packages=(
-    # Steam client and gaming overlays/performance helpers
-    steam
+    # Gaming overlays/performance helpers
     gamemode
-    mangohud
+    terra-mangohud.x86_64
+    terra-mangohud.i686
 
     # PipeWire audio stack: this container replaces Wolf's PulseAudio with
     # PipeWire + WirePlumber so WiVRn can route VR audio to the headset
@@ -97,6 +97,8 @@ packages=(
 )
 
 dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
+
+dnf install -y --setopt=install_weak_deps=False --from-repo=terra steam
 
 dnf clean all
 rm -rf /var/cache/dnf

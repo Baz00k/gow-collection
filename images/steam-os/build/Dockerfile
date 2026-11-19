@@ -4,28 +4,9 @@ ARG BASE_APP_IMAGE
 # hadolint ignore=DL3006
 FROM ${BASE_APP_IMAGE}
 
-ARG RPMFUSION_FREE_URL
-ARG RPMFUSION_FREE_SHA256
-ARG RPMFUSION_NONFREE_URL
-ARG RPMFUSION_NONFREE_SHA256
 ARG DECKY_LOADER_VERSION
 ARG DECKY_LOADER_URL
 ARG DECKY_LOADER_SHA256
-
-# -----------------------------------------------------------------------------
-# RPM Fusion Setup
-# -----------------------------------------------------------------------------
-# Steam is in RPM Fusion nonfree repository. Must enable both free and nonfree.
-# hadolint ignore=DL3041
-RUN curl -fsSL -o /tmp/rpmfusion-free-release.rpm "${RPMFUSION_FREE_URL}" && \
-    curl -fsSL -o /tmp/rpmfusion-nonfree-release.rpm "${RPMFUSION_NONFREE_URL}" && \
-    echo "${RPMFUSION_FREE_SHA256}  /tmp/rpmfusion-free-release.rpm" | sha256sum -c - && \
-    echo "${RPMFUSION_NONFREE_SHA256}  /tmp/rpmfusion-nonfree-release.rpm" | sha256sum -c - && \
-    dnf install -y \
-        /tmp/rpmfusion-free-release.rpm \
-        /tmp/rpmfusion-nonfree-release.rpm && \
-    dnf config-manager setopt fedora-cisco-openh264.enabled=1 && \
-    rm -f /tmp/rpmfusion-free-release.rpm /tmp/rpmfusion-nonfree-release.rpm
 
 # -----------------------------------------------------------------------------
 # Package Installation
@@ -35,10 +16,10 @@ RUN <<'_INSTALL_PACKAGES' bash
 set -eux
 
 packages=(
-    # Steam client and gaming overlays/performance helpers
-    steam
+    # Gaming overlays/performance helpers
     gamemode
-    mangohud
+    terra-mangohud.x86_64
+    terra-mangohud.i686
 
     # Desktop services Steam and KDE expect to be available at runtime
     bluez
@@ -86,6 +67,8 @@ packages=(
 )
 
 dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
+
+dnf install -y --setopt=install_weak_deps=False --from-repo=terra steam
 
 # Firmware updates can't work in a container; the fwupd backend only makes
 # Discover show "Update Issue" errors.
