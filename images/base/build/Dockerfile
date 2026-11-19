@@ -52,6 +52,9 @@ packages=(
     # Hardware discovery
     pciutils
 
+    # setcap/capsh for the gamescope file capability
+    libcap
+
     # Flatpak sandbox helper
     bubblewrap
 

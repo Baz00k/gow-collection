@@ -117,6 +117,12 @@ if ! docker run --rm -e PUID=1000 -e PGID=1000 "${IMAGE_NAME}" gamescope --versi
 fi
 echo "gamescope exec as runtime user: ok" >> "${EVIDENCE_FILE}"
 
+if ! docker run --rm -e PUID=1000 -e PGID=1000 --cap-add SYS_NICE "${IMAGE_NAME}" \
+    getcap /usr/bin/gamescope 2>/dev/null | grep -q 'cap_sys_nice=ep'; then
+    fail "cap_sys_nice was not set on gamescope with SYS_NICE"
+fi
+echo "gamescope cap_sys_nice with SYS_NICE: ok" >> "${EVIDENCE_FILE}"
+
 # Detection must resolve the allocator, not assume /usr/lib64. Stub ldconfig
 # so this runs without an NVIDIA host.
 if ! docker exec "${CONTAINER_NAME}" bash -c '
