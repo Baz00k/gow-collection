@@ -37,9 +37,10 @@ run-name: "ci: ${{ github.event_name }} ${{ github.ref_name }}"
 permissions:
     contents: read
 
+# Cancelling a main run would leave its images unpublished.
 concurrency:
     group: ci-${{ github.ref }}
-    cancel-in-progress: true
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
     REGISTRY: ghcr.io
@@ -49,6 +50,9 @@ jobs:
     detect:
         name: detect affected images
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            actions: read
         outputs:
             base_changed: ${{ steps.plan.outputs.base_changed }}
             has_app_changes: ${{ steps.plan.outputs.has_app_changes }}
@@ -64,6 +68,7 @@ jobs:
               id: plan
               env:
                   EVENT_NAME: ${{ github.event_name }}
+                  GH_TOKEN: ${{ github.token }}
               run: |
                   set -euo pipefail
                   if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -71,10 +76,13 @@ jobs:
                     export BASE_REF="origin/${{ github.base_ref }}"
                     export HEAD_REF="HEAD"
                   elif [[ "${{ github.event_name }}" == "push" ]]; then
-                    export BASE_REF="${{ github.event.before }}"
-                    export HEAD_REF="${{ github.event.after }}"
-                    # Initial push has an all-zero "before"; treat as full build.
-                    [[ "$BASE_REF" == "0000000000000000000000000000000000000000" ]] && export BASE_REF=""
+                    # Diff from the last successful run, so dropped or failed runs are rebuilt.
+                    BASE_REF=$(gh run list --repo "${{ github.repository }}" \
+                      --workflow ci.yml --branch main --event push --status success \
+                      --limit 1 --json headSha --jq '.[0].headSha // ""')
+                    export BASE_REF
+                    export HEAD_REF="${{ github.sha }}"
+                    echo "Diff base: last successful main run at ${BASE_REF:-<none>}" >&2
                   else
                     export BASE_REF=""
                   fi
