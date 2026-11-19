@@ -29,8 +29,3 @@ if [ -d "${UHOME}/.steam/steam" ] && [ ! -L "${UHOME}/.steam/steam" ]; then
     log_error "Move ~/.steam/steam/* into ~/.local/share/Steam/ manually, then remove ~/.steam/steam so the symlink can be recreated"
     fail_init
 fi
-
-if [ -f /usr/bin/gamescope ]; then
-    log_info "Setting gamescope ownership to ${UNAME}:${UNAME}"
-    chown "${UNAME}:${UNAME}" /usr/bin/gamescope 2>/dev/null || true
-fi
