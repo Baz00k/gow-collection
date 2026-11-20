@@ -5,7 +5,7 @@ ARG BASE_APP_IMAGE
 FROM ${BASE_APP_IMAGE}
 
 # hadolint ignore=DL3041
-RUN <<'_INSTALL_PACKAGES' bash
+RUN --mount=type=cache,id=dnf,target=/var/cache/libdnf5,sharing=locked <<'_INSTALL_PACKAGES' bash
 set -eux
 
 packages=(
@@ -18,10 +18,7 @@ packages=(
     gzip
 )
 
-dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
-
-dnf clean all
-rm -rf /var/cache/dnf
+dnf install -y --setopt=install_weak_deps=False --setopt=keepcache=True "${packages[@]}"
 _INSTALL_PACKAGES
 
 # Bundled Temurin JREs required for different Minecraft versions:
@@ -70,6 +67,7 @@ RUN set -eux; \
     test -f /opt/prismlauncher/squashfs-root/AppRun; \
     chmod +x /opt/prismlauncher/squashfs-root/AppRun; \
     test -x /opt/prismlauncher/squashfs-root/AppRun; \
+    rm -f /opt/prismlauncher/PrismLauncher.AppImage; \
     # Create symlink so 'prismlauncher' is in PATH \
     ln -sf /opt/prismlauncher/squashfs-root/AppRun /usr/local/bin/prismlauncher
 

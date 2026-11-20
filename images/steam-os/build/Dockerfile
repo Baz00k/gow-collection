@@ -4,15 +4,11 @@ ARG BASE_APP_IMAGE
 # hadolint ignore=DL3006
 FROM ${BASE_APP_IMAGE}
 
-ARG DECKY_LOADER_VERSION
-ARG DECKY_LOADER_URL
-ARG DECKY_LOADER_SHA256
-
 # -----------------------------------------------------------------------------
 # Package Installation
 # -----------------------------------------------------------------------------
 # hadolint ignore=DL3041
-RUN <<'_INSTALL_PACKAGES' bash
+RUN --mount=type=cache,id=dnf,target=/var/cache/libdnf5,sharing=locked <<'_INSTALL_PACKAGES' bash
 set -eux
 
 packages=(
@@ -66,21 +62,29 @@ packages=(
     python3
 )
 
-dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
+dnf install -y --setopt=install_weak_deps=False --setopt=keepcache=True "${packages[@]}"
 
-dnf install -y --setopt=install_weak_deps=False --from-repo=terra steam
+dnf install -y --setopt=install_weak_deps=False --setopt=keepcache=True --from-repo=terra steam
 
 # Firmware updates can't work in a container; the fwupd backend only makes
 # Discover show "Update Issue" errors.
 rm -f /usr/lib64/qt6/plugins/discover/fwupd-backend.so
 
-dnf clean all
-rm -rf /var/cache/dnf
+# No appstream data at build time: it is stale by release and Discover
+# refreshes it at runtime. Adding it disabled skips the summary download.
+flatpak remote-add --if-not-exists --disable flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak remote-modify --enable flathub
+
+# Same layer as the fonts, so the cache is not stored twice.
+fc-cache -f -v
 _INSTALL_PACKAGES
 
 # -----------------------------------------------------------------------------
 # Decky Loader
 # -----------------------------------------------------------------------------
+ARG DECKY_LOADER_VERSION
+ARG DECKY_LOADER_URL
+ARG DECKY_LOADER_SHA256
 RUN mkdir -p /opt/decky && \
     curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 60 \
         -o /opt/decky/PluginLoader "${DECKY_LOADER_URL}" && \
@@ -92,12 +96,6 @@ RUN mkdir -p /opt/decky && \
 # System Configuration
 # -----------------------------------------------------------------------------
 RUN touch /etc/NetworkManager/conf.d/10-globally-managed-devices.conf
-
-RUN flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo \
-    && flatpak remote-modify --enable flathub \
-    && { flatpak --system update --appstream --noninteractive || true; }
-
-RUN fc-cache -f -v
 
 # -----------------------------------------------------------------------------
 # Overlay (SteamOS session init, startup, and compatibility stubs)
