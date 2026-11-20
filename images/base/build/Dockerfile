@@ -38,6 +38,11 @@ dnf install -y --setopt=keepcache=True \
     --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' \
     terra-release terra-release-extras terra-release-mesa
 dnf config-manager setopt '*terra*.skip_if_unavailable=False'
+# The metalink lags Terra's frequent repomd republishes ("Usable URL not found").
+dnf config-manager setopt \
+    terra.metalink= 'terra.baseurl=https://repos.fyralabs.com/terra$releasever' \
+    terra-extras.metalink= 'terra-extras.baseurl=https://repos.fyralabs.com/terra$releasever-extras' \
+    terra-mesa.metalink= 'terra-mesa.baseurl=https://repos.fyralabs.com/terra$releasever-mesa'
 rm -f /tmp/terra.key
 
 packages=(
