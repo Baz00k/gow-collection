@@ -27,7 +27,8 @@ New to Wolf? See the [Wolf documentation](https://games-on-whales.github.io/wolf
 
 ## Shared Documentation
 
-- [Common runtime](docs/common-runtime.md) - shared env vars (`PUID`, `PGID`, `GOW_DEBUG`, `GAMESCOPE_*`), host tuning, and image tags.
+- [Common runtime](docs/common-runtime.md) - shared env vars (`PUID`, `PGID`, `GOW_DEBUG`, `GAMESCOPE_*`) and image tags.
+- [Performance](docs/performance.md) - host settings for the best gaming performance.
 - [Troubleshooting](docs/troubleshooting.md) - permission, GPU, startup, and game-crash issues.
 
 ## Related Projects

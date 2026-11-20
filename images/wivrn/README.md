@@ -31,7 +31,6 @@ base_create_json = """
   "HostConfig": {
     "NetworkMode": "host",
     "IpcMode": "host",
-    "ShmSize": 8589934592,
     "CapAdd": ["SYS_ADMIN", "SYS_NICE", "SYS_PTRACE", "NET_RAW", "MKNOD", "NET_ADMIN"],
     "SecurityOpt": ["seccomp=unconfined", "apparmor=unconfined"],
     "MaskedPaths": [],
@@ -48,6 +47,8 @@ base_create_json = """
 \
 """
 ```
+
+For faster Proton games, pass through `/dev/ntsync` and apply the host settings in [performance](../../docs/performance.md).
 
 Without host networking, publish the ports explicitly instead:
 

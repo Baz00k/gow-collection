@@ -9,11 +9,10 @@ This is primarily maintainer documentation. User-facing shared behavior is docum
 The common Games on Whales runtime contract:
 
 - `/opt/gow/entrypoint.sh` — runtime user creation + `gosu` privilege-drop handoff,
-  `/etc/cont-init.d/*` runner, performance tuning. This is the image `ENTRYPOINT`.
+  `/etc/cont-init.d/*` runner, open-file limit. This is the image `ENTRYPOINT`.
 - `/opt/gow/logging.sh` — shared colored logging helpers (`log_info`, …).
 - `/opt/gow/launch-gamescope.sh` — runs a command inside gamescope.
 - `/opt/gow/gamescope-lib.sh` — shared gamescope helpers.
-- `/opt/gow/apply-performance-tuning.sh` — best-effort sysctl tuning.
 - `/etc/cont-init.d/10-setup-user.sh` — runtime user/group, home, `XDG_RUNTIME_DIR`,
   `/home/deck` symlink, ownership.
 - `/etc/cont-init.d/20-setup-devices.sh` — device group access for `/dev/dri`,
