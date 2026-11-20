@@ -133,9 +133,9 @@ echo "--- switch to desktop, log out, shut down ---" >> "${EVIDENCE_FILE}"
 rm -f "${STUB_DIR}/shutdown"
 CONTAINER="$(docker run -d -e PUID=0 "${STUB_MOUNTS[@]}" "${IMAGE_NAME}")"
 wait_for_event "steam running" || fail "Steam did not start"
-# Write to the supervisor directly: steamos-session-select also runs
-# "steam -shutdown" and would hide a missing request from the supervisor.
-docker exec "${CONTAINER}" bash -c 'printf "plasma\n" > /run/user/0/gow-steamos-session.cmd' \
+# steamos-session-select only notifies the supervisor; the supervisor alone
+# asks Steam to shut down.
+docker exec "${CONTAINER}" /usr/bin/steamos-session-select desktop \
     || fail "could not request the desktop session"
 # The stub only exits gracefully after "steam -shutdown"; a TERM would kill it first.
 wait_for_event "steam exited gracefully" || fail "Steam did not exit gracefully on the desktop switch"
