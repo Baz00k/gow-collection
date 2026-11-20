@@ -64,6 +64,8 @@ packages=(
     mesa-libEGL
     mesa-libGL
     mesa-libgbm
+    # libepoxy dlopens libGLESv2 with no RPM dependency; without it KWin aborts
+    libglvnd-gles
     vulkan-loader
 
     # Hardware discovery
