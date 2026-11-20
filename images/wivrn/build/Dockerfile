@@ -8,35 +8,25 @@ ARG RPMFUSION_FREE_URL
 ARG RPMFUSION_FREE_SHA256
 ARG RPMFUSION_NONFREE_URL
 ARG RPMFUSION_NONFREE_SHA256
-ARG WIVRN_VERSION
-ARG WIVRN_TARBALL_URL
-ARG WIVRN_TARBALL_SHA256
-ARG XRIZER_VERSION
-ARG XRIZER_ZIP_URL
-ARG XRIZER_ZIP_SHA256
-ARG XRIZER_VRCLIENT_SHA256
 
 # -----------------------------------------------------------------------------
-# RPM Fusion Setup
+# RPM Fusion and runtime packages
 # -----------------------------------------------------------------------------
-# ffmpeg and x264 come from RPM Fusion.
+# ffmpeg and x264 come from RPM Fusion. One layer, so repo metadata never lands
+# in the image.
 # hadolint ignore=DL3041
-RUN curl -fsSL -o /tmp/rpmfusion-free-release.rpm "${RPMFUSION_FREE_URL}" && \
-    curl -fsSL -o /tmp/rpmfusion-nonfree-release.rpm "${RPMFUSION_NONFREE_URL}" && \
-    echo "${RPMFUSION_FREE_SHA256}  /tmp/rpmfusion-free-release.rpm" | sha256sum -c - && \
-    echo "${RPMFUSION_NONFREE_SHA256}  /tmp/rpmfusion-nonfree-release.rpm" | sha256sum -c - && \
-    dnf install -y \
-        /tmp/rpmfusion-free-release.rpm \
-        /tmp/rpmfusion-nonfree-release.rpm && \
-    dnf config-manager setopt fedora-cisco-openh264.enabled=1 && \
-    rm -f /tmp/rpmfusion-free-release.rpm /tmp/rpmfusion-nonfree-release.rpm
-
-# -----------------------------------------------------------------------------
-# Runtime Packages
-# -----------------------------------------------------------------------------
-# hadolint ignore=DL3041
-RUN <<'_INSTALL_PACKAGES' bash
+RUN --mount=type=cache,id=dnf,target=/var/cache/libdnf5,sharing=locked <<'_INSTALL_PACKAGES' bash
 set -eux
+
+curl -fsSL -o /tmp/rpmfusion-free-release.rpm "${RPMFUSION_FREE_URL}"
+curl -fsSL -o /tmp/rpmfusion-nonfree-release.rpm "${RPMFUSION_NONFREE_URL}"
+echo "${RPMFUSION_FREE_SHA256}  /tmp/rpmfusion-free-release.rpm" | sha256sum -c -
+echo "${RPMFUSION_NONFREE_SHA256}  /tmp/rpmfusion-nonfree-release.rpm" | sha256sum -c -
+dnf install -y --setopt=keepcache=True \
+    /tmp/rpmfusion-free-release.rpm \
+    /tmp/rpmfusion-nonfree-release.rpm
+dnf config-manager setopt fedora-cisco-openh264.enabled=1
+rm -f /tmp/rpmfusion-free-release.rpm /tmp/rpmfusion-nonfree-release.rpm
 
 packages=(
     # Gaming overlays/performance helpers
@@ -96,25 +86,13 @@ packages=(
     python3
 )
 
-dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
+dnf install -y --setopt=install_weak_deps=False --setopt=keepcache=True "${packages[@]}"
 
-dnf install -y --setopt=install_weak_deps=False --from-repo=terra steam
+dnf install -y --setopt=install_weak_deps=False --setopt=keepcache=True --from-repo=terra steam
 
-dnf clean all
-rm -rf /var/cache/dnf
+# Same layer as the fonts, so the cache is not stored twice.
+fc-cache -f -v
 _INSTALL_PACKAGES
-
-# Install the pinned xrizer release as the OpenVR compatibility layer.
-# Extract only the runtime library, not arbitrary paths from the ZIP.
-# /opt/xrizer is WiVRn's first autodetection path and is shared into Steam.
-RUN curl -fsSL --retry 5 --retry-all-errors -o /tmp/xrizer.zip "${XRIZER_ZIP_URL}" && \
-    echo "${XRIZER_ZIP_SHA256}  /tmp/xrizer.zip" | sha256sum -c - && \
-    mkdir -p /opt/xrizer/bin/linux64 && \
-    python3 -c 'import shutil, sys, zipfile; z = zipfile.ZipFile(sys.argv[1]); src = z.open("xrizer-v" + sys.argv[3] + "/bin/linux64/vrclient.so"); dst = open(sys.argv[2], "wb"); shutil.copyfileobj(src, dst); dst.close(); src.close()' \
-        /tmp/xrizer.zip /opt/xrizer/bin/linux64/vrclient.so "${XRIZER_VERSION}" && \
-    echo "${XRIZER_VRCLIENT_SHA256}  /opt/xrizer/bin/linux64/vrclient.so" | sha256sum -c - && \
-    grep -aFq 'IVRSystem_026' /opt/xrizer/bin/linux64/vrclient.so && \
-    rm -f /tmp/xrizer.zip
 
 # -----------------------------------------------------------------------------
 # WiVRn Server (source build)
@@ -127,8 +105,11 @@ RUN curl -fsSL --retry 5 --retry-all-errors -o /tmp/xrizer.zip "${XRIZER_ZIP_URL
 # happens in a SINGLE layer so the ~1GB of headers/compilers never lands in
 # the image. A multi-stage builder is not an option: repo policy requires
 # exactly one FROM (${BASE_APP_IMAGE}).
+ARG WIVRN_VERSION
+ARG WIVRN_TARBALL_URL
+ARG WIVRN_TARBALL_SHA256
 # hadolint ignore=DL3041
-RUN <<'_BUILD_WIVRN' bash
+RUN --mount=type=cache,id=dnf,target=/var/cache/libdnf5,sharing=locked <<'_BUILD_WIVRN' bash
 set -eux
 
 build_packages=(
@@ -185,7 +166,7 @@ build_packages=(
     openvr-devel
 )
 
-dnf install -y --setopt=install_weak_deps=False "${build_packages[@]}"
+dnf install -y --setopt=install_weak_deps=False --setopt=keepcache=True "${build_packages[@]}"
 
 curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 60 \
     -o /tmp/wivrn.tar.gz "${WIVRN_TARBALL_URL}"
@@ -224,11 +205,32 @@ done
 
 /usr/bin/wivrn-server --version
 
-dnf clean all
-rm -rf /var/cache/dnf
+# Fold the rpmdb write-ahead log back into the database, so the layer does not
+# carry both copies.
+python3 -c 'import sqlite3; sqlite3.connect("/usr/lib/sysimage/rpm/rpmdb.sqlite").execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()'
+test ! -s /usr/lib/sysimage/rpm/rpmdb.sqlite-wal
+rpm -q steam
 _BUILD_WIVRN
 
-RUN fc-cache -f -v
+# -----------------------------------------------------------------------------
+# xrizer
+# -----------------------------------------------------------------------------
+ARG XRIZER_VERSION
+ARG XRIZER_ZIP_URL
+ARG XRIZER_ZIP_SHA256
+ARG XRIZER_VRCLIENT_SHA256
+
+# Install the pinned xrizer release as the OpenVR compatibility layer.
+# Extract only the runtime library, not arbitrary paths from the ZIP.
+# /opt/xrizer is WiVRn's first autodetection path and is shared into Steam.
+RUN curl -fsSL --retry 5 --retry-all-errors -o /tmp/xrizer.zip "${XRIZER_ZIP_URL}" && \
+    echo "${XRIZER_ZIP_SHA256}  /tmp/xrizer.zip" | sha256sum -c - && \
+    mkdir -p /opt/xrizer/bin/linux64 && \
+    python3 -c 'import shutil, sys, zipfile; z = zipfile.ZipFile(sys.argv[1]); src = z.open("xrizer-v" + sys.argv[3] + "/bin/linux64/vrclient.so"); dst = open(sys.argv[2], "wb"); shutil.copyfileobj(src, dst); dst.close(); src.close()' \
+        /tmp/xrizer.zip /opt/xrizer/bin/linux64/vrclient.so "${XRIZER_VERSION}" && \
+    echo "${XRIZER_VRCLIENT_SHA256}  /opt/xrizer/bin/linux64/vrclient.so" | sha256sum -c - && \
+    grep -aFq 'IVRSystem_026' /opt/xrizer/bin/linux64/vrclient.so && \
+    rm -f /tmp/xrizer.zip
 
 # -----------------------------------------------------------------------------
 # Overlay (WiVRn session init, startup, and config defaults)

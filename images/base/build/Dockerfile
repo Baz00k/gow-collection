@@ -17,30 +17,28 @@ ARG BASE_IMAGE_DIGEST
 FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}
 
 # -----------------------------------------------------------------------------
-# Terra repositories
+# Terra repositories and shared runtime packages
 # -----------------------------------------------------------------------------
-# Keep the shipped priorities: at 1, terra replaces unrelated Fedora packages.
+# One layer, so repo metadata never lands in the image. The dnf cache lives in
+# a cache mount (id=dnf, shared with app images) to speed up rebuilds.
 ARG TERRA_GPG_KEY_URL
 ARG TERRA_GPG_KEY_SHA256
 
 # hadolint ignore=DL3041
-RUN curl -fsSL -o /tmp/terra.key "${TERRA_GPG_KEY_URL}" && \
-    echo "${TERRA_GPG_KEY_SHA256}  /tmp/terra.key" | sha256sum -c - && \
-    rpm --import /tmp/terra.key && \
-    dnf install -y \
-        --setopt=terra.gpgcheck=1 \
-        --setopt=terra.gpgkey=file:///tmp/terra.key \
-        --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' \
-        terra-release terra-release-extras terra-release-mesa && \
-    dnf config-manager setopt '*terra*.skip_if_unavailable=False' && \
-    rm -f /tmp/terra.key
-
-# -----------------------------------------------------------------------------
-# Shared runtime packages
-# -----------------------------------------------------------------------------
-# hadolint ignore=DL3041
-RUN <<'_INSTALL_PACKAGES' bash
+RUN --mount=type=cache,id=dnf,target=/var/cache/libdnf5,sharing=locked <<'_INSTALL_PACKAGES' bash
 set -eux
+
+# Keep the shipped priorities: at 1, terra replaces unrelated Fedora packages.
+curl -fsSL -o /tmp/terra.key "${TERRA_GPG_KEY_URL}"
+echo "${TERRA_GPG_KEY_SHA256}  /tmp/terra.key" | sha256sum -c -
+rpm --import /tmp/terra.key
+dnf install -y --setopt=keepcache=True \
+    --setopt=terra.gpgcheck=1 \
+    --setopt=terra.gpgkey=file:///tmp/terra.key \
+    --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' \
+    terra-release terra-release-extras terra-release-mesa
+dnf config-manager setopt '*terra*.skip_if_unavailable=False'
+rm -f /tmp/terra.key
 
 packages=(
     # Core shell utils
@@ -82,13 +80,10 @@ packages=(
     fuse3
 )
 
-dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
+dnf install -y --setopt=install_weak_deps=False --setopt=keepcache=True "${packages[@]}"
 
 # 25-setup-gamescope.sh adds cap_sys_nice back when the runner grants SYS_NICE.
 setcap -r /usr/bin/gamescope
-
-dnf clean all
-rm -rf /var/cache/dnf
 _INSTALL_PACKAGES
 
 # -----------------------------------------------------------------------------
