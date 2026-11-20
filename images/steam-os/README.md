@@ -59,7 +59,7 @@ Leave it out otherwise: Docker won't start the container with a device the host 
 ## Sessions
 
 The container starts in the Steam gaming session. Steam's `Switch to Desktop` action switches to KDE Plasma.
-Use the `Return to Steam` desktop launcher in Plasma to switch back to Steam.
+Use the `Return to Steam` desktop launcher or log out of Plasma to switch back to Steam.
 
 The Steam session uses gamescope's Steam integration mode.
 The Plasma session runs as a nested KDE Wayland desktop on the Wolf compositor.

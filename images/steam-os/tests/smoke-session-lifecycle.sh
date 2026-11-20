@@ -73,8 +73,11 @@ sleep 3
 echo "steam exited gracefully" >> /tmp/lifecycle/events
 EOF
 
+# Plasma stub: logs out at once. Clears the shutdown marker so the next Steam
+# instance runs until asked to quit.
 cat > "${STUB_DIR}/plasma-session" <<'EOF'
 #!/bin/bash
+rm -f /tmp/lifecycle/shutdown
 echo "plasma started" >> /tmp/lifecycle/events
 EOF
 
@@ -100,6 +103,16 @@ wait_for_event() {
     return 1
 }
 
+wait_for_event_count() {
+    local event="$1" count="$2"
+
+    for _ in {1..150}; do
+        [[ "$(grep -cxF "${event}" "${SENTINEL}" 2>/dev/null)" -ge "${count}" ]] && return 0
+        sleep 0.2
+    done
+    return 1
+}
+
 wait_for_container_exit() {
     local status
 
@@ -115,7 +128,7 @@ wait_for_container_exit() {
     [[ "${status}" == "0" ]] || fail "container exited with status ${status}"
 }
 
-echo "--- switch to desktop ---" >> "${EVIDENCE_FILE}"
+echo "--- switch to desktop, log out, shut down ---" >> "${EVIDENCE_FILE}"
 : > "${SENTINEL}"
 rm -f "${STUB_DIR}/shutdown"
 CONTAINER="$(docker run -d -e PUID=0 "${STUB_MOUNTS[@]}" "${IMAGE_NAME}")"
@@ -124,11 +137,16 @@ wait_for_event "steam running" || fail "Steam did not start"
 # "steam -shutdown" and would hide a missing request from the supervisor.
 docker exec "${CONTAINER}" bash -c 'printf "plasma\n" > /run/user/0/gow-steamos-session.cmd' \
     || fail "could not request the desktop session"
-wait_for_container_exit
 # The stub only exits gracefully after "steam -shutdown"; a TERM would kill it first.
-for event in "steam exited gracefully" "plasma started"; do
-    grep -qxF "${event}" "${SENTINEL}" || fail "missing switch event: ${event}"
-done
+wait_for_event "steam exited gracefully" || fail "Steam did not exit gracefully on the desktop switch"
+wait_for_event "plasma started" || fail "Plasma did not start"
+# The Plasma stub exits at once, like a logout: Gaming Mode must come back.
+wait_for_event_count "steam running" 2 || fail "logging out of Plasma did not return to Steam"
+[[ "$(docker inspect -f '{{.State.Running}}' "${CONTAINER}")" == "true" ]] \
+    || fail "container stopped after logging out of Plasma"
+# Shutting Steam down in Gaming Mode still ends the stream.
+docker exec "${CONTAINER}" /usr/bin/steam -shutdown || fail "could not request Steam shutdown"
+wait_for_container_exit
 docker rm -f "${CONTAINER}" >/dev/null
 CONTAINER=""
 
