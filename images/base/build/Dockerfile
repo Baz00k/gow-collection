@@ -7,7 +7,7 @@
 # this repo builds on:
 #   - runtime user creation + gosu privilege-drop handoff (entrypoint.sh)
 #   - /etc/cont-init.d/* init-script runner (user, devices, NVIDIA)
-#   - shared logging + performance-tuning helpers
+#   - shared logging and gamescope helpers
 #   - non-setuid bubblewrap for Flatpak sandboxing
 # -----------------------------------------------------------------------------
 ARG BASE_IMAGE

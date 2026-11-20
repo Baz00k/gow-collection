@@ -71,16 +71,6 @@ Most GUI images launch through gamescope. Configure resolution here:
 | `GAMESCOPE_MODE`        | `-b`           | Gamescope mode, such as `-b` or `-f`               |
 | `GAMESCOPE_EXTRA_ARGS`  | empty          | Extra gamescope arguments                          |
 
-## Host Game Setting
-
-Some games need a higher memory map limit. If a game crashes on launch, set this on the host:
-
-```bash
-sudo sysctl -w vm.max_map_count=1048576
-echo "vm.max_map_count=1048576" | sudo tee /etc/sysctl.d/99-gaming.conf
-sudo sysctl --system
-```
-
 ## AppImages And FUSE
 
 The images include FUSE 2 and FUSE 3 userspace support so AppImages can mount

@@ -47,19 +47,10 @@ base_create_json = """
 
 Common variables such as `PUID`, `PGID`, `GOW_DEBUG`, and `GAMESCOPE_*` are documented in [common runtime](../../docs/common-runtime.md).
 
-## Notes
-
-If you hit open-file limits, set the limit explicitly in Wolf:
-
-```toml
-[profiles.apps.runner]
-ulimits = ["nofile=65536:65536"]
-```
-
 ## Windows Games
 
 The image bundles [`umu-run`](https://github.com/Open-Wine-Components/umu-launcher), which the client uses to launch Windows games. Proton builds are not bundled; drop each one into `/usr/share/steam/compatibilitytools.d/` (needs its `proton` binary and a `compatibilitytool.vdf` file) and Drop picks it up automatically.
 
 ## Troubleshooting
 
-See [shared troubleshooting](../../docs/troubleshooting.md) first. Drop-specific startup failures are usually missing `DROP_SERVER_URL`, browser/auth problems, or open-file limits during downloads.
+See [shared troubleshooting](../../docs/troubleshooting.md) first. Drop-specific startup failures are usually missing `DROP_SERVER_URL`, or browser/auth problems.

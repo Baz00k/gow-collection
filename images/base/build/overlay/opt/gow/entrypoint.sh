@@ -28,6 +28,27 @@ elif [ "${XDG_RUNTIME_DIR}" = "/tmp/.X11-unix" ]; then
 fi
 export XDG_RUNTIME_DIR
 
+# Docker's default soft limit is 1024 open files, too low for Proton's esync
+# and for large game downloads. Raise it up to the hard limit, never lower it,
+# and stop at 524288: some programs slow down with a huge descriptor table.
+raise_open_file_limit() {
+    local soft hard target=524288
+
+    soft="$(ulimit -Sn)"
+    hard="$(ulimit -Hn)"
+    if [ "${hard}" != "unlimited" ] && [ "${hard}" -lt "${target}" ]; then
+        target="${hard}"
+    fi
+    if [ "${soft}" = "unlimited" ] || [ "${soft}" -ge "${target}" ]; then
+        return 0
+    fi
+
+    ulimit -Sn "${target}"
+    log_info "Raised open-file limit from ${soft} to ${target}"
+}
+
+raise_open_file_limit
+
 run_container_init() {
     if [ ! -d /etc/cont-init.d ]; then
         return 0
@@ -45,7 +66,6 @@ run_container_init() {
 if [ "$(id -u)" = "0" ]; then
     log_info "Configuring container for user '${UNAME}' with PUID=${PUID}, PGID=${PGID}"
     run_container_init
-    /opt/gow/apply-performance-tuning.sh || true
 fi
 
 if [ $# -gt 0 ]; then

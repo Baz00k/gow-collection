@@ -24,7 +24,6 @@ base_create_json = """
 {
   "HostConfig": {
     "IpcMode": "host",
-    "ShmSize": 8589934592,
     "CapAdd": ["SYS_ADMIN", "SYS_NICE", "SYS_PTRACE", "NET_RAW", "MKNOD", "NET_ADMIN"],
     "SecurityOpt": ["seccomp=unconfined", "apparmor=unconfined"],
     "MaskedPaths": [],
@@ -42,8 +41,7 @@ base_create_json = """
 """
 ```
 
-For faster Proton games, add `"/dev/ntsync:/dev/ntsync"` to `devices` if your host has `/dev/ntsync` (Linux 6.14 or newer).
-Leave it out otherwise: Docker won't start the container with a device the host doesn't have.
+For faster Proton games, pass through `/dev/ntsync` and apply the host settings in [performance](../../docs/performance.md).
 
 ## Features
 

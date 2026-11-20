@@ -33,15 +33,7 @@ Check that the relevant devices are passed into the container:
 
 ## Games Crash On Startup
 
-Some games require a higher memory map limit:
-
-```bash
-sudo sysctl -w vm.max_map_count=1048576
-echo "vm.max_map_count=1048576" | sudo tee /etc/sysctl.d/99-gaming.conf
-sudo sysctl --system
-```
-
-The container tries to set this automatically when it has enough privilege, but setting it on the host is the most reliable option.
+Some games need a higher memory map limit. See [performance](performance.md#memory-map-limit).
 
 ## Container Exits Immediately
 
