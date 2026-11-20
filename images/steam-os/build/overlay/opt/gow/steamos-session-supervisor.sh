@@ -151,5 +151,12 @@ while [[ "${STOP_REQUESTED}" -eq 0 ]]; do
     reap_finished_session
     SESSION_PID=""
     SESSION_PGID=""
+    # Like SteamOS: logging out of Plasma returns to Gaming Mode. Steam exiting
+    # (Shut Down in Gaming Mode) ends the stream.
+    if [[ "${CURRENT_SESSION}" == "plasma" ]]; then
+        log_info "Plasma session ended; returning to gamescope"
+        NEXT_SESSION="gamescope"
+        continue
+    fi
     STOP_REQUESTED=1
 done
