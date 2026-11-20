@@ -3,27 +3,20 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source /opt/gow/logging.sh
+# shellcheck source=/dev/null
+source /opt/gow/steamos-sessions.sh
 
-target="${1:-plasma}"
+requested="${1:-plasma}"
 runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 fifo="${GOW_STEAMOS_SESSION_FIFO:-${runtime_dir}/gow-steamos-session.cmd}"
 
 log_debug "[steamos-session-select] Invoked: argv='$*' user='$(id -un)' uid='$(id -u)'"
 log_debug "[steamos-session-select] XDG_RUNTIME_DIR='${XDG_RUNTIME_DIR:-}' fifo='${fifo}'"
 
-case "${target}" in
-    steam|gamescope|gamepad|gaming)
-        target="gamescope"
-        ;;
-    plasma|desktop|kde)
-        target="plasma"
-        ;;
-    *)
-        log_error "[steamos-session-select] Unknown SteamOS session: ${target}"
-        exit 1
-        ;;
-esac
-
+if ! target="$(steamos_session_name "${requested}")"; then
+    log_error "[steamos-session-select] Unknown SteamOS session: ${requested}"
+    exit 1
+fi
 log_info "[steamos-session-select] Normalized target: ${target}"
 
 if [[ -p "${fifo}" ]]; then
@@ -35,9 +28,4 @@ if [[ -p "${fifo}" ]]; then
     fi
 else
     log_warn "[steamos-session-select] SteamOS session supervisor is not available"
-fi
-
-if [[ "${target}" == "plasma" ]]; then
-    log_info "[steamos-session-select] Requesting Steam shutdown for desktop switch"
-    timeout -k 2 10 /usr/bin/steam -shutdown || true
 fi

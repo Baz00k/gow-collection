@@ -2,6 +2,7 @@
 set -euo pipefail
 
 source /opt/gow/logging.sh
+source /opt/gow/steamos-sessions.sh
 
 SESSION_CMD_FIFO="${XDG_RUNTIME_DIR}/gow-steamos-session.cmd"
 SESSION_CMD_FD=8
@@ -12,18 +13,10 @@ NEXT_SESSION="${STEAMOS_SESSION:-gamescope}"
 STOP_REQUESTED=0
 
 normalize_session() {
-    case "${1:-gamescope}" in
-        steam|gamescope|gamepad|gaming)
-            echo "gamescope"
-            ;;
-        plasma|desktop|kde)
-            echo "plasma"
-            ;;
-        *)
-            log_warn "Unknown SteamOS session '${1}', falling back to gamescope"
-            echo "gamescope"
-            ;;
-    esac
+    if ! steamos_session_name "${1:-gamescope}"; then
+        log_warn "Unknown SteamOS session '${1}', falling back to gamescope"
+        echo "gamescope"
+    fi
 }
 
 prepare_control_fifo() {
