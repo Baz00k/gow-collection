@@ -8,7 +8,8 @@ name: PR Images
 #
 # CI builds PR code with a read-only token; this workflow runs from the default
 # branch with packages:write and never checks out or runs PR code. Fork PRs are
-# not published; their images stay downloadable as CI artifacts. It only loads
+# not published; their images stay downloadable as CI artifacts. Neither are
+# update.yml's auto-update/* PRs, which auto-merge on green CI. It only loads
 # the image archives CI uploaded and retags them (.github/scripts/publish-pr-images.sh).
 # pr-images-cleanup.yml deletes the tags when the PR closes.
 #
@@ -24,13 +25,16 @@ permissions: {}
 jobs:
     publish:
         name: publish PR images
-        # Only PRs from branches in this repo (the owner's and the update bots').
-        # Fork archives would be built by anyone, and this job holds a package
-        # write token that GHCR does not scope to pr-* tags.
+        # Only PRs from branches in this repo. Fork archives would be built by
+        # anyone, and this job holds a package write token that GHCR does not
+        # scope to pr-* tags. update.yml's auto-update/* PRs are skipped: they
+        # auto-merge on green CI, so nobody tests the images and cleanup can run
+        # before this job pushes, leaving the tags behind.
         if: >-
             github.event.workflow_run.event == 'pull_request' &&
             github.event.workflow_run.conclusion == 'success' &&
-            github.event.workflow_run.head_repository.full_name == github.repository
+            github.event.workflow_run.head_repository.full_name == github.repository &&
+            !startsWith(github.event.workflow_run.head_branch, 'auto-update/')
         runs-on: ubuntu-latest
         permissions:
             actions: read
